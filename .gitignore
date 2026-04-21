@@ -1,0 +1,98 @@
+# ============================================================
+# .gitignore — HFL Research Project
+# Samartha H V | MIT Bengaluru | 2026
+# ============================================================
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ── Java / Maven ─────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+
+# ── NS-3 build artifacts ─────────────────────────────────────
+SIMULATORS/ns3/ns-3-dev/build/
+SIMULATORS/ns3/ns-3-dev/.lock-waf*
+SIMULATORS/ns3/ns-3-dev/cmake-cache/
+SIMULATORS/ns3/ns-3-dev/CMakeFiles/
+SIMULATORS/ns3/ns-3-dev/CMakeCache.txt
+SIMULATORS/ns3/ns-3-dev/.ninja*
+SIMULATORS/ns3/ns-3-dev/*.cmake
+SIMULATORS/ns3/ns-3-dev/compile_commands.json
+
+# ── CloudSim Plus source (large, not our code) ───────────────
+SIMULATORS/cloudsim-plus/cloudsim-plus-source/
+
+# ── Simulation results (generated — do not commit raw CSVs) ──
+# Commit only if you want reproducibility artifacts in the repo.
+# SIMULATORS/results/
+
+# ── Virtual environments ─────────────────────────────────────
+.venv/
+venv/
+env/
+.env
+
+# ── IDE / Editor ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+
+# ── OS artifacts ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Jupyter ──────────────────────────────────────────────────
+*.ipynb
+!notebooks/**/*.ipynb
+
+# ── Logs & temp ──────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.orig
+/tmp/
+
+# ── RESUME tmp (keep locally, not in repo) ───────────────────
+RESUME/
+
+# ── Model weights & large binaries ──────────────────────────
+*.pt
+*.pth
+*.onnx
+*.bin
+*.h5
+*.pkl
+*.npz
+*.npy
+
+# ── Sensitive config (never commit credentials) ──────────────
+.env
+secrets.json
+credentials.json

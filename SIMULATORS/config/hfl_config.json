@@ -1,0 +1,126 @@
+{
+  "_comment": "Shared configuration file for NS-3 and CloudSim Plus HFL simulations",
+  "_project": "Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT",
+  "_student": "Samartha H V | MIT Bengaluru | 2026",
+
+  "topology": {
+    "num_iot_devices": 20,
+    "num_edge_servers": 3,
+    "num_clusters": 3,
+    "devices_per_cluster": 7
+  },
+
+  "federated_learning": {
+    "total_fl_rounds": 100,
+    "local_epochs_per_round": 5,
+    "tau_e": 5,
+    "tau_c": 1,
+    "fl_algorithm": "FedAvg",
+    "batch_size": 32,
+    "learning_rate": 0.01
+  },
+
+  "model": {
+    "model_size_MB": 50,
+    "gradient_size_MB": 50,
+    "compressed_gradient_MB": 25,
+    "sparsification_ratio": 0.2,
+    "quantization_bits": 8
+  },
+
+  "privacy": {
+    "epsilon": 1.0,
+    "delta": 1e-5,
+    "noise_mechanism": "Gaussian",
+    "gradient_clip_norm": 1.0,
+    "privacy_accountant": "MomentsAccountant"
+  },
+
+  "network_ns3": {
+    "wifi_standard": "802.11ax",
+    "wifi_frequency_GHz": 5.0,
+    "lte_enabled": true,
+    "device_to_edge_bandwidth_Mbps": 54,
+    "edge_to_cloud_bandwidth_Gbps": 1,
+    "edge_to_cloud_delay_ms": 5,
+    "propagation_model": "LogDistancePropagationLossModel",
+    "background_traffic_Mbps": 5
+  },
+
+  "compute_cloudsim": {
+    "iot_device_mips": 300,
+    "iot_device_ram_MB": 512,
+    "iot_device_bw_Mbps": 10,
+    "iot_device_power_idle_W": 1.0,
+    "iot_device_power_max_W": 3.0,
+    "edge_server_mips": 8000,
+    "edge_server_ram_MB": 16384,
+    "edge_server_bw_Mbps": 1000,
+    "edge_server_power_idle_W": 50,
+    "edge_server_power_max_W": 200,
+    "cloud_server_mips": 100000,
+    "cloud_server_ram_MB": 262144,
+    "cloud_server_bw_Mbps": 10000,
+    "cloud_server_power_idle_W": 500,
+    "cloud_server_power_max_W": 2000
+  },
+
+  "qos_targets": {
+    "max_inference_latency_ms": 100,
+    "min_comm_reduction_pct": 50,
+    "max_accuracy_loss_pct": 2,
+    "min_energy_saving_pct": 20,
+    "min_update_reliability_pct": 99
+  },
+
+  "baselines": [
+    "CentralizedFL",
+    "FlatFL_NoDP",
+    "FlatFL_DP",
+    "HierarchicalFL_NoDP",
+    "HFL_Proposed"
+  ],
+
+  "datasets": {
+    "iiot": {
+      "name": "CWRU + Camera",
+      "modalities": ["vibration", "image"],
+      "num_samples": 12000
+    },
+    "smartcity": {
+      "name": "Air Quality + Traffic",
+      "modalities": ["environmental_sensor", "video"],
+      "num_samples": 8000
+    },
+    "healthcare": {
+      "name": "WESAD + ChestXray14",
+      "modalities": ["wearable_eeg", "medical_image"],
+      "num_samples": 10000
+    },
+    "noniid_dirichlet_alpha": 0.5
+  },
+
+  "compute_device": {
+    "_comment": "Auto-detected at runtime by device_utils.py — do not manually override",
+    "auto_detect": true,
+    "prefer_gpu": true,
+    "detected_gpu": "NVIDIA RTX A2000 12GB",
+    "detected_gpu_vram_gb": 12.0,
+    "cuda_toolkit_version": "13.1",
+    "driver_version": "535.288.01",
+    "pytorch_cuda_target": "cu121",
+    "device_utils_script": "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/device_utils.py",
+    "gpu_batch_size_multiplier": 4,
+    "cpu_fallback": true,
+    "random_seed": 42,
+    "num_dataloader_workers_gpu": 8,
+    "num_dataloader_workers_cpu": 0
+  },
+
+  "output": {
+    "ns3_results_path": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/ns3/",
+    "cloudsim_results_path": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/cloudsim/",
+    "merged_results_path": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/merged/",
+    "log_interval_rounds": 10
+  }
+}
