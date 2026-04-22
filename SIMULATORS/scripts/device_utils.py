@@ -1,183 +1,168 @@
 """
-device_utils.py — GPU/CPU Auto-Detection Utility
-=================================================
-Project: Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT
+device_utils.py — GPU/CPU Auto-Select + Full GPU Optimization
+=============================================================
+Project: Hierarchical Federated Learning — Healthcare IoT
 Student: Samartha H V | MIT Bengaluru | 2026
 
-This module is imported by ALL Python scripts in the HFL project.
-It automatically detects and configures the best available compute device:
-  - NVIDIA GPU with CUDA  → uses GPU (primary)
-  - No GPU / CUDA error   → falls back to CPU gracefully
+Priority: CUDA GPU → CPU fallback (works on any Linux system).
+All GPU performance flags are set automatically when CUDA is available.
 
-Usage:
-    from device_utils import get_device, device_info, move_to_device
+Usage (from any script):
+    from device_utils import get_device, optimize_gpu, get_dataloader_kwargs
     device = get_device()
-    model  = model.to(device)
+    optimize_gpu()
 """
 
 import os
-import sys
-import logging
-
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-log = logging.getLogger("device_utils")
+import torch
 
 
-def get_device(verbose: bool = True) -> "torch.device":
+def get_device(verbose: bool = True) -> torch.device:
     """
-    Auto-detect and return the best available compute device.
-
-    Priority:
-        1. NVIDIA GPU (CUDA) — if torch.cuda.is_available()
-        2. Apple Silicon MPS  — if torch.backends.mps.is_available()
-        3. CPU                — fallback
-
-    Returns:
-        torch.device: selected device object ready for .to(device) calls.
+    Return best available device: CUDA GPU if present, else CPU.
+    Works on any Linux machine regardless of GPU vendor/driver version.
     """
-    try:
-        import torch
-    except ImportError:
-        log.warning("PyTorch not installed. Returning CPU device string.")
-        return _CpuFallback()
-
     if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        gpu_name  = torch.cuda.get_device_name(0)
-        vram_gb   = torch.cuda.get_device_properties(0).total_memory / 1e9
+        device = torch.device("cuda")
         if verbose:
-            log.info(f"GPU SELECTED  : {gpu_name}")
-            log.info(f"VRAM          : {vram_gb:.2f} GB")
-            log.info(f"CUDA Version  : {torch.version.cuda}")
-            log.info(f"cuDNN Version : {torch.backends.cudnn.version()}")
-            log.info(f"Device        : {device}")
-        return device
-
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        device = torch.device("mps")
-        if verbose:
-            log.info(f"Apple MPS GPU SELECTED")
-            log.info(f"Device        : {device}")
-        return device
-
+            props = torch.cuda.get_device_properties(0)
+            vram  = props.total_memory / 1e9
+            print(f"[Device] GPU  : {torch.cuda.get_device_name(0)}")
+            print(f"[Device] VRAM : {vram:.1f} GB  |  "
+                  f"SMs: {props.multi_processor_count}  |  "
+                  f"CUDA {torch.version.cuda}  |  "
+                  f"cuDNN {torch.backends.cudnn.version()}")
     else:
         device = torch.device("cpu")
         if verbose:
-            log.warning("No GPU detected. Falling back to CPU.")
             import multiprocessing
-            log.info(f"CPU Cores     : {multiprocessing.cpu_count()}")
-            log.info(f"Device        : {device}")
-        return device
+            print(f"[Device] CPU fallback — {multiprocessing.cpu_count()} cores")
+            print("[Device] TIP: Install CUDA + nvidia drivers to enable GPU.")
+    return device
 
 
-def device_info() -> dict:
+def optimize_gpu(memory_fraction: float = 0.95) -> None:
     """
-    Return a dictionary of all device information.
-    Used for logging into result CSV files (reproducibility).
+    Enable every available GPU performance flag.
+    Safe no-op if no CUDA GPU is present.
+
+    Flags set:
+      cudnn.benchmark   — cuDNN auto-tunes fastest kernel per input shape
+      allow_tf32        — TF32 on Ampere+ GPUs (~3× faster matmul, <0.1% accuracy diff)
+      memory_fraction   — reserve 95% VRAM upfront, prevents fragmentation OOM
+      empty_cache       — flush leftover allocations before training starts
     """
-    info = {
-        "device_type": "cpu",
-        "device_name": "CPU",
-        "cuda_available": False,
-        "cuda_version": "N/A",
-        "cudnn_version": "N/A",
-        "vram_gb": 0.0,
-        "pytorch_version": "N/A",
+    if not torch.cuda.is_available():
+        return
+
+    torch.backends.cudnn.benchmark    = True
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32   = True
+    torch.cuda.set_per_process_memory_fraction(memory_fraction, device=0)
+    torch.cuda.empty_cache()
+
+    print(f"[GPU Opt] cuDNN benchmark=True | TF32=True | "
+          f"memory_fraction={memory_fraction}")
+
+
+def get_dataloader_kwargs(device: torch.device) -> dict:
+    """
+    Return DataLoader constructor kwargs tuned for the active device.
+
+    GPU path: pin_memory=True overlaps CPU→GPU transfer with GPU compute.
+              num_workers ≥ 2 keeps the GPU fed without stalling on disk I/O.
+              persistent_workers keeps worker processes alive between epochs.
+    CPU path: num_workers=0 avoids multiprocessing overhead on CPU-only runs.
+    """
+    if device.type == "cuda":
+        n_cpu   = os.cpu_count() or 2
+        workers = min(4, max(2, n_cpu // 2))
+        return {
+            "num_workers":        workers,
+            "pin_memory":         True,
+            "persistent_workers": True,
+            "prefetch_factor":    2,
+        }
+    return {
+        "num_workers": 0,
+        "pin_memory":  False,
     }
 
-    try:
-        import torch
-        info["pytorch_version"] = torch.__version__
 
-        if torch.cuda.is_available():
-            props = torch.cuda.get_device_properties(0)
-            info.update({
-                "device_type":    "cuda",
-                "device_name":    torch.cuda.get_device_name(0),
-                "cuda_available": True,
-                "cuda_version":   torch.version.cuda,
-                "cudnn_version":  str(torch.backends.cudnn.version()),
-                "vram_gb":        round(props.total_memory / 1e9, 2),
-                "gpu_multiprocessors": props.multi_processor_count,
-            })
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            info.update({
-                "device_type": "mps",
-                "device_name": "Apple Silicon GPU",
-                "cuda_available": False,
-            })
-    except ImportError:
-        pass
-
-    return info
-
-
-def move_to_device(obj, device):
+def to_device(obj, device: torch.device, non_blocking: bool = True):
     """
-    Safely move a model or tensor to the target device.
-    Works even if torch is not installed (returns obj unchanged).
+    Move tensor or model to device.
+    non_blocking=True enables async CPU→GPU transfer when pin_memory is used.
     """
-    try:
-        return obj.to(device)
-    except Exception as e:
-        log.warning(f"Could not move to {device}: {e}. Keeping on original device.")
-        return obj
+    if device.type == "cuda":
+        return obj.to(device, non_blocking=non_blocking)
+    return obj.to(device)
 
 
-def set_seed(seed: int = 42, device=None):
-    """
-    Set random seeds for full reproducibility across CPU and GPU.
-    Call this at the start of every simulation/training script.
-    """
+def set_seed(seed: int = 42) -> None:
+    """Full reproducibility: CPU + all GPUs."""
     import random
     import numpy as np
     random.seed(seed)
     np.random.seed(seed)
-    try:
-        import torch
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(seed)
-            torch.cuda.manual_seed_all(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark     = False
-        log.info(f"Random seed set: {seed} (CPU + GPU)")
-    except ImportError:
-        log.info(f"Random seed set: {seed} (CPU only, torch not available)")
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    print(f"[Seed] Set to {seed}")
 
 
-def get_dataloader_workers() -> int:
-    """
-    Return optimal number of DataLoader worker processes.
-    GPU: use multiple workers. CPU: use 0 to avoid overhead.
-    """
-    try:
-        import torch
-        if torch.cuda.is_available():
-            return min(8, os.cpu_count() // 2)
-        else:
-            return 0
-    except ImportError:
-        return 0
+def gpu_memory_info() -> None:
+    """Print current GPU memory allocation (call after model.to(device))."""
+    if not torch.cuda.is_available():
+        return
+    alloc    = torch.cuda.memory_allocated(0)  / 1e9
+    reserved = torch.cuda.memory_reserved(0)   / 1e9
+    total    = torch.cuda.get_device_properties(0).total_memory / 1e9
+    free     = total - reserved
+    print(f"[GPU Mem] Allocated {alloc:.2f} GB | "
+          f"Reserved {reserved:.2f} GB | "
+          f"Free {free:.2f} GB / {total:.2f} GB total")
 
 
-class _CpuFallback:
-    """Minimal device object for when PyTorch is not installed."""
-    def __str__(self): return "cpu"
-    def __repr__(self): return "cpu"
+def device_info() -> dict:
+    """Return device metadata dict — logged into result CSVs for reproducibility."""
+    import platform
+    info = {
+        "device_type":     "cpu",
+        "device_name":     "CPU",
+        "cuda_available":  False,
+        "cuda_version":    "N/A",
+        "cudnn_version":   "N/A",
+        "vram_gb":         0.0,
+        "pytorch_version": torch.__version__,
+        "python_platform": platform.platform(),
+    }
+    if torch.cuda.is_available():
+        props = torch.cuda.get_device_properties(0)
+        info.update({
+            "device_type":          "cuda",
+            "device_name":          torch.cuda.get_device_name(0),
+            "cuda_available":       True,
+            "cuda_version":         torch.version.cuda,
+            "cudnn_version":        str(torch.backends.cudnn.version()),
+            "vram_gb":              round(props.total_memory / 1e9, 2),
+            "gpu_sm_count":         props.multi_processor_count,
+        })
+    return info
 
 
-# ── Self-test ─────────────────────────────────────────────────────────────────
+# ── Self-test ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     print("=" * 60)
-    print("  HFL Device Detection — Self Test")
+    print("  HFL Device Utility — Self Test")
     print("=" * 60)
-    device = get_device(verbose=True)
-    info   = device_info()
-    print("\nDevice Info Dictionary:")
-    for k, v in info.items():
-        print(f"  {k:<25} : {v}")
-    set_seed(42, device)
-    print(f"\nDataLoader workers : {get_dataloader_workers()}")
-    print(f"\nActive device      : {device}")
+    device = get_device()
+    optimize_gpu()
+    gpu_memory_info()
+    set_seed(42)
+    dl_kwargs = get_dataloader_kwargs(device)
+    print(f"[DataLoader] kwargs: {dl_kwargs}")
+    print(f"\nDevice info:")
+    for k, v in device_info().items():
+        print(f"  {k:<22}: {v}")
     print("=" * 60)

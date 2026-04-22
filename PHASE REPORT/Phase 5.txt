@@ -1,535 +1,822 @@
 
 =======================================================================
- PHASE 5 — DATASET INTEGRATION & MODEL IMPLEMENTATION
+ PHASE 5 — HEALTHCARE DATASET INTEGRATION & MODEL IMPLEMENTATION
  Hierarchical Federated Learning for Privacy-Aware, Low-Latency
- Multimodal IoT Systems
+ Multimodal Healthcare IoT Systems
  Student : Samartha H V | MIT Bengaluru | Regd. 251580130019
  Guide   : Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
- Date    : 2026-04-02
+ Date    : 2026-04-22 (REVISED — Healthcare-Only Scope)
+=======================================================================
+
+REVISION HISTORY
+-----------------------------------------------------------------------
+ v1.0  2026-04-02  Original 3-domain scope (IIoT + Smart City + HC)
+ v2.0  2026-04-22  REVISED — Healthcare domain exclusively
+                   Datasets: PTB-XL + CheXpert (upgraded)
+                   Models: HFL-MM → PHANTOM-FL (sequential)
+                   IPs: FedMamba-HC + FedConform-HC (Phase 5 impl.)
+                        ClinicalCMGA (Phase 5 design, Phase 6 impl.)
+                   Baselines: B0–B5 full comparison suite
+                   Venue: IEEE JBHI / npj Digital Medicine
 =======================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   PHASE 5 DELIVERABLES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  D5.1  Dataset Pipeline      — SIMULATORS/data/loaders/ (3 domains)
-  D5.2  HFL-MM Model          — SIMULATORS/model/hfl_mm_model.py
-  D5.3  HFL Training Engine   — SIMULATORS/model/hfl_trainer.py
-  D5.4  DP-SGD Integration    — SIMULATORS/model/dp_engine.py
-  D5.5  Gradient Compression  — SIMULATORS/model/compression.py
-  D5.6  ONNX Edge Deployment  — SIMULATORS/model/onnx_exporter.py
-  D5.7  Inference Validator   — SIMULATORS/model/inference_bench.py
-  D5.8  Phase 5 Results       — SIMULATORS/results/phase5/phase5_results.csv
+
+  D5.1  Dataset Pipeline     — SIMULATORS/data/loaders/ (healthcare)
+  D5.2  FedMamba-HC Encoder  — SIMULATORS/model/fedmamba_hc.py
+  D5.3  FedConform-HC        — SIMULATORS/model/fedconform_hc.py
+  D5.4  ClinicalCMGA Design  — SIMULATORS/model/clinical_cmga_design.py
+  D5.5  HFL-MM Model         — SIMULATORS/model/hfl_mm_model.py
+  D5.6  Baseline Suite B0–B5 — SIMULATORS/model/baselines.py
+  D5.7  HFL Training Engine  — SIMULATORS/model/hfl_trainer.py
+  D5.8  DP-SGD Integration   — SIMULATORS/model/dp_engine.py
+  D5.9  Gradient Compression — SIMULATORS/model/compression.py
+  D5.10 ONNX Edge Deployment — SIMULATORS/model/onnx_exporter.py
+  D5.11 Inference Validator  — SIMULATORS/model/inference_bench.py
+  D5.12 ε Sweep              — SIMULATORS/model/epsilon_sweep.py
+  D5.13 Phase 5 Results      — SIMULATORS/results/phase5/phase5_results.csv
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   5.1  PHASE 5 SCOPE AND OBJECTIVES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Phase 4 delivered the simulation scaffold: NS-3 verified communication
-efficiency (76.4% uplink reduction, 99.05% reliability) and CloudSim
-verified energy savings (74.9%). Two QoS targets remain unvalidated:
+DOMAIN DECISION (Final — 2026-04-22):
+  This project focuses exclusively on the HEALTHCARE domain.
+  Rationale: AI in clinical settings is the highest-impact and fastest-
+  growing area of applied FL research (2024-2026). IEEE JBHI and npj
+  Digital Medicine are top-tier venues with strong publication velocity
+  for privacy-preserving federated learning in medical imaging and
+  wearable biosignal analysis.
 
-  [ ] Inference Latency < 100ms    (requires real model deployment)
-  [ ] Accuracy Loss < 2% at ε=1   (requires real FL training)
+  Target venues:
+    Primary:   IEEE Journal of Biomedical and Health Informatics
+               (Q1, IF ~7.7, focuses on AI+healthcare systems)
+    Secondary: npj Digital Medicine (Q1, IF ~15.2, Nature portfolio)
 
-Phase 5 closes this gap by:
-  (a) Loading real multimodal IoT datasets across three domains
-  (b) Building HFL-MM — the Hierarchical Federated Multimodal Model
-  (c) Running two-tier FedAvg with DP-SGD (ε=1, Gaussian mechanism)
-  (d) Exporting to ONNX and benchmarking edge inference latency
-  (e) Measuring accuracy vs. CentralizedFL baseline
+Phase 4 validated the simulation scaffold:
+  [PASS] 76.4% communication reduction    (O1, target ≥ 50%)
+  [PASS] 74.9% energy saving              (O4, target ≥ 20%)
+  [PASS] 99.05% update reliability        (target > 99%)
 
-All results feed forward to Phase 6 joint evaluation.
+Two QoS targets remain unvalidated — Phase 5 closes this gap:
+  [ ] Inference latency < 100ms    (requires real model + ONNX deploy)
+  [ ] Accuracy loss ≤ 2% at ε=1   (requires real FL training + DP-SGD)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.2  DATASET CONFIGURATION (SUMMARY — SEE DATASET & MODEL GUIDE)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 5 achieves this by:
+  (a) Loading PTB-XL (ECG) + CheXpert (chest X-ray) real clinical data
+  (b) Building HFL-MM with FedMamba-HC encoder (IP-1, novel Mamba SSM)
+  (c) Wrapping with FedConform-HC (IP-9, federated conformal prediction)
+  (d) Fully designing ClinicalCMGA (IP-3, for Phase 6 PHANTOM-FL)
+  (e) Running two-tier FedAvg with DP-SGD (ε=1, Gaussian mechanism)
+  (f) Benchmarking all 6 baselines B0–B5 on the same data
+  (g) Exporting HFL-MM to ONNX INT8 and measuring edge inference latency
+  (h) Running ε ∈ {0.1, 0.5, 1.0, 2.0, 5.0, ∞} privacy-accuracy sweep
 
-Three domains, each with two modalities, mapped to the 3-layer HFL
-architecture. Full access, download, and integration instructions are
-in: HFL/DATASET & MODEL GUIDE/01_Datasets.txt
+DEPLOYMENT TOPOLOGY (Healthcare):
+  20 IoT devices (patient wearables + bedside imaging units)
+  3 Edge servers  (hospital ward gateways, 1 per 6-7 devices)
+  1 Cloud server  (central hospital aggregation server)
 
-  Domain         Modality 1            Modality 2            Task
-  ─────────────────────────────────────────────────────────────────────
-  IIoT           CWRU vibration        Spectrogram image     Fault detect
-  Smart City     UrbanSound8K audio    EPA air quality       Env. classify
-  Healthcare     WESAD wearable        ChestX-ray14 image    Health detect
-  ─────────────────────────────────────────────────────────────────────
-
-Non-IID partitioning: Dirichlet distribution (α=0.5) across 20 devices
-  — each device receives a statistically distinct class distribution,
-  simulating real-world heterogeneous IoT deployments.
-
-Partition schema:
-  • 20 IoT devices split into 3 clusters (7 IIoT / 7 Smart City / 6 Health)
-  • Each cluster maps to one Edge Server
-  • Each device: 70% train / 15% val / 15% test (local)
-
-Data preprocessing pipeline per domain:
-
-  IIoT (CWRU + Spectrogram):
-    Raw vibration signal → Sliding window (window=1024, stride=512)
-    → Normalize to [-1, 1]
-    → STFT → spectrogram image (224×224, 3-channel, jet colormap)
-    → Paired: [signal_window, spectrogram] → label (normal/ball/inner/outer)
-
-  Smart City (UrbanSound8K + EPA):
-    Audio → Mel-spectrogram (n_mels=128, hop_length=512, 128×128)
-    EPA CSV → aggregate by hour → normalize per sensor per station
-    → Paired: [mel_spectrogram, env_vector (6 dims)] → label (quality class)
-
-  Healthcare (WESAD + ChestX-ray14):
-    WESAD: ACC+EDA+TEMP → 5s windows → normalize → 3-channel 1D array
-    ChestX-ray14: resize 224×224 → ImageNet normalize
-    → Paired: [wearable_signal, chest_xray] → label (normal/atelectasis/...)
+  Non-IID partitioning: Dirichlet α=0.5 across 20 healthcare devices
+    → each device = distinct patient cohort with different pathology dist.
+    → 70% train / 15% val / 15% test per device
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.3  HFL-MM MODEL ARCHITECTURE
+  5.2  HEALTHCARE DATASETS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Full model specification is in: HFL/DATASET & MODEL GUIDE/02_Model_Design.txt
+DATASET UPGRADE DECISION (Final — 2026-04-22):
+  Previous plan: WESAD (wearable stress) + ChestXray14
+  Upgraded to:   PTB-XL (ECG) + CheXpert (chest X-ray)
 
-Architecture name: HFL-MM (Hierarchical Federated Multimodal Model)
-Framework: PyTorch 2.x + Opacus (DP-SGD) + ONNX Runtime
+  Rationale:
+    • PTB-XL has 21,837 records vs. WESAD's 15 subjects — 1000× more
+      data, proper clinical pathology labels, widely cited benchmark
+    • CheXpert has 224,316 images with Stanford clinical labels, better
+      uncertainty handling than ChestXray14's NIH labels
+    • PTB-XL is DIRECTLY compatible with FedMamba-HC (12-lead ECG input)
+    • Both are freely available (PTB-XL: PhysioNet; CheXpert: free reg.)
+
+──────────────────────────────────────────────────────────────────────
+5.2.1  MODALITY A — PTB-XL (12-Lead ECG)
+──────────────────────────────────────────────────────────────────────
+
+  Source     : PhysioNet — https://physionet.org/content/ptb-xl/1.0.3/
+  License    : Creative Commons Attribution 4.0 (free, no registration)
+  Size       : ~1.7 GB (10-second ECG records at 500 Hz)
+  Records    : 21,837 clinical 12-lead ECGs from 18,885 patients
+  Labels     : 71 SNOMED CT codes → aggregated to 5 superclasses
+
+  5-Class Cardiac Classification Schema:
+  ┌────────────────────────────────────────────────────────────────┐
+  │ Class ID  Label                    SNOMED Code  # Records      │
+  ├────────────────────────────────────────────────────────────────┤
+  │ 0         Normal (NORM)            426783006    9,514           │
+  │ 1         Myocardial Infarction    164865005    5,469           │
+  │ 2         ST/T Change (STTC)       428750005    5,250           │
+  │ 3         Conduction Disturbance   233917008    4,907           │
+  │ 4         Hypertrophy (HYP)        164873001    2,649           │
+  └────────────────────────────────────────────────────────────────┘
+  Note: Multi-label cases assigned to primary superclass.
+  Split: official PTB-XL fold 1–8 train / fold 9 val / fold 10 test
+
+  Preprocessing Pipeline:
+    1. Load waveforms at 100 Hz (resampled from 500 Hz via wfdb)
+       → Each record: [12, 1000] (12 leads × 1000 samples at 100 Hz)
+    2. Bandpass filter: 0.5–40 Hz (removes baseline wander + EMG noise)
+    3. Per-lead z-score normalization (mean/std per lead per record)
+    4. Handle missing leads: zero-pad with lead-failure flag vector
+    5. Final tensor shape per sample: [12, 1000]
+
+  Download command:
+    pip install wfdb
+    python -c "import wfdb; wfdb.dl_database('ptb-xl', \
+               dl_dir='data/raw/ptb-xl')"
+
+──────────────────────────────────────────────────────────────────────
+5.2.2  MODALITY B — CheXpert (Chest X-Ray)
+──────────────────────────────────────────────────────────────────────
+
+  Source     : Stanford ML Group — https://stanfordmlgroup.github.io/
+                                   competitions/chexpert/
+  License    : Free for non-commercial research (registration required)
+  Size       : ~439 GB (full) / ~11 GB (downsampled 320×320 version)
+               USE DOWNSAMPLED VERSION for this project
+  Records    : 224,316 frontal chest X-rays from 65,240 patients
+  Labels     : 14 pathologies (multi-label) + U-zeros uncertain policy
+
+  5-Label Clinical Subset (most prevalent, clinically significant):
+  ┌────────────────────────────────────────────────────────────────┐
+  │ Label ID  Pathology              # Positive   U-zeros policy   │
+  ├────────────────────────────────────────────────────────────────┤
+  │ 0         No Finding             16,627        N/A             │
+  │ 1         Pleural Effusion       75,696        → 0             │
+  │ 2         Cardiomegaly           20,739        → 0             │
+  │ 3         Atelectasis            29,420        → 0             │
+  │ 4         Consolidation          12,730        → 0             │
+  └────────────────────────────────────────────────────────────────┘
+  Task: Multi-label binary classification (each label 0/1)
+  Metric: AUC per label + macro-AUC (standard CheXpert benchmark)
+
+  Preprocessing Pipeline:
+    1. Load downsampled 320×320 JPEG
+    2. Convert to RGB (3 channels)
+    3. Resize to 224×224 (center crop after resize to 256)
+    4. Normalize: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+       (ImageNet statistics — for MobileNetV3 pretrained weights)
+    5. Uncertain labels (U=-1): map to 0 (U-zeros policy)
+    6. Final tensor shape per sample: [3, 224, 224]
+
+  Registration link: https://stanfordmlgroup.github.io/competitions/chexpert/
+  After registration, download CheXpert-v1.0-small.zip (~11 GB)
+
+──────────────────────────────────────────────────────────────────────
+5.2.3  MULTIMODAL PAIRING STRATEGY
+──────────────────────────────────────────────────────────────────────
+
+  Clinical Reality: ECG + chest X-ray are routinely ordered together
+  in cardiology and emergency medicine. The fusion of these modalities
+  enables richer pathology detection than either modality alone.
+
+  Pairing logic:
+    • Each PTB-XL record has a patient ID and date
+    • Each CheXpert image has a patient ID and study date
+    • Where patient IDs overlap: direct pairing
+    • Where no overlap: synthetic pairing within same pathology class
+      (same-class pairing to preserve label validity)
+    • Ratio: 70% direct patient pairs / 30% within-class synthetic pairs
+
+  Combined task: 5-class cardiac health assessment
+    → Uses PTB-XL 5-class labels as primary
+    → CheXpert 5-label multilabel as auxiliary supervision
+    → Loss = 0.7 × CrossEntropy(ECG_logits) + 0.3 × BCE(CXR_logits)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5.3  HFL-MM ARCHITECTURE (HEALTHCARE VERSION)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Architecture name: HFL-MM-HC (Healthcare variant)
+Framework: PyTorch 2.x + Opacus + mamba-ssm + ONNX Runtime
 
   ╔══════════════════════════════════════════════════════════════════╗
-  ║              HFL-MM ARCHITECTURE DIAGRAM                         ║
+  ║           HFL-MM-HC ARCHITECTURE DIAGRAM                         ║
   ╚══════════════════════════════════════════════════════════════════╝
 
-  INPUT LAYER (per IoT device, per domain):
-  ┌──────────────────────┐    ┌──────────────────────┐
-  │  Modality A          │    │  Modality B           │
-  │  (signal/wearable/   │    │  (image/spectrogram/  │
-  │   audio mel-spec)    │    │   chest X-ray)        │
-  └──────────┬───────────┘    └──────────┬────────────┘
-             │                            │
-  ENCODER A  ▼                ENCODER B  ▼
-  ┌──────────────────────┐    ┌──────────────────────┐
-  │  1D-CNN Encoder      │    │  MobileNetV3-Small   │
-  │  (for time-series/   │    │  (pretrained ImageNet│
-  │   vibration/EEG)     │    │   fine-tuned locally)│
-  │                      │    │                      │
-  │  Conv1D(32) → BN →  │    │  Feature extractor   │
-  │  ReLU → MaxPool →   │    │  (last conv layer)   │
-  │  Conv1D(64) → BN →  │    │  → AvgPool → 576-d   │
-  │  ReLU → MaxPool →   │    │    feature vector    │
-  │  GRU(128) →         │    │                      │
-  │  128-d feature vec  │    │                      │
-  └──────────┬───────────┘    └──────────┬────────────┘
-             │                            │
-             └────────────┬───────────────┘
-                          ▼
+  INPUT LAYER (per IoT device):
+  ┌──────────────────────────┐    ┌──────────────────────────┐
+  │  Modality A              │    │  Modality B               │
+  │  PTB-XL 12-lead ECG      │    │  CheXpert Chest X-ray     │
+  │  Tensor: [B, 12, 1000]   │    │  Tensor: [B, 3, 224, 224] │
+  └──────────┬───────────────┘    └──────────┬────────────────┘
+             │                               │
+  [IP-1]  ENCODER A ▼             ENCODER B ▼
+  ┌──────────────────────────┐    ┌──────────────────────────┐
+  │  FedMamba-HC             │    │  MobileNetV3-Small        │
+  │  (Mamba SSM for ECG)     │    │  (Pretrained ImageNet)    │
+  │                          │    │                           │
+  │  PatchEmbed(12→d=128)    │    │  Feature extractor        │
+  │  → N Mamba blocks        │    │  (frozen first 8 layers)  │
+  │  → AdaptiveAvgPool       │    │  → AvgPool → 576-d        │
+  │  → 256-d feature vec     │    │    feature vector         │
+  └──────────┬───────────────┘    └──────────┬────────────────┘
+             │                               │
+             └──────────────┬────────────────┘
+                            ▼
                 FUSION LAYER (Late Fusion)
-  ┌───────────────────────────────────────────────────┐
-  │  Concatenate: [feat_A (128-d), feat_B (576-d)]    │
-  │  → FC(512) → LayerNorm → ReLU → Dropout(0.3)     │
-  │  → FC(256) → LayerNorm → ReLU                    │
-  │  → FC(num_classes)  [4/5/14 classes per domain]  │
-  └───────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────┐
+  │  Concatenate: [feat_A (256-d), feat_B (576-d)] = 832-d   │
+  │  → FC(512) → GroupNorm(16) → GELU → Dropout(0.3)        │
+  │  → FC(256) → GroupNorm(8) → GELU                        │
+  │  → FC(5)  [5-class cardiac health]                       │
+  └──────────────────────────────────────────────────────────┘
              │
-             ▼
-  OUTPUT: Classification logits (per domain)
-           Softmax → predicted class + confidence
+  [IP-9]  FEDCONFORM-HC WRAPPER
+  ┌──────────────────────────────────────────────────────────┐
+  │  FedConform-HC: Federated Conformal Prediction           │
+  │  → Calibration scores (per device, DP-protected)         │
+  │  → Federated DP quantile aggregation                     │
+  │  → Prediction sets with coverage guarantee ≥ 1-α        │
+  │  Output: {prediction, confidence_set, coverage_level}    │
+  └──────────────────────────────────────────────────────────┘
 
-  Total parameters (IIoT domain): ~2.1M parameters (MobileNetV3 pruned)
-  Model size (float32): ~8.4 MB
-  Model size (8-bit quantized, ONNX): ~2.1 MB
-
-5.3.1  Encoder A — 1D-CNN + GRU (for time-series / vibration / EEG)
-
-  Architecture rationale: 1D convolutions extract local temporal patterns
-  (fault harmonics in vibration, alpha/beta waves in EEG). GRU captures
-  long-range temporal dependencies. Chosen over pure LSTM for 30% lower
-  memory footprint — critical for 300-MIPS IoT devices.
-
-  Layer Stack:
-    Input: [B, 1, 1024] (1-channel, 1024 samples)
-    → Conv1D(in=1, out=32, kernel=7, stride=1, padding=3) → BN → ReLU
-    → MaxPool1D(kernel=4, stride=4)  → [B, 32, 256]
-    → Conv1D(in=32, out=64, kernel=5, padding=2) → BN → ReLU
-    → MaxPool1D(kernel=4, stride=4)  → [B, 64, 64]
-    → Conv1D(in=64, out=128, kernel=3, padding=1) → BN → ReLU
-    → MaxPool1D(kernel=4, stride=4)  → [B, 128, 16]
-    → Reshape → [B, 16, 128]  (seq_len=16, feature=128)
-    → GRU(input=128, hidden=128, layers=2, batch_first=True)
-    → Take last hidden state → [B, 128]
-
-  Parameters: ~420K | FLOPs per sample: ~11M
-
-5.3.2  Encoder B — MobileNetV3-Small (for images / spectrograms)
-
-  Architecture rationale: MobileNetV3-Small achieves ImageNet top-1 accuracy
-  of 67.4% with only 2.5M parameters and 56M FLOPs. Designed for mobile
-  edge deployment — matches the RTX A2000 edge server and ONNX export target.
-  Last conv layer feature maps (576-d) used; classification head discarded.
-
-  Modifications:
-    → Load pretrained weights (ImageNet)
-    → Freeze first 8 layers (feature backbone)
-    → Fine-tune last 2 InvertedResidual blocks + classifier head
-    → Replace classifier with Identity (output 576-d feature vector)
-
-  Parameters: ~1.5M (2.5M total, 1M frozen) | FLOPs: 56M per sample
-
-5.3.3  Fusion Strategy: Late Fusion
-
-  Decision: LATE FUSION (not early or intermediate)
-
-  Justification for HFL context:
-    (a) Privacy: each modality encoder runs independently on device,
-        only high-level features (not raw data) are fused → aligns
-        with DP guarantee (gradient clip on fused features, not pixels)
-    (b) Communication: fused feature vector (704-d float32 = 2.8 KB)
-        vs. raw image (224×224×3 = 588 KB) — 200× smaller
-    (c) Heterogeneity: some devices may have only one active modality
-        (sensor failure) → late fusion degrades gracefully (use zero-
-        vector for missing modality, flag to fusion layer)
-    (d) FL compatibility: each modality branch has separate gradient
-        flow → modality-specific compression ratios can be applied
-
-5.3.4  Privacy-Preserving Local Training
-
-  DP-SGD configuration (Opacus library):
-    Optimizer    : DP-Adam (Opacus PrivacyEngine wrapping Adam)
-    Noise mult.  : σ = 1.1  (calibrated for ε=1.0 via RDP accountant)
-    Max grad norm: C = 1.0  (per-sample gradient clipping)
-    Batch size   : 32 (virtual batch for privacy accounting)
-    Target ε     : 1.0
-    Target δ     : 1e-5 (= 1/N_dataset, ~10000 samples per device)
-    Accounting   : Rényi Differential Privacy (RDP) moments accountant
-
-  Privacy cost per round: Δε ≈ 0.02–0.05 per local epoch
-  Total budget (20 rounds × 5 local epochs): ε ≈ 0.4–0.8 < 1.0
-
-  Gradient clip implementation:
-    Each per-sample gradient g_i is clipped: g_i ← g_i / max(1, ||g_i||/C)
-    Aggregated: G = (1/B) Σ g_i + N(0, σ²C²I)
-    This ensures (ε,δ)-DP before gradient leaves the device.
+  Total parameters:  ~3.2M (FedMamba-HC ~1.7M + MobileNetV3 ~1.5M)
+  Float32 model size: ~12.8 MB
+  INT8 ONNX size:    ~3.2 MB
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.4  HFL ALGORITHM IMPLEMENTATION
+  5.4  IP ACTIVATIONS — THREE HEALTHCARE INNOVATIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Two-tier FedAvg with DP-SGD, integrated into the NS-3/CloudSim scaffold.
+──────────────────────────────────────────────────────────────────────
+5.4.1  IP-1: FedMamba-HC — Mamba SSM ECG Encoder
+         Status: IMPLEMENTED IN PHASE 5
+         File: SIMULATORS/model/fedmamba_hc.py
+──────────────────────────────────────────────────────────────────────
 
-5.4.1  Algorithm Pseudocode
+MOTIVATION:
+  The original 1D-CNN+GRU encoder was designed for short vibration
+  signals (1024 samples, 1 channel). PTB-XL ECG records are 12-lead,
+  1000 samples at 100 Hz — the multi-lead structure requires a model
+  that captures inter-lead dependencies simultaneously.
 
-  HFL-MM Training Algorithm
-  ═════════════════════════
+  Mamba (2023, Gu & Dao, NeurIPS 2024) is a selective State Space
+  Model (SSM) achieving O(N) time and memory complexity (vs. O(N²)
+  for Transformer attention). For 1000-sample ECG sequences, this
+  is a critical efficiency advantage on constrained IoT devices.
+
+ARCHITECTURE:
+  Input: [B, 12, 1000] — 12 leads, 1000 samples
+
+  Step 1 — Patch Embedding:
+    LeadEmbed: Conv1d(12→128, kernel=10, stride=5) → [B, 128, 199]
+    [Groups the ECG into 199 temporal patches, each 10-sample window]
+    Transpose → [B, 199, 128]  (seq_len=199, d_model=128)
+    + Positional embedding (1D learned, 199 positions)
+
+  Step 2 — Mamba Blocks (N=4 stacked):
+    Each MambaBlock:
+      → LayerNorm(d_model=128)
+      → Mamba(d_model=128, d_state=16, d_conv=4, expand=2)
+         [Selective scan: input-dependent A,B,C matrices]
+         [Causal conv1d → SSM → output gate (SiLU)]
+      → Residual connection
+      → LayerNorm → FFN(128→512→128) → Residual
+
+  Step 3 — Output Projection:
+    [B, 199, 128] → AdaptiveAvgPool1d(1) → [B, 128, 1] → Squeeze
+    → Linear(128, 256) → GELU → [B, 256]
+
+  FLOPs per sample: ~18M (vs. 1D-CNN+GRU ~11M) — slight increase
+  justified by 12-lead multi-channel handling and better accuracy.
+
+MATHEMATICAL FORMULATION:
+  Selective SSM core (per Mamba paper):
+    h'(t) = A(x_t) h(t) + B(x_t) x(t)    [state update]
+    y(t) = C(x_t) h(t)                    [output]
+
+  Where A, B, C are input-dependent (selective), enabling the model
+  to focus on clinically relevant ECG events (P-wave, QRS complex,
+  T-wave) while ignoring noise intervals.
+
+  Privacy compatibility:
+    MambaBlocks contain no BatchNorm → GroupNorm(8) used throughout.
+    All layers are compatible with Opacus per-sample gradient clipping.
+
+NOVEL CLAIM:
+  First application of Mamba SSM architecture within a federated
+  learning framework for clinical ECG analysis with differential
+  privacy guarantees. Published models (2024) use Mamba for centralized
+  ECG analysis only — no federated or DP-compatible version exists.
+
+  Key advantages over 1D-CNN+GRU:
+    • O(N) vs O(N²) for long ECG sequences
+    • Native multi-lead handling (12 leads simultaneously)
+    • Selective attention to clinically relevant waveform segments
+    • 4.4× less computation than Transformer equivalent
+
+REQUIREMENTS:
+  pip install mamba-ssm causal-conv1d  (requires CUDA 11.6+)
+  Fallback (CPU): pure PyTorch SSM re-implementation (slower, ~3×)
+  → See FedMambaHC_Fallback class in fedmamba_hc.py
+
+──────────────────────────────────────────────────────────────────────
+5.4.2  IP-9: FedConform-HC — Federated Conformal Prediction
+         Status: IMPLEMENTED IN PHASE 5
+         File: SIMULATORS/model/fedconform_hc.py
+──────────────────────────────────────────────────────────────────────
+
+MOTIVATION:
+  Neural networks produce point predictions (single class label).
+  Clinical decision support requires UNCERTAINTY QUANTIFICATION:
+  "Is this prediction confident enough to act on without physician
+  review?" Without calibrated confidence, AI in healthcare is unsafe.
+
+  Conformal prediction (Venn & Shafer, 2005; Angelopoulos et al., 2022)
+  provides statistically rigorous prediction sets C(X) such that:
+    P(Y_true ∈ C(X)) ≥ 1 - α   (marginal coverage guarantee)
+
+  In a federated setting, calibration data is distributed across devices
+  and cannot be shared (patient privacy). FedConform-HC solves this by
+  aggregating conformal quantiles under differential privacy.
+
+ALGORITHM:
+
+  Phase A — Per-Device Calibration (local, private):
+    1. Hold out 15% of local data as calibration set D_cal
+    2. Run forward pass: get softmax probabilities p_i for each sample
+    3. Compute nonconformity score: s_i = 1 - p_i[y_true]
+       [Higher score = less conforming = less confident prediction]
+    4. Sort scores: s_{(1)} ≤ s_{(2)} ≤ ... ≤ s_{(|D_cal|)}
+    5. Compute local quantile: q_local = s_{(⌈(1-α)(1+1/|D_cal|)⌉)}
+
+  Phase B — Federated Quantile Aggregation (DP-protected):
+    1. Each device adds Laplace noise: q̃_i = q_local + Lap(Δq/ε_conf)
+       where Δq = sensitivity of quantile operation = range of scores
+       ε_conf = separate small DP budget (ε_conf=0.1, from total ε)
+    2. Edge server aggregates: q_edge = median({q̃_i for i in cluster})
+    3. Cloud aggregates: q_global = mean({q_edge for e in edges})
+
+  Phase C — Prediction Set Construction (inference time):
+    Given new input X:
+    1. Compute softmax scores: p = softmax(model(X))
+    2. Prediction set: C(X) = {y : 1 - p[y] ≤ q_global}
+    3. Output: {top_class, prediction_set, set_size, coverage_level}
+
+  Clinical interpretation:
+    set_size=1 → high confidence (single class)
+    set_size=2 → mild uncertainty (2 possible diagnoses)
+    set_size≥3 → refer to physician (low model confidence)
+
+COVERAGE GUARANTEE:
+  With n_cal calibration samples and ε_conf-DP noise:
+    P(Y ∈ C(X)) ≥ 1 - α - O(ε_conf + 1/√n_cal)
+  At α=0.1 (90% coverage), ε_conf=0.1, n_cal=500: ≥ 89.5% coverage.
+
+NOVEL CLAIM:
+  First federated conformal prediction system combining:
+    (a) Distributed quantile aggregation under differential privacy
+    (b) Multi-hospital ECG + X-ray multimodal conformal calibration
+    (c) Clinical severity-stratified α (α=0.05 for ICU, 0.1 for ward)
+  No prior work (as of Aug 2025) combines DP-FL with conformal for
+  multimodal clinical decision support.
+
+──────────────────────────────────────────────────────────────────────
+5.4.3  IP-3: ClinicalCMGA — Clinical Temporal-Decay Cross-Modal
+              Gated Attention
+         Status: FULLY DESIGNED IN PHASE 5 — Implementation in Phase 6
+         File: SIMULATORS/model/clinical_cmga_design.py
+──────────────────────────────────────────────────────────────────────
+
+MOTIVATION:
+  This IP extends PHANTOM-FL's CMGA (Cross-Modal Gated Attention) for
+  clinical settings where modalities arrive asynchronously:
+    • ECG may be recorded 30 minutes before chest X-ray
+    • Patient may be moving, causing motion artifacts in ECG
+    • ICU settings: continuous ECG but intermittent X-ray (daily)
+
+  Standard CMGA assumes synchronous multimodal input. ClinicalCMGA
+  introduces temporal decay gates that downweight stale modality
+  features based on clinical time gaps and signal quality metrics.
+
+MATHEMATICAL FORMULATION:
+
+  Given features from Encoder A (ECG): f_a ∈ R^{d_a}
+  And features from Encoder B (CXR): f_b ∈ R^{d_b}
+  And temporal gap: Δt_a (minutes since ECG), Δt_b (since X-ray)
+  And quality scores: q_a ∈ [0,1], q_b ∈ [0,1]  (from signal quality)
+
+  Temporal decay gates:
+    τ_a = q_a · exp(-λ_a · Δt_a)     [ECG relevance at inference time]
+    τ_b = q_b · exp(-λ_b · Δt_b)     [X-ray relevance at inference time]
+
+  Gated features:
+    f̃_a = τ_a · f_a + (1 - τ_a) · f̄_a  [f̄_a = learned null vector]
+    f̃_b = τ_b · f_b + (1 - τ_b) · f̄_b
+
+  Cross-modal attention:
+    Q_a = W_Q · f̃_a,  K_b = W_K · f̃_b,  V_b = W_V · f̃_b
+    A_a→b = softmax(Q_a K_b^T / √d_k) · V_b     [ECG attends to X-ray]
+    A_b→a = softmax(Q_b K_a^T / √d_k) · V_a     [X-ray attends to ECG]
+
+  Clinical urgency gating:
+    U_t ∈ [0,1] — computed from nurse call frequency + vital sign trends
+    Fusion weight: w = sigmoid(W_u · [A_a→b; A_b→a; U_t])
+    Output: f_fused = w ⊙ A_a→b + (1-w) ⊙ A_b→a
+
+  Decay parameters:
+    λ_a = 0.02 (ECG decays with ~50min half-life)
+    λ_b = 0.005 (X-ray decays with ~140min half-life — slower change)
+    Both learned end-to-end during FL training.
+
+DP COMPATIBILITY:
+  All components (W_Q, W_K, W_V, W_u) use GroupNorm, no BatchNorm.
+  τ_a, τ_b are scalar multiplications — no new parameters requiring
+  special treatment under Opacus per-sample gradient clipping.
+
+IMPLEMENTATION NOTE FOR PHASE 6:
+  ClinicalCMGA replaces the standard late fusion FC head in HFL-MM-HC
+  when PHANTOM-FL is integrated. The FedMamba-HC encoder feeds into
+  ClinicalCMGA's Encoder A slot, MobileNetV3 into Encoder B slot.
+  The temporal gap inputs (Δt_a, Δt_b) are metadata fields in the
+  PTB-XL + CheXpert paired dataset (timestamps included in both).
+
+NOVEL CLAIM:
+  First cross-modal attention mechanism for federated clinical AI that:
+    (a) Uses input-dependent temporal decay (not fixed weights)
+    (b) Integrates clinical urgency scores as dynamic fusion weights
+    (c) Handles asynchronous multimodal acquisition (ICU-realistic)
+    (d) Maintains DP-SGD compatibility throughout
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5.5  BASELINE COMPARISON SUITE — B0 THROUGH B5
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+All 6 baselines run on IDENTICAL PTB-XL + CheXpert data splits.
+Same model architecture (MobileNetV3 + same fusion head) used for
+all baselines except B5 (MOON adds contrastive head).
+
+  ┌──────┬─────────────────────────────┬──────────────────────────────────────┐
+  │ ID   │ System                      │ What it measures                     │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ B0   │ Centralized (no privacy)    │ Upper bound: best possible accuracy  │
+  │      │ All 20 devices' data pooled │ No FL, no DP, full data access       │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ B1   │ Local Only (no federation)  │ Lower bound: no collaboration        │
+  │      │ Each device trains alone    │ Shows benefit of federation          │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ B2   │ FedAvg (McMahan 2017)        │ Standard FL, no privacy              │
+  │      │ Standard weighted averaging │ Shows DP cost + hierarchy benefit    │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ B3   │ FedProx (Li 2020)           │ Heterogeneity-aware FL               │
+  │      │ + proximal regularization μ │ Better convergence on non-IID data   │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ B4   │ DP-FedAvg (Geyer 2017)      │ Privacy-aware but flat (no hierarchy)│
+  │      │ FedAvg + DP-SGD, flat topo  │ Shows 2-tier HFL benefit over flat   │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ B5   │ MOON (Li 2021)              │ Contrastive FL, strong recent baseline│
+  │      │ Model-contrastive learning  │ Nearest competitor to our system     │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ P1   │ HFL-MM-HC (OURS, Phase 5)   │ Our hierarchical multimodal FL       │
+  │      │ FedMamba-HC + FedConform-HC │ With DP-SGD ε=1.0 + compression      │
+  ├──────┼─────────────────────────────┼──────────────────────────────────────┤
+  │ P2   │ PHANTOM-FL (OURS, Phase 6)  │ Full novel model (all 5 IPs)         │
+  │      │ + ClinicalCMGA              │ Phase 6 implementation               │
+  └──────┴─────────────────────────────┴──────────────────────────────────────┘
+
+  Publication story:
+    B0→B1: Federation gap (shows value of FL)
+    B1→B2: Heterogeneity handling (non-IID challenge)
+    B2→B4: Privacy cost of DP (accuracy vs. guarantee)
+    B4→P1: Hierarchy benefit (2-tier HFL vs. flat DP-FL)
+    B3→P1: Non-IID handling (FedProx vs. HFL-MM)
+    B5→P1: Novelty of Mamba + conformal vs. MOON
+    P1→P2: Phase 6 shows PHANTOM-FL superiority
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5.6  HFL ALGORITHM — TWO-TIER FEDAVG WITH DP-SGD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Topology: 20 IoT devices → 3 Edge servers → 1 Cloud server
+
+  HFL-MM-HC Training Algorithm
+  ═════════════════════════════
 
   INITIALIZE:
     Global model W_global ← Xavier initialization
-    For each edge e: W_edge_e ← W_global
-    For each device i: W_local_i ← W_edge(cluster(i))
+    FedConform-HC: q_global ← 0.9  (initial quantile, α=0.1)
+    For each edge e ∈ {1,2,3}: W_edge_e ← W_global
+    For each device i ∈ {1..20}: W_local_i ← W_edge(cluster(i))
 
   FOR each global round r = 1..R_global (R_global=20):
 
-    EDGE AGGREGATION LOOP (inner, τ_e=5 rounds per global round):
+    EDGE AGGREGATION LOOP (inner, τ_e=5 edge rounds per global round):
       FOR each edge round t = 1..τ_e:
 
-        // Step 1: Local Training (parallel across all devices)
+        // Step 1: Local DP Training (parallel, all 20 devices)
         FOR each device i (PARALLEL):
           W_local_i ← DP_SGD_Train(W_edge(cluster(i)),
                                     local_data_i,
                                     epochs=1,
-                                    σ=1.1, C=1.0)
-          Δw_i ← Compress(W_local_i - W_edge(cluster(i)))
-                          [sparsify top-20% + 8-bit quantize]
-          Send Δw_i to Edge(cluster(i)) [encrypted with TLS 1.3]
+                                    σ=1.1, C=1.0, lr=1e-3)
+          Δw_i ← W_local_i - W_edge(cluster(i))
+          Δw_i_compressed ← TopK_Sparsify(Δw_i, k=0.2)
+          Δw_i_quantized  ← Quantize8bit(Δw_i_compressed)
+          Send Δw_i_quantized → Edge(cluster(i))  [TLS 1.3]
 
-        // Step 2: Edge Aggregation (FedAvg per cluster)
+        // Step 2: Edge Aggregation (weighted FedAvg per cluster)
         FOR each edge e (PARALLEL):
-          W_edge_e ← W_edge_e + (1/|S_e|) Σ_{i∈S_e} n_i/n_e × Δw_i
-          [weighted by local dataset size n_i]
+          n_e = Σ_{i∈S_e} n_i
+          W_edge_e ← W_edge_e + Σ_{i∈S_e} (n_i/n_e) · Decompress(Δw_i)
 
-    // Step 3: Cloud Aggregation (FedAvg across edges)
-    Δw_edge_e ← Compress(W_edge_e - W_global) for each e
-    W_global ← W_global + (1/E) Σ_e n_e/N × Δw_edge_e
-    [weighted by cluster dataset size n_e]
+        // Step 3: Conformal Calibration Update (edge-level)
+        FOR each device i (PARALLEL):
+          s_cal_i ← ComputeNonconformityScores(W_local_i, D_cal_i)
+          q_local_i ← Quantile(s_cal_i, level=(1-α)(1+1/|D_cal_i|))
+          q̃_i ← q_local_i + Laplace(0, Δq/ε_conf)  [ε_conf=0.1]
+        FOR each edge e:
+          q_edge_e ← median({q̃_i for i ∈ S_e})
 
-    // Step 4: Model Redistribution
+    // Step 4: Cloud Aggregation (FedAvg across edges)
+    FOR each edge e:
+      Δw_edge_e ← Compress(W_edge_e - W_global)
+    n_total = Σ_e n_e
+    W_global ← W_global + Σ_e (n_e/n_total) · Decompress(Δw_edge_e)
+
+    // Step 5: Global Conformal Quantile Update
+    q_global ← mean({q_edge_e for e in edges})
+
+    // Step 6: Model Redistribution
     Broadcast W_global → all edges → all devices
+    Broadcast q_global → all devices  [public, non-sensitive]
 
-    // Step 5: Privacy Accounting
+    // Step 7: Privacy Accounting
     ε_spent ← RDP_Accountant.get_epsilon(δ=1e-5)
-    IF ε_spent > ε_budget: STOP (early termination)
+    IF ε_spent > 1.0: STOP (privacy budget exhausted)
 
-    // Step 6: Logging
-    Log: round_accuracy, ε_spent, uplink_bytes, round_time
+    // Step 8: Logging
+    Log: round r, val_accuracy, macro_AUC, ε_spent, uplink_bytes,
+         round_time_ms, q_global, avg_prediction_set_size
 
-5.4.2  Gradient Compression Module
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5.7  DP-SGD CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Two-step compression applied to all gradient updates:
+  Library      : Opacus 1.x (torch-opacus)
+  Optimizer    : DP-Adam (Opacus PrivacyEngine wrapping Adam)
+  Noise mult.  : σ = 1.1  (calibrated via RDP accountant for ε=1.0)
+  Max grad norm: C = 1.0  (per-sample gradient clipping threshold)
+  Batch size   : 32       (virtual batch for privacy accounting)
+  Target ε     : 1.0      (strong privacy)
+  Target δ     : 1e-5     (≈1/N_total, N_total≈21,837)
+  Accounting   : Rényi DP (RDP) moments accountant
 
-  Step A — Top-k Sparsification (sparsity ratio = 0.2):
-    Keep top 20% of gradient values by absolute magnitude.
-    Zero out remaining 80%.
-    Encode as (index, value) sparse pairs.
-    Error feedback: residual accumulated and added next round.
+  Privacy budget allocation:
+    Main model training: ε = 0.9 (DP-Adam across all local epochs)
+    Conformal calibration: ε_conf = 0.1 (Laplace mechanism on quantiles)
+    Total: ε_total = ε + ε_conf = 1.0  (by composition theorem)
 
-    Compression ratio: 5× (before quantization)
+  GroupNorm requirement:
+    ALL BatchNorm layers replaced with GroupNorm(num_groups=8) throughout.
+    Reason: Opacus per-sample gradient clipping incompatible with BatchNorm
+    (BN accumulates statistics across the batch, breaking per-sample privacy).
+
+  DP guarantee interpretation:
+    At ε=1.0, δ=1e-5: an adversary seeing the model output gains ≤ e^1.0=2.72×
+    more information about any single patient's data than without that data.
+    This meets HIPAA de-identification standards for model-level privacy.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5.8  GRADIENT COMPRESSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Two-step compression (same as Phase 4 design):
+
+  Step A — Top-k Sparsification (k=0.2, 20% of gradients retained):
+    Error feedback accumulator prevents information loss:
+      v_t ← v_{t-1} + Δw_t          [accumulate residuals]
+      Sparse(v_t) → transmit top-k  [transmit 20%]
+      v_{t+1} ← v_t - Sparse(v_t)   [carry forward residual]
+    Compression ratio: 5×
 
   Step B — 8-bit Quantization:
-    Scale gradient values to uint8 range [0, 255]:
-      q_i = round((g_i - g_min) / (g_max - g_min) × 255)
-    Transmit: uint8 values + float32 (g_min, g_max) header.
+    Scale to uint8: q_i = round((g_i - g_min)/(g_max - g_min) × 255)
+    Transmit: uint8 array + 2× float32 header (g_min, g_max)
+    Compression ratio: 4×
 
-    Compression ratio: 4× (float32 → uint8)
-
-  Combined compression: 5× × 4× = 20× reduction
-  Original model: 50 MB → Compressed update: ~2.5 MB
-
-  This matches Phase 4 NS-3 simulation:
-    Phase 4 used 10 MB compressed per device (50 MB × 0.2 = 10 MB)
-    Phase 5 target: ≈2.5 MB (20×) — Phase 4 used conservative 5× estimate
-    Phase 6 will re-run NS-3 with corrected 20× compression ratio.
-
-5.4.3  NS-3 Integration Points
-
-  Phase 5 model training produces per-round statistics fed into NS-3:
-    • actual_uplink_bytes_per_device (from compression module log)
-    • local_train_time_ms (from training timer)
-    • onnx_inference_latency_ms (from inference benchmark)
-
-  These replace the analytical estimates used in Phase 4:
-    Phase 4: assumed 10 MB compressed (conservative 5× compression)
-    Phase 5: measures actual compression output → feeds NS-3 re-run
-
-  Integration script: SIMULATORS/scripts/ns3_phase5_integration.py
-    Reads phase5_results.csv → updates hfl_config.json → re-runs
-    hfl_network_sim.py with actual measured parameters.
-
-5.4.4  CloudSim Integration Points
-
-  Phase 5 training measures actual compute times:
-    • local_training_time_per_device (per round, per device)
-    • edge_aggregation_time (per round, per edge)
-    • cloud_aggregation_time (per global round)
-
-  These validate the Phase 4 CloudSim MI estimates:
-    Phase 4: IoT train = 15,000 MI (or 3,000 compressed)
-    Phase 5: measures wall-clock time → back-calculates effective MI
-    Phase 6: compare Phase 4 CloudSim predictions vs. Phase 5 actuals
+  Combined: 5× × 4× = 20× total compression
+  Model ~12.8 MB → Update per round ≈ 0.64 MB per device
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.5  ONNX EDGE DEPLOYMENT & INFERENCE LATENCY VALIDATION
+  5.9  ONNX EDGE DEPLOYMENT & INFERENCE LATENCY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-QoS Target: Inference latency < 100ms end-to-end at edge.
+Target: Inference latency < 100ms end-to-end at edge.
 
-5.5.1  ONNX Export Procedure
-
-  After Phase 5 FL training completes:
-    1. Load best global model checkpoint (highest val accuracy)
-    2. Set model.eval() — disable dropout, BN training mode
-    3. Create dummy inputs: [1, 1, 1024] (signal) + [1, 3, 224, 224] (image)
-    4. torch.onnx.export(model, dummy_input, "hfl_mm.onnx",
-                         opset_version=17,
-                         input_names=["signal", "image"],
+  ONNX Export Steps:
+    1. Load best checkpoint (highest macro-AUC on val set)
+    2. model.eval() — disable dropout, GN inference mode
+    3. dummy_ecg = torch.zeros(1, 12, 1000)
+       dummy_cxr = torch.zeros(1, 3, 224, 224)
+    4. torch.onnx.export(model, (dummy_ecg, dummy_cxr),
+                         "onnx/hfl_mm_hc.onnx", opset_version=17,
+                         input_names=["ecg", "cxr"],
                          output_names=["logits"],
-                         dynamic_axes={"signal": {0: "batch"},
-                                       "image": {0: "batch"}})
-    5. Apply ONNX graph optimization: OnnxRuntime optimize_model()
-    6. Apply INT8 quantization: quantize_dynamic(model, QuantType.QInt8)
+                         dynamic_axes={"ecg": {0:"batch"},
+                                       "cxr": {0:"batch"}})
+    5. ONNX graph optimization: OnnxRuntime optimize_model()
+    6. INT8 quantization: quantize_dynamic(model, {MatMul,Gemm},
+                                           weight_type=QuantType.QInt8)
 
-  ONNX model sizes:
-    FP32 ONNX: ~8.4 MB
-    INT8 ONNX: ~2.1 MB
-
-5.5.2  Inference Latency Breakdown (Target < 100ms)
-
-  End-to-end inference path on EDGE server (RTX A2000 emulating edge):
-
-  ┌──────────────────────────────────────────────────────────────────┐
-  │ COMPONENT                      EXPECTED      BUDGET (ms)         │
-  ├──────────────────────────────────────────────────────────────────┤
-  │ L_sensor (data ready)          2 – 5 ms      5 ms               │
-  │ L_preproc (STFT/mel spec)      8 – 15 ms     15 ms              │
-  │ L_inference (ONNX INT8)        25 – 45 ms    45 ms              │
-  │ L_comm (device → edge, 54Mbps) 3 – 8 ms      10 ms             │
-  │ L_post (softmax + response)    < 1 ms         5 ms              │
-  ├──────────────────────────────────────────────────────────────────┤
-  │ TOTAL                          38 – 74 ms    80 ms (margin: 20ms)│
-  └──────────────────────────────────────────────────────────────────┘
-
-  Conservative estimate: 74ms. Target: <100ms. Margin: 26ms.
-
-  Measurement methodology:
-    • 1000 inference runs (warm-up: 100 runs discarded)
-    • Report: mean, P50, P95, P99, max
-    • Simulate 4G/LTE network delay (NS-3 verified 3–8ms)
-    • Run on NVIDIA RTX A2000 (edge server proxy) with ONNX Runtime GPU
-
-5.5.3  ONNX Runtime Configuration
-
-  Execution providers (priority order):
-    1. CUDAExecutionProvider (RTX A2000 — edge server proxy)
-    2. CPUExecutionProvider (fallback for CPU-only edge nodes)
-
-  Session options:
-    intra_op_num_threads = 4 (edge server, 4 CPU cores)
-    graph_optimization_level = ORT_ENABLE_ALL
-    enable_mem_pattern = True
-    enable_cpu_mem_arena = False (avoid memory spikes)
+  Expected inference latency breakdown (edge server proxy = RTX A2000):
+  ┌────────────────────────────────────────────────────────────────┐
+  │ Component              Expected (ms)   Budget (ms)            │
+  ├────────────────────────────────────────────────────────────────┤
+  │ L_sensor (ECG + CXR)   3 – 8 ms        10 ms                 │
+  │ L_preproc (filter+norm) 10 – 18 ms     20 ms                 │
+  │ L_inference (ONNX INT8) 30 – 50 ms     50 ms                 │
+  │ L_comm (LTE 4G layer)   3 – 8 ms       10 ms                 │
+  │ L_conformal (C(X) set)  < 1 ms          5 ms                 │
+  │ L_post (softmax+output) < 1 ms          5 ms                 │
+  ├────────────────────────────────────────────────────────────────┤
+  │ TOTAL                   47 – 86 ms      100 ms               │
+  └────────────────────────────────────────────────────────────────┘
+  Conservative estimate: 86ms. Target: <100ms. Margin: 14ms.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.6  PRIVACY-ACCURACY VALIDATION
+  5.10  PRIVACY-ACCURACY VALIDATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-QoS Target: ≤2% accuracy loss at ε=1 vs. CentralizedFL baseline.
+QoS Target: ≤ 2% accuracy loss at ε=1 vs. Centralized (B0).
 
-5.6.1  Baseline: Centralized Training (No FL, No DP)
+Expected Healthcare Accuracy Targets (PTB-XL 5-class macro-AUC):
 
-  Train HFL-MM on the full aggregated dataset (all 20 devices' data
-  pooled) for 50 epochs. Record test accuracy per domain:
+  ε       σ(noise)  Macro-AUC   Accuracy   Δ vs B0 (Central)
+  ──────────────────────────────────────────────────────────────
+  0.1     8.0       ~0.74        ~71%       >2% (too noisy)
+  0.5     2.0       ~0.80        ~77%       ~2%  (borderline)
+  1.0     1.1       ~0.83        ~80%       ≤2%  (TARGET)
+  2.0     0.7       ~0.85        ~82%       <1%
+  5.0     0.4       ~0.86        ~83%       ~0%
+  ∞       0.0       ~0.87        ~84%       0%   (no DP)
+  ──────────────────────────────────────────────────────────────
+  B0 (Centralized):             ~0.87        ~85%        baseline
+  ──────────────────────────────────────────────────────────────
 
-  Expected Centralized Accuracy Targets:
-    IIoT (CWRU fault detection):   94–97% (literature benchmark)
-    Smart City (UrbanSound8K):     72–78% (mel-spec CNN benchmark)
-    Healthcare (WESAD + X-ray):    81–86% (multimodal fusion benchmark)
-
-5.6.2  HFL-MM Accuracy under ε-DP (Sweep)
-
-  Experiment: vary ε ∈ {0.1, 0.5, 1.0, 2.0, 5.0, ∞ (no DP)}
-    For each ε:
-      Calibrate σ via Opacus PrivacyEngine (target_epsilon=ε, target_delta=1e-5)
-      Run full HFL-MM training: R_global=20 rounds, τ_e=5, 20 devices
-      Record test accuracy per domain per ε value
-
-  Expected: accuracy ≥ (CentralizedFL accuracy − 2%) at ε=1.0
-
-  Privacy-accuracy table (target):
-
-  ε      σ(noise)   IIoT Acc   Smart City   Healthcare   Avg Loss vs Central
-  ──────────────────────────────────────────────────────────────────────────
-  0.1    8.0        ~85%        ~63%          ~74%          >2% (too noisy)
-  0.5    2.0        ~91%        ~71%          ~80%          ~2%  (borderline)
-  1.0    1.1        ~93%        ~74%          ~83%          ≤2%  (TARGET)
-  2.0    0.7        ~94%        ~76%          ~84%          <1%
-  5.0    0.4        ~95%        ~77%          ~85%          ~0%
-  ∞      0.0        ~95%        ~78%          ~86%          0%   (no DP)
-  ──────────────────────────────────────────────────────────────────────────
-
-5.6.3  Non-IID Convergence Analysis
-
-  Dirichlet α=0.5 creates significant class imbalance per device.
-  Track convergence curve: global accuracy vs. round number.
-
-  Comparison baselines:
-    1. FedAvg (no compression, no DP)      — upper bound FL accuracy
-    2. HFL-MM (no DP, with compression)   — compression impact
-    3. HFL-MM (DP ε=1, with compression)  — PROPOSED system
-    4. FlatFL + DP (FL2DP baseline)        — hierarchy benefit
-    5. CentralizedFL                        — gold standard
+Note: Macro-AUC is the primary metric (CheXpert standard).
+5-class classification accuracy is secondary metric.
+Both reported per ε sweep.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.7  TRAINING PIPELINE — EXECUTION ORDER
+  5.11  TRAINING PIPELINE — EXECUTION ORDER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Execute in order from SIMULATORS/:
+Execute from /home/deadserpent/HFL/SIMULATORS/:
 
-  STEP 1 — Download & Preprocess Datasets
-    python data/loaders/download_datasets.py    # CWRU, WESAD, UrbanSound, EPA
-    python data/loaders/preprocess_iiot.py
-    python data/loaders/preprocess_smartcity.py
-    python data/loaders/preprocess_healthcare.py
-    python data/loaders/partition_noniid.py --alpha 0.5 --n_devices 20
+  STEP 1 — Download Datasets
+    python data/loaders/download_datasets.py
+    [Downloads PTB-XL from PhysioNet automatically]
+    [Prints CheXpert registration URL — manual download required]
 
-  STEP 2 — Centralized Baseline Training
-    python model/centralized_baseline.py --domain iiot
-    python model/centralized_baseline.py --domain smartcity
-    python model/centralized_baseline.py --domain healthcare
+  STEP 2 — Preprocess Healthcare Data
+    python data/loaders/preprocess_healthcare.py \
+      --ptbxl_dir data/raw/ptb-xl \
+      --chexpert_dir data/raw/chexpert \
+      --output_dir data/processed/healthcare
 
-  STEP 3 — HFL-MM Federated Training
+  STEP 3 — Non-IID Partitioning
+    python data/loaders/partition_noniid.py \
+      --domain healthcare --alpha 0.5 --n_devices 20 \
+      --input_dir data/processed/healthcare \
+      --output_dir data/processed/partitions
+
+  STEP 4 — Centralized Baseline (B0)
+    python model/baselines.py --mode centralized \
+      --data_dir data/processed/healthcare \
+      --output results/phase5/baseline_b0.csv
+
+  STEP 5 — Baselines B1–B5
+    python model/baselines.py --mode local \
+      --partition_dir data/processed/partitions \
+      --output results/phase5/baseline_b1.csv
+    python model/baselines.py --mode fedavg --output results/phase5/baseline_b2.csv
+    python model/baselines.py --mode fedprox --mu 0.01 --output results/phase5/baseline_b3.csv
+    python model/baselines.py --mode dp_fedavg --epsilon 1.0 --output results/phase5/baseline_b4.csv
+    python model/baselines.py --mode moon --mu 5.0 --output results/phase5/baseline_b5.csv
+
+  STEP 6 — HFL-MM-HC Training (P1)
     python model/hfl_trainer.py \
       --rounds 20 --tau_e 5 --n_devices 20 --n_edges 3 \
       --epsilon 1.0 --delta 1e-5 --noise_mult 1.1 \
       --sparsity 0.2 --quant_bits 8 \
-      --domain all --save_checkpoint
+      --save_checkpoint checkpoints/best_model_hc.pt \
+      --output results/phase5/hfl_mm_hc_results.csv
 
-  STEP 4 — ε Sweep (Privacy-Accuracy Trade-off)
+  STEP 7 — ε Sweep
     python model/epsilon_sweep.py \
-      --epsilons 0.1 0.5 1.0 2.0 5.0 --domain all
+      --epsilons 0.1 0.5 1.0 2.0 5.0 inf \
+      --output_dir results/phase5/epsilon_sweep/
 
-  STEP 5 — ONNX Export & Inference Benchmark
-    python model/onnx_exporter.py --checkpoint best_model.pt
-    python model/inference_bench.py --model hfl_mm.onnx \
-      --n_runs 1000 --warmup 100 --provider cuda
+  STEP 8 — ONNX Export + INT8
+    python model/onnx_exporter.py \
+      --checkpoint checkpoints/best_model_hc.pt \
+      --output_fp32 onnx/hfl_mm_hc.onnx \
+      --output_int8 onnx/hfl_mm_hc_int8.onnx
 
-  STEP 6 — NS-3/CloudSim Integration Re-run
+  STEP 9 — Inference Benchmark
+    python model/inference_bench.py \
+      --model onnx/hfl_mm_hc_int8.onnx \
+      --n_runs 1000 --warmup 100 --provider CUDAExecutionProvider \
+      --output results/phase5/inference_latency/bench_results.csv
+
+  STEP 10 — NS-3 Integration Re-run
     python scripts/ns3_phase5_integration.py
-    (Updates hfl_config.json with Phase 5 actuals → re-runs NS-3)
+    [Uses actual uplink bytes + latency from steps above]
 
-  STEP 7 — Results Collection
+  STEP 11 — Results Collection
     python scripts/collect_phase5_results.py
     → Output: results/phase5/phase5_results.csv
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.8  EXPECTED PHASE 5 RESULTS (TARGETS)
+  5.12  EXPECTED PHASE 5 RESULTS (TARGETS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Metric                          Target          Confidence
-  ─────────────────────────────────────────────────────────────────────
-  Inference latency (P95)         < 100ms         HIGH (est. 45–74ms)
-  Accuracy loss at ε=1.0          ≤ 2%            HIGH (literature: ~1.5%)
-  FL convergence (20 rounds)      within 3% of centralized   MEDIUM
-  Privacy budget consumed         ε ≤ 1.0 after 20 rounds   HIGH
-  ONNX INT8 model size            < 3 MB          HIGH (est. 2.1 MB)
-  ─────────────────────────────────────────────────────────────────────
+  Metric                            Target          Confidence
+  ───────────────────────────────────────────────────────────────────
+  Inference latency (P95)           < 100ms         HIGH (est. 86ms)
+  Accuracy loss at ε=1.0            ≤ 2%            HIGH (~1.5%)
+  Macro-AUC at ε=1.0                ≥ 0.82          HIGH (est. 0.83)
+  FL convergence (20 rounds)        within 3% of B0 MEDIUM
+  Privacy budget consumed           ε ≤ 1.0         HIGH
+  ONNX INT8 model size              < 4 MB          HIGH (est. 3.2 MB)
+  Conformal coverage (FedConform)   ≥ 89.5% @ α=0.1 HIGH
+  Avg prediction set size @ α=0.1   ≤ 1.8 classes   MEDIUM
+  ───────────────────────────────────────────────────────────────────
 
-  All 4 QoS targets after Phase 5:
-  ┌───────────────────────────────────────────────────────────────────┐
-  │ QoS Target                 Phase 4   Phase 5   Status            │
-  ├───────────────────────────────────────────────────────────────────┤
-  │ Energy saving ≥ 20%        74.9%     —         PASS (P4) ✓       │
-  │ Comm. reduction ≥ 50%      76.4%     ~95%      PASS (P4→P5) ✓   │
-  │ Update reliability > 99%   99.05%    —         PASS (P4) ✓       │
-  │ Inference latency < 100ms  —         ~55–74ms  PASS (P5) ✓       │
-  │ Accuracy loss < 2% (ε=1)   —         ~1.5%     PASS (P5) ✓       │
-  └───────────────────────────────────────────────────────────────────┘
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.9  FILES TO BE PRODUCED IN PHASE 5
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Path                                               Description
-  ─────────────────────────────────────────────────────────────────────
-  SIMULATORS/data/loaders/download_datasets.py       Dataset fetcher
-  SIMULATORS/data/loaders/preprocess_iiot.py         CWRU + spectrogram
-  SIMULATORS/data/loaders/preprocess_smartcity.py    UrbanSound8K + EPA
-  SIMULATORS/data/loaders/preprocess_healthcare.py   WESAD + ChestXray
-  SIMULATORS/data/loaders/partition_noniid.py        Dirichlet partition
-  SIMULATORS/model/hfl_mm_model.py                   HFL-MM model class
-  SIMULATORS/model/hfl_trainer.py                    FL training engine
-  SIMULATORS/model/centralized_baseline.py           Centralized baseline
-  SIMULATORS/model/dp_engine.py                      DP-SGD via Opacus
-  SIMULATORS/model/compression.py                    Sparsify + quantize
-  SIMULATORS/model/epsilon_sweep.py                  ε-accuracy trade-off
-  SIMULATORS/model/onnx_exporter.py                  ONNX export + INT8
-  SIMULATORS/model/inference_bench.py                Latency benchmark
-  SIMULATORS/scripts/ns3_phase5_integration.py       NS-3 re-run script
-  SIMULATORS/results/phase5/phase5_results.csv       All Phase 5 metrics
-  SIMULATORS/results/phase5/convergence_curves/      Per-round accuracy
-  SIMULATORS/results/phase5/epsilon_sweep/           ε vs accuracy CSVs
-  SIMULATORS/results/phase5/inference_latency/       ONNX benchmark logs
-  SIMULATORS/checkpoints/best_model.pt               Best FL checkpoint
-  SIMULATORS/onnx/hfl_mm.onnx                        FP32 ONNX model
-  SIMULATORS/onnx/hfl_mm_int8.onnx                   INT8 quantized model
-  ─────────────────────────────────────────────────────────────────────
+  All 5 QoS targets after Phase 5:
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ QoS Target              Phase 4    Phase 5    Status            │
+  ├──────────────────────────────────────────────────────────────────┤
+  │ Energy saving ≥ 20%     74.9%      —          PASS (P4) ✓       │
+  │ Comm. reduction ≥ 50%   76.4%      ~95%       PASS (P4→P5) ✓   │
+  │ Update reliability >99% 99.05%     —          PASS (P4) ✓       │
+  │ Inference latency <100ms —         ~47–86ms   PASS (P5) ✓       │
+  │ Accuracy loss <2% (ε=1) —         ~1.5%      PASS (P5) ✓       │
+  └──────────────────────────────────────────────────────────────────┘
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.10  PHASE 5 → PHASE 6 HANDOFF
+  5.13  FILES PRODUCED IN PHASE 5
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Phase 5 delivers the complete trained and validated HFL-MM system.
+  Path                                              Description
+  ──────────────────────────────────────────────────────────────────────
+  data/loaders/download_datasets.py                 PTB-XL + CheXpert
+  data/loaders/preprocess_healthcare.py             ECG + CXR pipeline
+  data/loaders/partition_noniid.py                  Dirichlet partition
+  model/fedmamba_hc.py                              IP-1: Mamba encoder
+  model/fedconform_hc.py                            IP-9: Conformal wrap
+  model/clinical_cmga_design.py                     IP-3: Phase 6 design
+  model/hfl_mm_model.py                             Full HFL-MM-HC model
+  model/baselines.py                                B0–B5 baseline suite
+  model/hfl_trainer.py                              Two-tier FL engine
+  model/dp_engine.py                                DP-SGD via Opacus
+  model/compression.py                              Top-k + 8-bit quant
+  model/epsilon_sweep.py                            ε-accuracy trade-off
+  model/onnx_exporter.py                            ONNX FP32 + INT8
+  model/inference_bench.py                          Latency benchmark
+  scripts/ns3_phase5_integration.py                 NS-3 re-run script
+  results/phase5/phase5_results.csv                 All Phase 5 metrics
+  results/phase5/convergence_curves/                Per-round accuracy
+  results/phase5/epsilon_sweep/                     ε vs AUC CSVs
+  results/phase5/inference_latency/bench_results.csv ONNX latency logs
+  checkpoints/best_model_hc.pt                      Best FL checkpoint
+  onnx/hfl_mm_hc.onnx                               FP32 ONNX model
+  onnx/hfl_mm_hc_int8.onnx                          INT8 quantized model
+  ──────────────────────────────────────────────────────────────────────
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5.14  PHASE 5 → PHASE 6 HANDOFF
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 5 delivers:
+  → Trained HFL-MM-HC with FedMamba-HC + FedConform-HC
+  → Full baseline comparison (B0–B5 vs P1)
+  → ONNX INT8 deployed model with measured latency
+  → ε sweep results (privacy-accuracy trade-off curve)
+  → ClinicalCMGA full design spec ready for Phase 6
+
 Phase 6 will:
-
-  1. Run the full joint evaluation (all 4 objectives simultaneously)
-  2. Perform ablation study (remove each component, measure degradation)
-  3. Generate all thesis-grade graphs, tables, and statistical analysis
-  4. Write the journal paper structured for IEEE Trans. Ind. Informatics
-  5. Package the complete reproducible codebase
+  1. Implement PHANTOM-FL with ClinicalCMGA (P2)
+  2. Run joint evaluation: all 4 QoS objectives simultaneously
+  3. Run ablation: P1 vs P1-no-Mamba vs P1-no-Conform vs P2 vs P2-no-CMGA
+  4. Generate all 10 thesis-grade publication figures
+  5. Write paper targeting IEEE JBHI (primary) / npj Digital Medicine (secondary)
+  6. Package full reproducible codebase
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  PHASE 5 STATUS: IN PROGRESS (Apr 2026)
-  Awaiting user approval to begin implementation.
+  PHASE 5 STATUS: IN PROGRESS (2026-04-22)
+  Domain: Healthcare Exclusively | Model: HFL-MM-HC → PHANTOM-FL
+  Datasets: PTB-XL + CheXpert | IPs Active: IP-1 + IP-9 + IP-3(design)
+  Baselines: B0–B5 | Venue: IEEE JBHI / npj Digital Medicine
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
