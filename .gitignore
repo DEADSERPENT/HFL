@@ -96,3 +96,9 @@ RESUME/
 .env
 secrets.json
 credentials.json
+
+# ── fl-dashboard (React + Vite frontend) ─────────────────────
+fl-dashboard/node_modules/
+fl-dashboard/dist/
+fl-dashboard/.vite/
+fl-dashboard/*.local
