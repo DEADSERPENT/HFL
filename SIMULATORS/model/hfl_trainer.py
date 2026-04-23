@@ -1,6 +1,6 @@
 """
 HFL-MM-HC Training Engine — Phase 5
-Two-tier FedAvg: 20 IoT devices → 3 Edge servers → 1 Cloud server
+Two-tier FedAvg: 6 healthcare IoT devices -> 2 Edge servers -> 1 Cloud server
 With DP-SGD (Opacus), gradient compression (Top-k + 8-bit), and
 FedConform-HC conformal calibration updates.
 """
@@ -31,15 +31,18 @@ def load_partitioned_data(partition_dir: str, processed_dir: str,
     """Load train/val/test loaders for a specific device."""
     from preprocess_healthcare import HealthcareDataset
 
-    ecg_signals = np.load(os.path.join(processed_dir, "ecg", "ecg_signals.npy"),
-                          mmap_mode="r")
-    ecg_labels = np.load(os.path.join(processed_dir, "ecg", "ecg_labels.npy"))
-    cxr_images = np.load(os.path.join(processed_dir, "cxr", "cxr_images.npy"),
-                         mmap_mode="r")
-    cxr_labels = np.load(os.path.join(processed_dir, "cxr", "cxr_primary_labels.npy"))
+    ecg_signals    = np.load(os.path.join(processed_dir, "ecg", "ecg_signals.npy"),
+                             mmap_mode="r")
+    ecg_labels     = np.load(os.path.join(processed_dir, "ecg", "ecg_labels.npy"))
+    cxr_images     = np.load(os.path.join(processed_dir, "cxr", "cxr_images.npy"),
+                             mmap_mode="r")
+    cxr_labels     = np.load(os.path.join(processed_dir, "cxr", "cxr_labels.npy"))
+    tabular_feats  = np.load(os.path.join(processed_dir, "tabular",
+                                          "tabular_features.npy"))
 
     full_ds = HealthcareDataset(ecg_signals, ecg_labels,
-                                cxr_images, cxr_labels)
+                                cxr_images, cxr_labels,
+                                tabular_feats)
 
     train_idx = np.load(os.path.join(partition_dir,
                                      f"device_{device_id:02d}_train.npy"))
@@ -69,7 +72,7 @@ def evaluate_model(model: nn.Module, loader: DataLoader,
     model.eval()
     all_logits, all_labels = [], []
     with torch.no_grad():
-        for ecg, cxr, labels in loader:
+        for ecg, cxr, _tab, labels in loader:
             logits = model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
             all_logits.append(logits.cpu())
             all_labels.append(labels.cpu())
@@ -106,7 +109,7 @@ def local_dp_train(model: nn.Module, loader: DataLoader,
         dp_model.train()
         total_loss, total = 0.0, 0
         for _ in range(n_epochs):
-            for ecg, cxr, labels in dp_loader:
+            for ecg, cxr, _tab, labels in dp_loader:
                 dp_opt.zero_grad()
                 logits = dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
                 loss = loss_fn(logits, labels.to(device, non_blocking=True))
@@ -329,8 +332,8 @@ if __name__ == "__main__":
     parser.add_argument("--partition_dir",  default="data/processed/partitions/healthcare")
     parser.add_argument("--rounds",         type=int,   default=20)
     parser.add_argument("--tau_e",          type=int,   default=5)
-    parser.add_argument("--n_devices",      type=int,   default=20)
-    parser.add_argument("--n_edges",        type=int,   default=3)
+    parser.add_argument("--n_devices",      type=int,   default=6)
+    parser.add_argument("--n_edges",        type=int,   default=2)
     parser.add_argument("--n_classes",      type=int,   default=5)
     parser.add_argument("--epsilon",        type=float, default=1.0)
     parser.add_argument("--delta",          type=float, default=1e-5)

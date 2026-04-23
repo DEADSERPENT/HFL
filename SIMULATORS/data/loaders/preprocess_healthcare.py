@@ -1,8 +1,11 @@
 """
-Healthcare Data Preprocessing Pipeline — Phase 5
-  Modality A: PTB-XL (12-lead ECG) → [12, 1000] tensors
-  Modality B: CheXpert (chest X-ray) → [3, 224, 224] tensors
-  Output: paired multimodal dataset saved to processed/healthcare/
+Healthcare Preprocessing Pipeline — Phase 5
+  Modality A (Signal)  : PTB-XL 12-lead ECG  -> [12, 1000] float32 tensors
+  Modality B (Image)   : Kermany Chest X-Ray  -> [3, 224, 224] float32 tensors
+  Modality C (Tabular) : PTB-XL metadata      -> [8] float32 feature vector
+
+Subset size: 3,000 records each (stratified / balanced)
+Output:      data/processed/healthcare/{ecg, cxr, tabular}/
 """
 
 import os
@@ -11,39 +14,43 @@ import argparse
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset
 from pathlib import Path
-from typing import Optional, Tuple, Dict, List
+from torch.utils.data import Dataset
+from typing import Optional, Tuple
 
-# PTB-XL 5-class label mapping (superclass from SNOMED codes)
+
+# ── Label Definitions ──────────────────────────────────────────────────────────
+
 PTBXL_SUPERCLASS = {
-    "NORM": 0,
+    "NORM": 0,   # Normal
     "MI":   1,   # Myocardial Infarction
     "STTC": 2,   # ST/T Change
     "CD":   3,   # Conduction Disturbance
     "HYP":  4,   # Hypertrophy
 }
 
-# CheXpert 5-label subset indices in train.csv (columns)
-CHEXPERT_LABELS = [
-    "No Finding",
-    "Pleural Effusion",
-    "Cardiomegaly",
-    "Atelectasis",
-    "Consolidation",
-]
+CXR_LABELS = {
+    "NORMAL":    0,
+    "PNEUMONIA": 1,
+}
 
+N_ECG_CLASSES = 5
+N_CXR_CLASSES = 2
+
+# ECG -> CXR class pairing (for multimodal dataset pairing)
+# NORM ECG  ↔  NORMAL CXR
+# Abnormal ECG (MI/STTC/CD/HYP) ↔  PNEUMONIA CXR
+ECG_TO_CXR_BUCKET = {0: 0, 1: 1, 2: 1, 3: 1, 4: 1}
+
+
+# ── PTB-XL: Metadata ──────────────────────────────────────────────────────────
 
 def load_ptbxl_metadata(ptbxl_dir: str) -> pd.DataFrame:
-    """Load PTB-XL metadata and map to 5 superclasses."""
     import ast
     csv_path = os.path.join(ptbxl_dir, "ptbxl_database.csv")
     df = pd.read_csv(csv_path, index_col="ecg_id")
-
-    # Parse scp_codes dict from string
     df["scp_codes"] = df["scp_codes"].apply(ast.literal_eval)
 
-    # Load SCP statement labels
     scp_df = pd.read_csv(os.path.join(ptbxl_dir, "scp_statements.csv"), index_col=0)
     superclass_map = scp_df[scp_df["diagnostic"] == 1]["diagnostic_class"].to_dict()
 
@@ -60,229 +67,334 @@ def load_ptbxl_metadata(ptbxl_dir: str) -> pd.DataFrame:
     df = df.dropna(subset=["label"])
     df["label"] = df["label"].astype(int)
 
-    print(f"PTB-XL metadata: {len(df):,} records with valid superclass labels")
+    print(f"PTB-XL metadata: {len(df):,} records with valid labels")
     for cls, idx in PTBXL_SUPERCLASS.items():
-        n = (df["label"] == idx).sum()
-        print(f"  Class {idx} ({cls}): {n:,}")
+        print(f"  Class {idx} ({cls}): {(df['label'] == idx).sum():,}")
     return df
 
 
-def load_ecg_record(ptbxl_dir: str, filename: str,
-                    sampling_rate: int = 100) -> np.ndarray:
+def stratified_subset_ptbxl(df: pd.DataFrame, n_total: int = 3000,
+                              seed: int = 42) -> pd.DataFrame:
     """
-    Load ECG record using wfdb and resample to 100 Hz.
-    Returns: [12, 1000] numpy array (12 leads, 1000 samples at 100Hz)
+    Stratified sample: equal records per class.
+    n_per_class = n_total // N_ECG_CLASSES (600 for 3000 total)
     """
+    n_per_class = n_total // N_ECG_CLASSES
+    parts = []
+    for cls_idx in range(N_ECG_CLASSES):
+        pool = df[df["label"] == cls_idx]
+        n = min(n_per_class, len(pool))
+        parts.append(pool.sample(n=n, random_state=seed))
+
+    subset = pd.concat(parts).sample(frac=1, random_state=seed)
+    print(f"\nStratified PTB-XL subset: {len(subset):,} records "
+          f"({n_per_class} per class)")
+    return subset
+
+
+# ── PTB-XL: ECG Signal ────────────────────────────────────────────────────────
+
+def load_ecg_record(ptbxl_dir: str, filename: str) -> np.ndarray:
+    """Load one ECG record at 100 Hz -> [12, 1000] float32."""
     import wfdb
     from scipy.signal import butter, filtfilt, resample
 
-    # PTB-XL records are at 100Hz or 500Hz; prefer 100Hz for efficiency
-    if sampling_rate == 100:
-        record_path = os.path.join(ptbxl_dir, filename.replace("records500", "records100"))
-    else:
-        record_path = os.path.join(ptbxl_dir, filename)
+    # Use 100 Hz records for speed; fall back to 500 Hz if absent
+    path_100 = os.path.join(ptbxl_dir,
+                            filename.replace("records500", "records100"))
+    path_500 = os.path.join(ptbxl_dir, filename)
+    record_path = path_100 if os.path.exists(path_100 + ".hea") else path_500
 
     record = wfdb.rdrecord(record_path)
     signal = record.p_signal.T  # [12, n_samples]
 
-    # Ensure exactly 1000 samples (10s at 100Hz)
-    target_len = 1000
-    if signal.shape[1] != target_len:
-        signal = resample(signal, target_len, axis=1)
+    if signal.shape[1] != 1000:
+        signal = resample(signal, 1000, axis=1)
 
-    # Bandpass filter: 0.5–40 Hz
     b, a = butter(N=3, Wn=[0.5, 40], btype="bandpass", fs=100)
     signal = filtfilt(b, a, signal, axis=1)
 
-    # Per-lead z-score normalization
     mean = signal.mean(axis=1, keepdims=True)
-    std = signal.std(axis=1, keepdims=True) + 1e-8
-    signal = (signal - mean) / std
-
-    return signal.astype(np.float32)  # [12, 1000]
+    std  = signal.std(axis=1,  keepdims=True) + 1e-8
+    return ((signal - mean) / std).astype(np.float32)
 
 
-def preprocess_ptbxl(ptbxl_dir: str, output_dir: str,
-                     max_records: Optional[int] = None):
-    """Preprocess all PTB-XL records and save as .npy tensors."""
+def preprocess_ecg(ptbxl_dir: str, subset_df: pd.DataFrame,
+                   output_dir: str) -> Tuple[np.ndarray, np.ndarray]:
     os.makedirs(output_dir, exist_ok=True)
-    df = load_ptbxl_metadata(ptbxl_dir)
-
-    if max_records is not None:
-        df = df.head(max_records)
-
-    records = []
-    labels = []
-    ecg_ids = []
+    records, labels, ecg_ids = [], [], []
     failed = 0
 
-    for ecg_id, row in df.iterrows():
+    for ecg_id, row in subset_df.iterrows():
         try:
-            signal = load_ecg_record(ptbxl_dir, row["filename_lr"])
-            records.append(signal)
+            sig = load_ecg_record(ptbxl_dir, row["filename_lr"])
+            records.append(sig)
             labels.append(row["label"])
             ecg_ids.append(ecg_id)
         except Exception:
             failed += 1
-            continue
 
-        if len(records) % 1000 == 0:
-            print(f"  Processed {len(records):,} / {len(df):,} ECGs...")
+        if len(records) % 500 == 0 and len(records) > 0:
+            print(f"  ECG: {len(records):,} / {len(subset_df):,} loaded...")
 
-    X = np.stack(records, axis=0)   # [N, 12, 1000]
-    y = np.array(labels)            # [N]
-    ids = np.array(ecg_ids)         # [N]
-    strat_fold = df.loc[ecg_ids, "strat_fold"].values  # fold 1-10
+    X = np.stack(records)             # [N, 12, 1000]
+    y = np.array(labels, dtype=int)   # [N]
 
     np.save(os.path.join(output_dir, "ecg_signals.npy"), X)
-    np.save(os.path.join(output_dir, "ecg_labels.npy"), y)
-    np.save(os.path.join(output_dir, "ecg_ids.npy"), ids)
-    np.save(os.path.join(output_dir, "ecg_folds.npy"), strat_fold)
+    np.save(os.path.join(output_dir, "ecg_labels.npy"),  y)
+    np.save(os.path.join(output_dir, "ecg_ids.npy"),
+            np.array(ecg_ids))
+    np.save(os.path.join(output_dir, "ecg_folds.npy"),
+            subset_df.loc[ecg_ids, "strat_fold"].values)
 
-    print(f"PTB-XL preprocessing complete: {len(records):,} records saved.")
-    print(f"  Failed: {failed}, Saved to: {output_dir}")
-    return X, y, ids, strat_fold
+    print(f"ECG saved: {len(records):,} records  (failed: {failed})  -> {output_dir}")
+    return X, y
 
 
-def preprocess_chexpert(chexpert_dir: str, output_dir: str,
-                        img_size: int = 224,
-                        max_records: Optional[int] = None):
-    """Preprocess CheXpert images and save metadata."""
+# ── PTB-XL: Tabular Metadata ──────────────────────────────────────────────────
+
+def preprocess_tabular(subset_df: pd.DataFrame, output_dir: str) -> np.ndarray:
+    """
+    Extract tabular features from PTB-XL metadata — numeric columns only.
+    Preferred: age, sex, height, weight, strat_fold + any other numeric cols up to 8.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Always work on numeric columns only — avoids string arithmetic errors
+    numeric_df = subset_df.select_dtypes(include=[np.number])
+
+    # Prefer known meaningful columns, fall back to whatever is available
+    preferred = ["age", "sex", "height", "weight", "strat_fold",
+                 "baseline_drift", "static_noise", "burst_noise"]
+    available = [c for c in preferred if c in numeric_df.columns]
+
+    # Pad with remaining numeric columns if fewer than 4 preferred found
+    if len(available) < 4:
+        extras = [c for c in numeric_df.columns if c not in available]
+        available += extras[:max(0, 8 - len(available))]
+
+    available = available[:8]   # cap at 8 features
+
+    tab = numeric_df[available].copy()
+    tab = tab.fillna(tab.median())
+
+    # Normalize each feature to [0, 1]
+    for col in tab.columns:
+        col_min, col_max = float(tab[col].min()), float(tab[col].max())
+        if col_max > col_min:
+            tab[col] = (tab[col] - col_min) / (col_max - col_min)
+
+    X = tab.values.astype(np.float32)      # [N, n_features]
+    np.save(os.path.join(output_dir, "tabular_features.npy"), X)
+    np.save(os.path.join(output_dir, "tabular_labels.npy"),
+            subset_df["label"].values.astype(int))
+
+    with open(os.path.join(output_dir, "tabular_columns.json"), "w") as f:
+        json.dump(available, f)
+
+    print(f"Tabular saved: {X.shape}  ({len(available)} features)  -> {output_dir}")
+    return X
+
+
+# ── Kermany Chest X-Ray ───────────────────────────────────────────────────────
+
+def load_cxr_paths(cxr_dir: str) -> pd.DataFrame:
+    """Collect all image paths + binary labels from Kermany folder structure."""
+    chest_root = os.path.join(cxr_dir, "chest_xray")
+    rows = []
+
+    for split in ["train", "val", "test"]:
+        for cls_name, cls_id in CXR_LABELS.items():
+            folder = os.path.join(chest_root, split, cls_name)
+            if not os.path.isdir(folder):
+                continue
+            for fname in os.listdir(folder):
+                if fname.lower().endswith((".jpeg", ".jpg", ".png")):
+                    rows.append({
+                        "path":  os.path.join(folder, fname),
+                        "label": cls_id,
+                        "split": split,
+                    })
+
+    df = pd.DataFrame(rows)
+    print(f"\nChest X-Ray found: {len(df):,} total images")
+    for cls, idx in CXR_LABELS.items():
+        print(f"  {cls} ({idx}): {(df['label'] == idx).sum():,}")
+    return df
+
+
+def balanced_subset_cxr(df: pd.DataFrame, n_total: int = 3000,
+                         seed: int = 42) -> pd.DataFrame:
+    """Balanced: equal NORMAL and PNEUMONIA images."""
+    n_per_class = n_total // N_CXR_CLASSES
+    parts = []
+    for cls_idx in range(N_CXR_CLASSES):
+        pool = df[df["label"] == cls_idx]
+        n = min(n_per_class, len(pool))
+        parts.append(pool.sample(n=n, random_state=seed))
+    subset = pd.concat(parts).sample(frac=1, random_state=seed).reset_index(drop=True)
+    print(f"Balanced CXR subset: {len(subset):,} images "
+          f"({n_per_class} per class)")
+    return subset
+
+
+def preprocess_cxr(subset_df: pd.DataFrame, output_dir: str,
+                   img_size: int = 224) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load JPEG images (any colour mode), convert to RGB [3, H, W] float32.
+    ImageNet normalisation applied.
+    """
     from PIL import Image
     from torchvision import transforms
 
     os.makedirs(output_dir, exist_ok=True)
 
-    train_csv = os.path.join(chexpert_dir, "train.csv")
-    df = pd.read_csv(train_csv)
-
-    # Keep only frontal view
-    df = df[df["Frontal/Lateral"] == "Frontal"].reset_index(drop=True)
-
-    # Select 5 labels, apply U-zeros policy
-    label_cols = CHEXPERT_LABELS
-    for col in label_cols:
-        df[col] = df[col].fillna(0.0).replace(-1.0, 0.0).astype(np.float32)
-
-    if max_records is not None:
-        df = df.head(max_records)
-
     transform = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(img_size),
-        transforms.ToTensor(),
+        transforms.ToTensor(),                               # -> [3, H, W], [0,1]
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225]),
+                             std= [0.229, 0.224, 0.225]),
     ])
 
-    images = []
-    labels = []
-    patient_ids = []
+    images, labels = [], []
     failed = 0
 
-    for idx, row in df.iterrows():
-        img_path = os.path.join(chexpert_dir, row["Path"].lstrip("/"))
+    for _, row in subset_df.iterrows():
         try:
-            img = Image.open(img_path).convert("RGB")
-            img_tensor = transform(img).numpy()  # [3, 224, 224]
-            label = row[label_cols].values.astype(np.float32)
-            images.append(img_tensor)
-            labels.append(label)
-            patient_ids.append(row["Path"].split("/")[2])
+            img = Image.open(row["path"]).convert("RGB")    # handles JPEG/PNG/grey
+            images.append(transform(img).numpy())           # [3, 224, 224]
+            labels.append(int(row["label"]))
         except Exception:
             failed += 1
-            continue
 
-        if len(images) % 5000 == 0:
-            print(f"  Processed {len(images):,} / {len(df):,} CXRs...")
+        if len(images) % 500 == 0 and len(images) > 0:
+            print(f"  CXR: {len(images):,} / {len(subset_df):,} loaded...")
 
-    X = np.stack(images, axis=0)  # [N, 3, 224, 224]
-    y = np.stack(labels, axis=0)  # [N, 5]
-
-    # Save primary label (most prevalent pathology) for 5-class task
-    primary_labels = []
-    for lab in y:
-        pos = np.where(lab > 0)[0]
-        if len(pos) == 0 or (len(pos) == 1 and pos[0] == 0):
-            primary_labels.append(0)  # No Finding
-        else:
-            pos_pathology = pos[pos > 0]
-            primary_labels.append(int(pos_pathology[0]))
+    X = np.stack(images).astype(np.float32)  # [N, 3, 224, 224]
+    y = np.array(labels, dtype=int)          # [N]  0=NORMAL, 1=PNEUMONIA
 
     np.save(os.path.join(output_dir, "cxr_images.npy"), X)
-    np.save(os.path.join(output_dir, "cxr_multilabels.npy"), y)
-    np.save(os.path.join(output_dir, "cxr_primary_labels.npy"),
-            np.array(primary_labels))
-    np.save(os.path.join(output_dir, "cxr_patient_ids.npy"),
-            np.array(patient_ids))
+    np.save(os.path.join(output_dir, "cxr_labels.npy"), y)
 
-    print(f"CheXpert preprocessing complete: {len(images):,} images saved.")
-    print(f"  Failed: {failed}, Saved to: {output_dir}")
+    print(f"CXR saved: {X.shape}  (failed: {failed})  -> {output_dir}")
     return X, y
 
 
+# ── Multimodal Dataset ────────────────────────────────────────────────────────
+
 class HealthcareDataset(Dataset):
     """
-    Paired PTB-XL ECG + CheXpert CXR dataset.
-    Pairing: within-class synthetic pairing when patient IDs don't match.
+    Multimodal dataset pairing ECG (5-class) + CXR (binary) + tabular.
+
+    Pairing logic (synthetic, within-bucket):
+      ECG class 0 (NORM)  ↔  CXR class 0 (NORMAL)
+      ECG class 1-4 (any) ↔  CXR class 1 (PNEUMONIA)
+
+    Returns: (ecg [12,1000], cxr [3,224,224], tabular [F], label [int])
+    label = ECG 5-class label (primary classification target)
     """
 
-    def __init__(self, ecg_signals: np.ndarray, ecg_labels: np.ndarray,
-                 cxr_images: np.ndarray, cxr_labels: np.ndarray,
-                 mode: str = "train"):
-        self.ecg = torch.FloatTensor(ecg_signals)   # [N, 12, 1000]
-        self.cxr = torch.FloatTensor(cxr_images)    # [M, 3, 224, 224]
-        self.ecg_labels = torch.LongTensor(ecg_labels)
-        self.cxr_labels = torch.LongTensor(cxr_labels)
-        self.mode = mode
+    def __init__(self,
+                 ecg_signals:   np.ndarray,
+                 ecg_labels:    np.ndarray,
+                 cxr_images:    np.ndarray,
+                 cxr_labels:    np.ndarray,
+                 tabular_feats: np.ndarray,
+                 seed: int = 42):
+        self.ecg = torch.FloatTensor(ecg_signals)
+        self.cxr = torch.FloatTensor(cxr_images)
+        self.tab = torch.FloatTensor(tabular_feats)
+        self.ecg_labels = ecg_labels
+        self.label      = torch.LongTensor(ecg_labels)
 
-        # Build within-class pairing index
-        self._build_pairing()
+        np.random.seed(seed)
+        cxr_by_bucket = {0: np.where(cxr_labels == 0)[0],
+                         1: np.where(cxr_labels == 1)[0]}
 
-    def _build_pairing(self):
-        """Map each ECG sample to a CXR sample of the same class."""
-        n_classes = 5
-        cxr_by_class = {c: [] for c in range(n_classes)}
-        for i, lbl in enumerate(self.cxr_labels.tolist()):
-            cxr_by_class[lbl].append(i)
-
-        self.pairs = []
-        for ecg_idx, lbl in enumerate(self.ecg_labels.tolist()):
-            class_pool = cxr_by_class.get(lbl, [])
-            if len(class_pool) == 0:
-                class_pool = list(range(len(self.cxr)))
-            cxr_idx = int(np.random.choice(class_pool))
-            self.pairs.append((ecg_idx, cxr_idx))
+        self.pair_idx = []
+        for ecg_idx, ecg_cls in enumerate(ecg_labels):
+            bucket = ECG_TO_CXR_BUCKET[int(ecg_cls)]
+            pool   = cxr_by_bucket[bucket]
+            if len(pool) == 0:
+                pool = np.arange(len(cxr_labels))
+            self.pair_idx.append(int(np.random.choice(pool)))
 
     def __len__(self):
         return len(self.ecg)
 
-    def __getitem__(self, idx: int) -> Tuple:
-        ecg_idx, cxr_idx = self.pairs[idx]
+    def __getitem__(self, idx: int):
+        cxr_idx = self.pair_idx[idx]
         return (
-            self.ecg[ecg_idx],       # [12, 1000]
-            self.cxr[cxr_idx],       # [3, 224, 224]
-            self.ecg_labels[ecg_idx] # scalar label (PTB-XL 5-class)
+            self.ecg[idx],          # [12, 1000]
+            self.cxr[cxr_idx],      # [3, 224, 224]
+            self.tab[idx],          # [F]
+            self.label[idx],        # scalar ECG 5-class label
         )
 
 
+# ── Entry Point ────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ptbxl_dir",   default="data/raw/ptb-xl")
-    parser.add_argument("--chexpert_dir", default="data/raw/chexpert")
-    parser.add_argument("--output_dir",  default="data/processed/healthcare")
-    parser.add_argument("--max_ptbxl",   type=int, default=None)
-    parser.add_argument("--max_chexpert", type=int, default=None)
+    parser = argparse.ArgumentParser(
+        description="Preprocess healthcare datasets (PTB-XL + Chest X-Ray)"
+    )
+    parser.add_argument("--ptbxl_dir",  default="data/raw/ptb-xl")
+    parser.add_argument("--cxr_dir",    default="data/raw/chest-xray-pneumonia")
+    parser.add_argument("--output_dir", default="data/processed/healthcare")
+    parser.add_argument("--n_ecg",      type=int, default=5000,
+                        help="Total PTB-XL records to use (stratified, max=n_records from download)")
+    parser.add_argument("--n_cxr",      type=int, default=3000,
+                        help="Total CXR images to use (balanced)")
+    parser.add_argument("--img_size",   type=int, default=224)
+    parser.add_argument("--seed",       type=int, default=42)
+    parser.add_argument("--skip_ecg",   action="store_true",
+                        help="Skip ECG preprocessing if already done")
     args = parser.parse_args()
 
-    print("Preprocessing PTB-XL ECG data...")
-    preprocess_ptbxl(args.ptbxl_dir,
-                     os.path.join(args.output_dir, "ecg"),
-                     args.max_ptbxl)
+    print("=" * 60)
+    print("Healthcare Preprocessing Pipeline")
+    print("=" * 60)
 
-    print("\nPreprocessing CheXpert X-ray data...")
-    preprocess_chexpert(args.chexpert_dir,
-                        os.path.join(args.output_dir, "cxr"),
-                        args.max_chexpert)
+    # ── Modality A: ECG Signal ─────────────────────────────────────
+    ecg_out = os.path.join(args.output_dir, "ecg")
+    ecg_signals_path = os.path.join(ecg_out, "ecg_signals.npy")
 
-    print("\nPreprocessing complete.")
+    if args.skip_ecg and os.path.exists(ecg_signals_path):
+        print("\n[1/3] PTB-XL ECG — already done, loading from disk...")
+        ecg_X = np.load(ecg_signals_path)
+        ecg_y = np.load(os.path.join(ecg_out, "ecg_labels.npy"))
+        ecg_ids = np.load(os.path.join(ecg_out, "ecg_ids.npy"))
+        meta_df = load_ptbxl_metadata(args.ptbxl_dir)
+        subset  = stratified_subset_ptbxl(meta_df, n_total=args.n_ecg, seed=args.seed)
+        print(f"  Loaded {ecg_X.shape[0]:,} ECG records from {ecg_out}")
+    else:
+        print("\n[1/3] PTB-XL ECG (Signal modality)")
+        meta_df = load_ptbxl_metadata(args.ptbxl_dir)
+        subset  = stratified_subset_ptbxl(meta_df, n_total=args.n_ecg, seed=args.seed)
+        ecg_X, ecg_y = preprocess_ecg(args.ptbxl_dir, subset, ecg_out)
+
+    # ── Modality C: Tabular Metadata (from PTB-XL, no extra download) ─
+    print("\n[2/3] PTB-XL Metadata (Tabular modality)")
+    tab_out = os.path.join(args.output_dir, "tabular")
+    tab_X   = preprocess_tabular(subset, tab_out)
+
+    # ── Modality B: Chest X-Ray Image ──────────────────────────────
+    print("\n[3/3] Kermany Chest X-Ray (Image modality)")
+    cxr_paths  = load_cxr_paths(args.cxr_dir)
+    cxr_subset = balanced_subset_cxr(cxr_paths, n_total=args.n_cxr, seed=args.seed)
+    cxr_out    = os.path.join(args.output_dir, "cxr")
+    cxr_X, cxr_y = preprocess_cxr(cxr_subset, cxr_out, img_size=args.img_size)
+
+    # ── Summary ────────────────────────────────────────────────────
+    print("\n" + "=" * 60)
+    print("PREPROCESSING COMPLETE")
+    print("=" * 60)
+    print(f"  ECG signals  : {ecg_X.shape}   -> {ecg_out}")
+    print(f"  Tabular      : {tab_X.shape}    -> {tab_out}")
+    print(f"  CXR images   : {cxr_X.shape} -> {cxr_out}")
+    print()
+    print("Next step:")
+    print("  python data/loaders/partition_noniid.py \\")
+    print(f"    --input_dir {os.path.join(args.output_dir, 'ecg')} \\")
+    print(f"    --output_dir data/processed/partitions/healthcare")

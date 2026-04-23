@@ -1,0 +1,58 @@
+# ── Raw Datasets (never commit — too large) ───────────────────────────────────
+data/raw/ptb-xl/
+data/raw/chest-xray-pneumonia/
+data/raw/*.zip
+data/raw/*.tar
+data/raw/*.tar.gz
+data/raw/*.gz
+
+# ── Processed / Preprocessed Arrays ──────────────────────────────────────────
+data/processed/
+
+# ── FL Partition Index Files ──────────────────────────────────────────────────
+data/processed/partitions/
+
+# ── Model Checkpoints ─────────────────────────────────────────────────────────
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# ── ONNX Exports ──────────────────────────────────────────────────────────────
+onnx/
+*.onnx
+
+# ── Results / Logs ────────────────────────────────────────────────────────────
+results/
+*.csv
+*.log
+*.json
+
+# ── Python Cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual Environment ───────────────────────────────────────────────────────
+hfl_env/
+venv/
+env/
+.venv/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── OS / Editor Noise ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# ── Keep these tracked (loader scripts + partition metadata json if needed) ───
+!data/loaders/
+!data/loaders/*.py

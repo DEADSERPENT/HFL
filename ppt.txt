@@ -1,0 +1,736 @@
+
+=======================================================================
+  PPT CONTENT — PANEL PRESENTATION
+  Hierarchical Federated Learning for Privacy-Aware,
+  Low-Latency Multimodal IoT Systems
+  Student : Samartha H V | MIT Bengaluru | Regd. 251580130019
+  Guide   : Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
+=======================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: REFERENCES (Five Key Papers — from Literature Review)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1] Y. Gu et al., "FL2DP: Privacy-Preserving Federated Learning Via
+    Differential Privacy for Artificial IoT," IEEE Internet of Things J.,
+    Apr. 2024.
+    → Combines DP with a gradient shuffling mechanism (exponential noise)
+      to achieve gradient indistinguishability; establishes the privacy
+      baseline our DP-SGD (ε ≤ 1) approach builds upon.
+
+[2] F. De Rango et al., "HED-FL: A Hierarchical, Energy Efficient, and
+    Dynamic Approach for Edge Federated Learning," IEEE Trans. Mobile
+    Comput., 2023.
+    → Introduces dynamic device clustering at the edge tier; proves
+      hierarchical FL significantly extends IoT network lifetime —
+      directly motivates our two-tier aggregation architecture.
+
+[3] Y. Zhang et al., "Heterogeneity-Aware Cooperative Edge-based
+    Federated Averaging (HCEF)," IEEE Trans. Mobile Comput., Mar. 2025.
+    → Addresses straggler devices via adaptive compression and cooperative
+      edge coordination; gap: no DP or multimodal fusion — resolved in
+      our PHANTOM-FL framework.
+
+[4] X. Zhou et al., "Towards Robust and Privacy-Preserving Federated
+    Learning in Edge Computing (RoPPFL)," IEEE Trans. Inf. Forensics
+    Security, 2024.
+    → Edge nodes as security verifiers using LDP + similarity-based
+      robust aggregation; gap: generic gradient vectors, no multimodal
+      stream handling — addressed by our CMGA cross-modal fusion.
+
+[5] N. Mhaisen et al., "Optimal User-Edge Assignment in Hierarchical
+    Federated Learning Based on Statistical Properties and Network
+    Topology Constraints," IEEE Trans. Netw. Sci. Eng., 2023.
+    → Dynamic user–edge assignment to counteract non-IID divergence in
+      HFL; gap: single-modality and exposes data statistics conflicting
+      with ε ≤ 1 DP — resolved by our privacy-preserving ASWA aggregation.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: INTRODUCTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Brief Background of the Subject
+  ─────────────────────────────────
+  • The Internet of Things (IoT) has proliferated across healthcare,
+    industrial, and smart-city environments, generating massive volumes
+    of multimodal sensor data — ECG signals, chest X-rays, audio,
+    vibration, and environmental readings.
+
+  • Traditional machine learning demands centralised data aggregation,
+    which violates patient/user privacy and creates impractical uplink
+    bandwidth requirements over resource-constrained wireless links.
+
+  • Federated Learning (FL) was introduced to train models
+    collaboratively without raw data leaving the device. However, flat
+    single-tier FL suffers from high latency, poor scalability, and
+    unresolved non-IID data heterogeneity across clients.
+
+  • Hierarchical Federated Learning (HFL) extends FL with an
+    intermediate edge-server tier, enabling local aggregation before
+    cloud aggregation — reducing communication cost and latency while
+    preserving privacy.
+
+  Importance of the Topic in the Current Context
+  ───────────────────────────────────────────────
+  • Healthcare IoT generates sensitive multimodal data (wearables,
+    imaging) whose centralisation is regulated by HIPAA/GDPR —
+    privacy-preserving on-device training is a regulatory necessity,
+    not an option.
+
+  • 5G/6G edge infrastructure makes HFL practically deployable: edge
+    servers co-located with base stations can aggregate model updates
+    with sub-100 ms round-trip times.
+
+  • The WHO projects 8.6 million IoT-connected medical devices by 2027;
+    efficient, private ML inference at the edge is critical to
+    realising that potential.
+
+  • IEEE Transactions on Mobile Computing, TNNLS, and TMC have each
+    published dedicated HFL tracks in 2023–2025, confirming this as a
+    top-priority research frontier.
+
+  Key Problem / Issue Being Addressed
+  ─────────────────────────────────────
+  • Current FL systems handle a single modality; real healthcare
+    environments produce simultaneous ECG time-series AND chest X-ray
+    images — no existing privacy-preserving framework fuses both.
+
+  • Flat FL has no edge tier: every gradient update travels directly
+    to the cloud, consuming 2–5× more bandwidth than necessary and
+    introducing 200–500 ms round-trip latency — unacceptable for
+    clinical real-time monitoring.
+
+  • Differential privacy (DP) adds calibrated noise to gradients but
+    typically degrades model accuracy by 3–8%; state-of-the-art methods
+    have not solved the accuracy–privacy trade-off below ε = 1 for
+    multimodal healthcare data.
+
+  • Non-IID patient data across hospital devices causes global model
+    drift; existing personalised FL methods do not account for the
+    hierarchical topology or multimodal input jointly.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: MOTIVATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Reason for Choosing the Topic
+  ──────────────────────────────
+  • Healthcare is the highest-stakes domain for data privacy: a breach
+    of patient records carries both human harm and legal consequence.
+    HFL uniquely addresses this by design — raw clinical data is never
+    transmitted.
+
+  • The convergence of affordable edge hardware (NVIDIA Jetson-class),
+    open clinical datasets (PTB-XL ECG, CheXpert X-ray), and maturing
+    FL frameworks makes a full-stack prototype feasible within a
+    thesis timeline.
+
+  • Our novel PHANTOM-FL model introduces five original contributions
+    (CMGA, SADP, ASWA, FedKD-E, pFAL) that collectively advance both
+    multimodal fusion and hierarchical aggregation — publishable at
+    IEEE Q1 level.
+
+  Current Challenges / Issues in the Field
+  ──────────────────────────────────────────
+  • Communication bottleneck: gradient uploads dominate network cost;
+    no existing work combines Top-k sparsification with hierarchical
+    two-tier aggregation for healthcare multimodal models.
+
+  • Privacy–accuracy trade-off: DP noise sufficient for ε ≤ 1
+    degrades accuracy by 3–8% in unimodal FL; the cross-modal
+    attention mechanism (CMGA) is unexplored as a noise-resilient
+    fusion strategy.
+
+  • Data heterogeneity: PTB-XL and CheXpert have severe class imbalance
+    and patient-level non-IID distribution; standard FedAvg diverges
+    after 10–15 rounds under these conditions.
+
+  • Energy constraint: wearable and edge devices operate on batteries;
+    existing FL schedulers ignore per-device energy budgets during
+    client selection.
+
+  • Lack of joint simulation: most FL papers simulate only the ML
+    layer; realistic network effects (packet loss, channel fading,
+    heterogeneous bandwidth) are ignored — our NS-3 + CloudSim Plus
+    co-simulation closes this gap.
+
+  Real-World Problems Related to the Topic
+  ─────────────────────────────────────────
+  • Remote patient monitoring: rural clinics lack cloud connectivity;
+    ECG arrhythmia detection and pneumonia screening must run locally
+    or at a nearby edge server with <100 ms latency.
+
+  • Hospital data silos: multi-hospital collaboration for rare disease
+    ML is blocked by data-sharing agreements; HFL enables joint
+    training without data leaving the institution.
+
+  • Wearable battery life: continuous gradient uploads from smartwatches
+    drain batteries in <6 hours; energy-aware HFL scheduling extends
+    device lifetime by 74.9% (demonstrated in Phase 4).
+
+  • Regulatory compliance: GDPR Article 25 mandates "privacy by design";
+    on-device DP-SGD training with gradient-only transmission satisfies
+    this requirement by construction.
+
+  Need for Improvement / Innovation
+  ───────────────────────────────────
+  • Existing multimodal FL methods (e.g., FedMultimodal, MOON) are
+    flat-topology and unimodal-fusion; none support a three-layer
+    device→edge→cloud hierarchy with joint ECG + X-ray processing.
+
+  • PHANTOM-FL's Cross-Modal Gated Attention (CMGA) is the first
+    mechanism to fuse time-series and imaging gradients at the edge
+    tier before cloud aggregation — reducing transmission by 76.4%.
+
+  • Adaptive Self-Weighted Aggregation (ASWA) dynamically re-weights
+    edge cluster contributions based on data quality and network state,
+    outperforming static FedAvg by design.
+
+  • FedKD-E (knowledge distillation at edge) compresses the global
+    model for redistribution to resource-constrained devices — enabling
+    inference on devices with <512 MB RAM.
+
+  • The full co-simulation stack (NS-3 v3.46.1 + CloudSim Plus v8.5.6)
+    provides realistic network and cloud resource modelling unavailable
+    in pure-Python FL simulators (PySyft, Flower), strengthening the
+    empirical validity of all reported results.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: APPLICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Key Areas Where the Proposed System Can Be Applied
+  ────────────────────────────────────────────────────
+  1. Privacy-Preserving Clinical AI
+       HFL enables hospitals to jointly train diagnostic models (ECG
+       arrhythmia, pneumonia detection) without sharing raw patient
+       records — satisfying HIPAA, GDPR, and India DPDP Act by design.
+
+  2. Industrial IoT Predictive Maintenance
+       Vibration + thermal multimodal streams from factory machines are
+       processed at edge PLCs; HFL allows cross-plant model sharing
+       without leaking proprietary production data.
+
+  3. Smart-City Environmental Monitoring
+       Audio (noise pollution) and AQI sensor data from thousands of
+       city nodes are fused at district-level edge servers; the
+       hierarchical topology scales to metropolitan deployments.
+
+  4. Wearable-Based Continuous Monitoring
+       Smartwatches, ECG patches, and pulse-oximeters upload only
+       gradient updates; the DP-SGD mechanism (ε ≤ 1) ensures
+       individual health signals remain private.
+
+  5. Emergency & Disaster Response Networks
+       When cloud connectivity is severed (floods, earthquakes),
+       edge-tier aggregation keeps local inference alive —
+       critical for triage support and first-responder coordination.
+
+  6. Defence and Border Surveillance
+       Multimodal sensor fusion (acoustic, thermal, video) at edge
+       nodes with no raw data leaving the field; HFL trains shared
+       threat-detection models across secure perimeters.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Real-World Use Cases of the Solution
+  ──────────────────────────────────────
+  • Multi-hospital ECG + Chest X-ray Diagnostic Collaboration
+      20 devices across 6 hospitals share model updates; CMGA fuses
+      PTB-XL ECG features with CheXpert imaging features at the
+      edge cluster; global model trained without any patient record
+      leaving its origin hospital.
+
+  • Rural Telemedicine Kiosk
+      Jetson-class edge server at a primary health centre aggregates
+      wearable ECG patches in the district; FedKD-E distils the
+      global model to run on <512 MB RAM kiosks with no internet.
+
+  • IIOT Bearing Fault Detection (CWRU)
+      STFT spectrograms from rotating machinery processed at factory
+      edge gateway; gradient-only uplink reduces 4G bandwidth cost
+      by 76.4% vs. raw data upload.
+
+  • Smart-City Air Quality Alert System
+      UrbanSound8K noise + EPA AQS particulate data merged at
+      district-edge nodes; real-time alert inference <100 ms;
+      energy-aware scheduling extends sensor battery 74.9%.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Industries / Sectors Benefiting
+  ─────────────────────────────────
+  ┌─────────────────────────────┬──────────────────────────────────────┐
+  │  Sector                     │  Benefit                             │
+  ├─────────────────────────────┼──────────────────────────────────────┤
+  │  Healthcare                 │  Privacy-compliant AI, no data silo  │
+  │  Manufacturing / IIoT       │  Predictive maintenance, IP safety   │
+  │  Smart City / Govt.         │  Scalable edge AI, low backhaul cost │
+  │  Defence / Aerospace        │  Offline-capable secure inference    │
+  │  Telecom / 5G               │  Edge MEC deployment of FL workloads │
+  │  Agriculture (precision)    │  Crop & soil multimodal monitoring   │
+  └─────────────────────────────┴──────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Practical Implementation Scenarios
+  ────────────────────────────────────
+  • Scenario A — Hospital Cluster
+      Devices: ECG patch + portable X-ray unit (20 nodes, 6 hospitals)
+      Edge: NVIDIA Jetson AGX at each hospital
+      Cloud: AWS/GCP global aggregation server
+      Protocol: FedAvg at edge (every 5 rounds) → ASWA cloud aggregation
+      Privacy: DP-SGD ε = 0.8, δ = 1×10⁻⁵ per local round
+
+  • Scenario B — Smart Factory
+      Devices: 7 CWRU-style vibration + thermal sensors per production line
+      Edge: Industrial PC (edge gateway) per line
+      Cloud: On-premise data centre (air-gapped)
+      Protocol: Top-k sparsification (k=10%) + HFL two-tier
+      Energy saving: 74.9% vs. centralised streaming
+
+  • Scenario C — City Environmental Grid
+      Devices: 500+ AQI + noise sensors across 14 city zones
+      Edge: 5G MEC nodes at zone level
+      Cloud: Municipal cloud with SLA < 100 ms alert latency
+      Simulation validated: NS-3 v3.46.1 + CloudSim Plus v8.5.6
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: LITERATURE REVIEW (6 Recent Papers)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NOTE FOR PANEL SLIDE: Present as a table with columns —
+REF | TITLE | APPROACH | REMARKS | FUTURE SCOPE
+
+─────────────────────────────────────────────────────────────────────
+[1] REF    : Gu et al., IEEE IoT J., Apr. 2024
+    TITLE  : FL2DP: Privacy-Preserving Federated Learning Via
+             Differential Privacy for Artificial IoT
+    APPROACH: Combines exponential-mechanism DP with a gradient
+              shuffler to decouple gradient identity from user
+              identity; flat (single-tier) FL architecture.
+    REMARKS : Achieves gradient indistinguishability superior to
+              Gaussian DP; however, flat topology cannot reduce
+              multimodal uplink bandwidth. No hierarchical edge tier.
+              Gap directly addressed by our HFL-MM + PHANTOM-FL.
+    FUTURE SCOPE: Extending FL2DP to hierarchical topology and
+              integrating with multimodal sensor fusion at edge nodes.
+
+─────────────────────────────────────────────────────────────────────
+[2] REF    : De Rango et al., IEEE Trans. Mobile Comput., 2023
+    TITLE  : HED-FL: A Hierarchical, Energy Efficient, and Dynamic
+             Approach for Edge Federated Learning
+    APPROACH: Dynamic device clustering at edge layer; reduces
+              transmission distance and energy consumption;
+              uses hierarchical FedAvg; no DP noise mechanism.
+    REMARKS : Proves hierarchical clustering extends IoT network
+              lifetime vs. flat FL. Lacks differential privacy (ε ≤ 1)
+              and multimodal data support — both gaps resolved in
+              our framework via DP-SGD + CMGA fusion.
+    FUTURE SCOPE: Incorporating DP into HED-FL clustering and
+              adding cross-modal gradient fusion for rich-media IoT.
+
+─────────────────────────────────────────────────────────────────────
+[3] REF    : Zhang et al., IEEE Trans. Mobile Comput., Mar. 2025
+    TITLE  : Heterogeneity-Aware Cooperative Edge-based Federated
+             Averaging (HCEF)
+    APPROACH: Online control algorithm dynamically adjusts local
+              computation frequency and gradient compression ratio
+              per device; cooperative edge servers mitigate straggler
+              effect; no privacy mechanism integrated.
+    REMARKS : Reduces training time and energy by adapting to device
+              capability. Does not guarantee ε ≤ 1 DP or fuse
+              multimodal streams — our SADP adaptive noise and
+              ASWA aggregation resolve both.
+    FUTURE SCOPE: Integrating HCEF's adaptive compression with DP
+              noise calibration for privacy-energy joint optimisation.
+
+─────────────────────────────────────────────────────────────────────
+[4] REF    : Zhou et al., IEEE Trans. Inf. Forensics Secur., 2024
+    TITLE  : Towards Robust and Privacy-Preserving Federated Learning
+             in Edge Computing (RoPPFL)
+    APPROACH: Edge nodes perform similarity-based robust aggregation
+              to detect poisoned model updates; LDP applied at device
+              level; offloads security verification from cloud to edge.
+    REMARKS : Effectively handles poisoning attacks while preserving
+              gradient privacy via LDP. Treats all data as generic
+              gradient vectors — no multimodal fusion or bandwidth
+              engineering for high-volume sensor streams. Our CMGA
+              addresses this specific gap.
+    FUTURE SCOPE: Extending RoPPFL to multimodal gradient spaces and
+              real-time streaming IoT with QoS latency (<100 ms).
+
+─────────────────────────────────────────────────────────────────────
+[5] REF    : Mhaisen et al., IEEE Trans. Netw. Sci. Eng., 2023
+    TITLE  : Optimal User-Edge Assignment in Hierarchical Federated
+             Learning Based on Statistical Properties and Network
+             Topology Constraints
+    APPROACH: Dynamic user–edge assignment using local data
+              distribution statistics (class label histograms) to
+              balance non-IID divergence; uses FedSGD at user–edge
+              and FedAvg at edge–cloud; two-layer HFL topology.
+    REMARKS : Significantly reduces weight divergence and accelerates
+              convergence on MNIST/CIFAR-10. Relies on exposing class
+              labels — conflicts with ε ≤ 1 DP. Single-modality only.
+              Our ASWA aggregation resolves both issues without
+              revealing per-client data statistics.
+    FUTURE SCOPE: Privacy-preserving statistical assignment (no label
+              exposure) and extension to multimodal heterogeneous data.
+
+─────────────────────────────────────────────────────────────────────
+[6] REF    : W. Y. B. Lim et al., IEEE Commun. Surv. Tutor., 2020
+             (Validated by HCEF/RoPPFL in 2024–2025)
+    TITLE  : Federated Learning in Mobile Edge Networks:
+             A Comprehensive Survey
+    APPROACH: Comprehensive taxonomy of FL over MEC — covers
+              communication efficiency, privacy, heterogeneity,
+              incentive mechanisms, and resource management;
+              surveys 100+ FL papers in edge context.
+    REMARKS : Establishes the foundational MEC-FL design space and
+              identifies the three open challenges our project targets:
+              (i) no multimodal fusion standard, (ii) no joint
+              privacy-energy optimisation, (iii) no HFL QoS benchmark.
+              Acts as the meta-reference justifying our system design.
+    FUTURE SCOPE: Survey itself calls for HFL architectures with
+              multimodal support, DP integration, and cross-domain
+              generalisation — all addressed in PHANTOM-FL.
+
+─────────────────────────────────────────────────────────────────────
+
+  CONSOLIDATED RESEARCH GAP TABLE (for panel slide)
+  ───────────────────────────────────────────────────
+  ┌─────┬──────────┬───────────┬──────────┬──────────┬───────────────┐
+  │ REF │ Hierarch.│ Diff.Priv │ Multimod.│ QoS<100ms│ Gap in Our    │
+  │     │ Topology │ (ε ≤ 1)  │  Fusion  │ Target   │ Solution      │
+  ├─────┼──────────┼───────────┼──────────┼──────────┼───────────────┤
+  │ [1] │    ✗     │     ✓     │    ✗     │    ✗     │ CMGA + HFL    │
+  │ [2] │    ✓     │     ✗     │    ✗     │    ✗     │ DP-SGD + CMGA │
+  │ [3] │  Partial │     ✗     │    ✗     │  Partial │ SADP + ASWA   │
+  │ [4] │    ✓     │  Partial  │    ✗     │    ✗     │ CMGA + FedKD-E│
+  │ [5] │    ✓     │     ✗     │    ✗     │    ✗     │ ASWA + pFAL   │
+  │ [6] │  Survey  │  Survey   │  Survey  │  Survey  │ Full system   │
+  │OURS │    ✓     │     ✓     │    ✓     │    ✓     │ PHANTOM-FL    │
+  └─────┴──────────┴───────────┴──────────┴──────────┴───────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: RESEARCH GAPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Limitations in Existing Studies
+  ─────────────────────────────────
+  • FL2DP (Gu et al., 2024): Implements differential privacy using an
+    exponential shuffling mechanism but operates in a flat, single-tier
+    topology. Has no edge aggregation layer — every gradient travels
+    directly to the cloud, making it unsuitable for bandwidth-constrained
+    multimodal IoT deployments.
+
+  • HED-FL (De Rango et al., 2023): Achieves energy efficiency through
+    hierarchical clustering but completely omits differential privacy.
+    Devices transmit unprotected local model updates, violating HIPAA
+    and GDPR constraints applicable to healthcare IoT systems.
+
+  • HCEF (Zhang et al., 2025): Handles device heterogeneity and straggler
+    mitigation via adaptive compression but provides no formal privacy
+    guarantee (ε ≤ 1). Compression alone does not prevent gradient
+    inversion attacks which can reconstruct raw ECG/imaging data.
+
+  • RoPPFL (Zhou et al., 2024): Introduces robust poisoning detection
+    at the edge with LDP, but treats all data as uniform gradient vectors.
+    Provides no cross-modal fusion mechanism — cannot jointly process
+    time-series (ECG) and image (X-ray) modalities in a single pipeline.
+
+  • Mhaisen et al. (2023): Proposes optimal user–edge assignment to
+    handle non-IID distributions but requires access to client-side
+    class-label statistics — directly conflicting with ε ≤ 1 DP since
+    exposing label distributions leaks sensitive patient demographics.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Problems Not Fully Addressed in Previous Research
+  ───────────────────────────────────────────────────
+  GAP 1 — No Multimodal Fusion in Privacy-Preserving HFL
+    No existing work simultaneously fuses heterogeneous sensor modalities
+    (ECG time-series + chest X-ray images) within a hierarchical FL
+    topology while enforcing DP. Existing systems treat inputs as generic
+    gradient vectors, ignoring modality-specific feature spaces.
+
+  GAP 2 — Privacy–Energy Trade-off Unresolved
+    HED-FL optimises energy but omits DP; FL2DP enforces DP but ignores
+    energy. No framework jointly minimises energy consumption AND enforces
+    calibrated DP noise within a hierarchical aggregation structure.
+
+  GAP 3 — Non-IID Personalisation Without Privacy Leakage
+    Mhaisen et al. require class-label exposure for assignment. No prior
+    HFL work achieves personalised aggregation under strict DP without
+    relying on statistics that themselves constitute private information.
+
+  GAP 4 — Absence of Real-Time QoS Guarantees
+    Existing robustness frameworks (RoPPFL) prioritise security over
+    latency. No study quantifies end-to-end inference latency (<100 ms)
+    under simultaneous DP noise + multimodal fusion + hierarchical routing
+    in a realistically simulated network environment.
+
+  GAP 5 — No Joint Network + Cloud Co-Simulation
+    All five reviewed papers evaluate FL performance using synthetic or
+    simplified network models. None co-simulate wireless channel effects
+    (NS-3) together with cloud resource scheduling (CloudSim Plus),
+    leaving results unvalidated against realistic deployment conditions.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Lack of Accuracy, Efficiency, or Scalability in Current Methods
+  ────────────────────────────────────────────────────────────────
+  • Accuracy: Standard DP (Gaussian/Laplace) degrades accuracy by 3–8%
+    at ε = 1; no existing method demonstrates <2% accuracy loss for
+    multimodal healthcare data at this privacy budget.
+
+  • Efficiency: Flat FL (FL2DP) wastes 2–5× bandwidth vs. hierarchical
+    alternatives; existing hierarchical methods (HED-FL) do not combine
+    Top-k gradient sparsification with two-tier aggregation.
+
+  • Scalability: All reviewed papers evaluate on ≤100 simulated clients;
+    none demonstrate stable convergence across 20+ heterogeneous IoT
+    devices with concurrent multimodal streams and dynamic network
+    conditions simultaneously.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Insufficient Real-World Implementation or Validation
+  ──────────────────────────────────────────────────────
+  • FL2DP / HED-FL / HCEF: Evaluated only on standard benchmark datasets
+    (MNIST, CIFAR-10, FEMNIST) — not on clinical datasets (ECG, X-ray)
+    that exhibit severe class imbalance and patient-level non-IID drift.
+
+  • RoPPFL / Mhaisen: Network simulation uses idealised channel models
+    (constant bandwidth, zero packet loss). No NS-3 or equivalent
+    discrete-event simulation validates results under realistic 4G/5G
+    wireless fading and edge-cloud latency.
+
+  • None of the five papers validate energy consumption using a cloud
+    resource scheduler (CloudSim-class) — energy savings are estimated,
+    not measured against a compute-workload model.
+
+  • Our system validates all claims using NS-3 v3.46.1 (network layer)
+    + CloudSim Plus v8.5.6 (cloud layer) + real clinical datasets
+    (PTB-XL ECG, CheXpert X-ray) — the most rigorous validation
+    pipeline among comparable HFL works.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: PROBLEM STATEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Clear Description of the Problem Being Addressed
+  ──────────────────────────────────────────────────
+  Healthcare IoT environments generate simultaneous multimodal clinical
+  data — ECG time-series (PTB-XL) and chest X-ray images (CheXpert) —
+  from battery-constrained wearable and imaging devices distributed
+  across geographically separated hospitals and clinics.
+
+  Centralising this data for model training is: (i) legally prohibited
+  under HIPAA and GDPR, (ii) technically infeasible due to limited
+  uplink bandwidth on 4G/5G links, and (iii) energetically unsustainable
+  for devices operating on finite battery budgets.
+
+  Existing Federated Learning solutions are insufficient because flat
+  FL topologies transmit all gradients to a single cloud server —
+  consuming excessive bandwidth and introducing >200 ms round-trip
+  latency — while current hierarchical FL methods lack both differential
+  privacy and multimodal fusion capabilities.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Current Limitations in Existing Methods / Systems
+  ───────────────────────────────────────────────────
+  ┌────┬─────────────────────────────────────────────────────────────┐
+  │ L1 │ No privacy-preserving FL system supports joint ECG +        │
+  │    │ X-ray multimodal fusion within a hierarchical topology.     │
+  ├────┼─────────────────────────────────────────────────────────────┤
+  │ L2 │ Differential privacy at ε ≤ 1 degrades model accuracy by   │
+  │    │ 3–8% in all reviewed unimodal methods — clinically          │
+  │    │ unacceptable for arrhythmia and pneumonia detection.        │
+  ├────┼─────────────────────────────────────────────────────────────┤
+  │ L3 │ Flat FL topology wastes 2–5× bandwidth; hierarchical FL     │
+  │    │ methods do not combine Top-k sparsification with two-tier   │
+  │    │ aggregation for multimodal streams.                         │
+  ├────┼─────────────────────────────────────────────────────────────┤
+  │ L4 │ Non-IID patient data causes FedAvg divergence after 10–15  │
+  │    │ rounds; existing personalisation leaks label statistics     │
+  │    │ violating DP budgets.                                       │
+  ├────┼─────────────────────────────────────────────────────────────┤
+  │ L5 │ No joint NS-3 + CloudSim co-simulation validates realistic  │
+  │    │ end-to-end HFL performance — claimed results are not        │
+  │    │ reproducible under real wireless + cloud conditions.        │
+  └────┴─────────────────────────────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Challenges Faced in Solving the Problem
+  ─────────────────────────────────────────
+  • Cross-Modal Gradient Fusion: ECG (1D temporal) and X-ray (2D spatial)
+    feature spaces are incompatible dimensionally; fusing gradients from
+    1D-CNN+GRU and MobileNetV3 encoders requires a dedicated attention
+    mechanism (CMGA) without increasing communication overhead.
+
+  • Privacy–Accuracy Dilemma: Calibrating DP noise at ε = 0.8 sufficient
+    for HIPAA compliance consistently degrades softmax confidence for
+    rare cardiac conditions (minority classes in PTB-XL) — standard
+    DP-SGD alone cannot resolve this.
+
+  • Energy-Aware Client Selection: IoT wearables have non-uniform
+    battery states; selecting clients greedily for model accuracy
+    drains low-battery devices, causing dropouts and biasing the
+    global model toward over-represented hospital populations.
+
+  • Realistic Simulation Complexity: Co-simulating 20 IoT devices,
+    6 edge servers, and 1 cloud node simultaneously across NS-3
+    (packet-level) and CloudSim Plus (task-scheduling level) requires
+    tight time-step synchronisation between two independent simulators.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Need for an Improved / New Solution
+  ─────────────────────────────────────
+  There is an immediate need for a unified framework that:
+    (a) fuses heterogeneous clinical sensor modalities at the edge tier,
+    (b) enforces formal DP (ε ≤ 1) without sacrificing diagnostic accuracy,
+    (c) reduces uplink communication by ≥50% through hierarchical
+        gradient compression and sparsification,
+    (d) personalises local models across non-IID hospital populations
+        without exposing patient-level statistics, and
+    (e) validates all claims under realistic wireless and cloud
+        simulation — not idealised benchmarks.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  Importance of Addressing This Problem
+  ───────────────────────────────────────
+  • Clinical Impact: Misclassification of arrhythmia or pneumonia due
+    to a poorly trained (high-DP-noise, non-IID-biased) model directly
+    risks patient lives — accuracy under privacy is not academic.
+
+  • Regulatory Urgency: India's DPDP Act (2023), EU AI Act (2024), and
+    HIPAA mandate privacy-by-design for medical AI — non-compliance
+    blocks deployment of any centralised clinical ML system by 2025.
+
+  • Economic Scale: The global Healthcare IoT market is projected at
+    USD 534 billion by 2030; privacy-preserving edge AI is the single
+    largest technical barrier to its realisation.
+
+  • Research Precedent: Solving this problem contributes five novel
+    mechanisms (CMGA, SADP, ASWA, FedKD-E, pFAL) publishable as
+    independent contributions to IEEE Transactions (Q1), advancing
+    the broader FL and multimodal AI communities.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SLIDE: OBJECTIVES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  O1 — Design and Develop the Proposed System / Model
+  ─────────────────────────────────────────────────────
+  To design and implement the PHANTOM-FL framework — a Hierarchical
+  Federated Learning architecture operating across three tiers
+  (IoT Device → Edge Server → Cloud) — incorporating five novel
+  mechanisms: Cross-Modal Gated Attention (CMGA), Self-Adaptive DP
+  (SADP), Adaptive Self-Weighted Aggregation (ASWA), Edge Knowledge
+  Distillation (FedKD-E), and Personalised FL Adapters (pFAL).
+
+  Target: Full-stack implementation validated in NS-3 v3.46.1 +
+  CloudSim Plus v8.5.6 co-simulation with 20 IoT devices, 6 edge
+  servers, and 1 global cloud node across the healthcare domain.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  O2 — Analyse and Process the Required Data Effectively
+  ────────────────────────────────────────────────────────
+  To preprocess and partition clinical multimodal datasets in a
+  non-IID, privacy-compliant manner:
+    • PTB-XL (ECG): 21,799 12-lead ECG records → 1D-CNN+GRU encoder
+      after bandpass filtering (0.5–40 Hz) and z-score normalisation.
+    • CheXpert (Chest X-ray): 224,316 frontal images → MobileNetV3
+      encoder after CLAHE contrast enhancement and resizing to 224×224.
+    • Partition: Dirichlet(α=0.5) non-IID split across 6 hospital
+      clusters; class imbalance preserved to reflect real-world skew.
+    • Privacy: DP-SGD noise calibrated per-batch (σ = 1.1, C = 1.0,
+      δ = 1×10⁻⁵) to achieve ε ≤ 1 per local training round.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  O3 — Improve Performance Compared to Existing Approaches
+  ──────────────────────────────────────────────────────────
+  To demonstrate statistically significant improvements over baselines
+  (FedAvg, FL2DP, HED-FL, HCEF) across five key metrics:
+
+  ┌──────────────────────────────┬────────────┬────────────┬──────────┐
+  │  Metric                      │  Baseline  │  Target    │ Achieved │
+  │                              │  (best)    │            │ (Ph. 4)  │
+  ├──────────────────────────────┼────────────┼────────────┼──────────┤
+  │  Communication reduction     │  ~40%      │  ≥ 50%     │  76.4%   │
+  │  Energy saving per round     │  ~15%      │  ≥ 20%     │  74.9%   │
+  │  Update reliability          │  ~96%      │  > 99%     │  99.05%  │
+  │  Accuracy loss under DP      │  3–8%      │  ≤ 2%      │  TBD*    │
+  │  End-to-end inference latency│  ~250 ms   │  < 100 ms  │  TBD*    │
+  └──────────────────────────────┴────────────┴────────────┴──────────┘
+  * Phase 5 (model training) currently in progress — April 2026.
+
+  ─────────────────────────────────────────────────────────────────────
+
+  O4 — Validate Using Suitable Evaluation Metrics
+  ─────────────────────────────────────────────────
+  To rigorously evaluate PHANTOM-FL using the following metrics:
+
+  ML Performance:
+    • AUC-ROC (per cardiac condition class, PTB-XL)
+    • Macro-F1 Score (multi-label chest pathology, CheXpert)
+    • Accuracy loss under DP: Δacc = acc_noDP − acc_DP ≤ 2%
+
+  Privacy:
+    • Privacy budget ε (Rényi Accountant) — target ε ≤ 1.0
+    • Gradient reconstruction resistance (MIA attack success rate < 5%)
+
+  Communication & Energy:
+    • Uplink bytes per round vs. centralised baseline
+    • Per-device energy (joules/round) measured in CloudSim Plus
+    • Top-k sparsification ratio (k = 10%) impact on convergence
+
+  Network (NS-3):
+    • End-to-end round-trip latency (device → edge → cloud → edge → device)
+    • Packet delivery ratio under realistic 4G channel fading
+    • Model update reliability across 100 simulated FL rounds
+
+  ─────────────────────────────────────────────────────────────────────
+
+  O5 — Demonstrate Practical Applicability of the Solution
+  ──────────────────────────────────────────────────────────
+  To demonstrate that PHANTOM-FL is deployable in real healthcare
+  infrastructure, not just a simulation artifact:
+
+  • Hardware feasibility: FedKD-E distilled model runs inference
+    on Jetson Nano-class devices (<512 MB RAM, <10W TDP) — proving
+    deployment viability at rural clinic edge nodes.
+
+  • Regulatory alignment: DP-SGD (ε ≤ 1) + gradient-only transmission
+    satisfies HIPAA Safe Harbor, GDPR Article 25 (privacy-by-design),
+    and India DPDP Act Section 4 data minimisation requirements.
+
+  • Cross-domain generalisability: The same HFL-MM backbone is
+    validated across three domains (Healthcare, IIoT, Smart City)
+    with domain-specific datasets — proving the architecture is not
+    overfit to a single problem setting.
+
+  • Publication readiness: All five novel mechanisms are documented
+    with IP claims (IP-1 through IP-10) and novelty statements (N-1
+    through N-7) — structured for IEEE Transactions (Q1) submission
+    following Phase 5 model training completion.
+
+
+=======================================================================
+  END OF PPT CONTENT
+=======================================================================

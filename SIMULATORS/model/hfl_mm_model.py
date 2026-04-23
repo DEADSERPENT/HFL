@@ -25,6 +25,28 @@ def replace_bn_with_gn(module: nn.Module, num_groups: int = 8) -> nn.Module:
     return module
 
 
+def replace_inplace_activations(module: nn.Module) -> nn.Module:
+    """
+    Replace all inplace activations with non-inplace equivalents.
+    Required for Opacus DP-SGD: inplace ops conflict with per-sample gradient hooks.
+    Covers Hardswish, Hardsigmoid, ReLU, ReLU6, SiLU, GELU used in MobileNetV3.
+    """
+    for name, child in module.named_children():
+        if isinstance(child, nn.Hardswish):
+            setattr(module, name, nn.Hardswish(inplace=False))
+        elif isinstance(child, nn.Hardsigmoid):
+            setattr(module, name, nn.Hardsigmoid(inplace=False))
+        elif isinstance(child, nn.ReLU):
+            setattr(module, name, nn.ReLU(inplace=False))
+        elif isinstance(child, nn.ReLU6):
+            setattr(module, name, nn.ReLU6(inplace=False))
+        elif isinstance(child, nn.SiLU):
+            setattr(module, name, nn.SiLU(inplace=False))
+        else:
+            replace_inplace_activations(child)
+    return module
+
+
 class CXREncoder(nn.Module):
     """MobileNetV3-Small for chest X-ray feature extraction."""
 
@@ -123,6 +145,7 @@ class HFLMMHC(nn.Module):
 def build_hfl_mm_hc(n_classes: int = 5, **kwargs) -> HFLMMHC:
     model = HFLMMHC(n_classes=n_classes, **kwargs)
     replace_bn_with_gn(model)
+    replace_inplace_activations(model)
     return model
 
 

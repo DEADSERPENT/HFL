@@ -49,6 +49,7 @@ SIMULATORS/cloudsim-plus/cloudsim-plus-source/
 venv/
 env/
 .env
+hfl_env/
 
 # ── IDE / Editor ─────────────────────────────────────────────
 .vscode/
