@@ -40,16 +40,40 @@ SIMULATORS/ns3/ns-3-dev/compile_commands.json
 # ── CloudSim Plus source (large, not our code) ───────────────
 SIMULATORS/cloudsim-plus/cloudsim-plus-source/
 
-# ── Simulation results (generated — do not commit raw CSVs) ──
-# Commit only if you want reproducibility artifacts in the repo.
-# SIMULATORS/results/
-
-# ── Virtual environments ─────────────────────────────────────
+# ── Virtual environment (5.9 GB — never commit) ──────────────
 .venv/
 venv/
 env/
-.env
 hfl_env/
+
+# ── Raw datasets (2.6 GB — download via setup script) ────────
+SIMULATORS/data/raw/
+
+# ── Large processed arrays (re-generate with preprocess_healthcare.py) ──
+# ecg_signals.npy  = 229 MB
+SIMULATORS/data/processed/healthcare/ecg/ecg_signals.npy
+# cxr_images.npy   = 1.7 GB
+SIMULATORS/data/processed/healthcare/cxr/cxr_images.npy
+# duplicate label file at wrong path
+SIMULATORS/data/processed/healthcare/ecg_labels.npy
+
+# NOTE: Small .npy files ARE tracked (partition indices, labels ≤100 KB):
+#   data/processed/partitions/healthcare/device_0X_{train,val,test}.npy  (4-8 KB)
+#   data/processed/healthcare/ecg/ecg_labels.npy   (40 KB)
+#   data/processed/healthcare/cxr/cxr_labels.npy   (24 KB)
+#   data/processed/healthcare/tabular/*.npy         (≤100 KB)
+# These let any device reproduce exact splits without re-running partition step.
+
+# ── Model checkpoints & exported models (large binaries) ─────
+*.pt
+*.pth
+*.onnx
+*.bin
+*.h5
+*.pkl
+*.npz
+checkpoints/
+onnx/
 
 # ── IDE / Editor ─────────────────────────────────────────────
 .vscode/
@@ -74,7 +98,6 @@ desktop.ini
 !notebooks/**/*.ipynb
 
 # ── Logs & temp ──────────────────────────────────────────────
-*.log
 *.tmp
 *.bak
 *.orig
@@ -83,23 +106,17 @@ desktop.ini
 # ── RESUME tmp (keep locally, not in repo) ───────────────────
 RESUME/
 
-# ── Model weights & large binaries ──────────────────────────
-*.pt
-*.pth
-*.onnx
-*.bin
-*.h5
-*.pkl
-*.npz
-*.npy
-
 # ── Sensitive config (never commit credentials) ──────────────
 .env
 secrets.json
 credentials.json
 
-# ── flvision-dashboard (React + Vite frontend) ─────────────────────
+# ── Dashboard build artifacts ────────────────────────────────
 flvision-dashboard/node_modules/
 flvision-dashboard/dist/
 flvision-dashboard/.vite/
 flvision-dashboard/*.local
+hfl-dashboard/node_modules/
+hfl-dashboard/dist/
+hfl-dashboard/.vite/
+hfl-dashboard/*.local

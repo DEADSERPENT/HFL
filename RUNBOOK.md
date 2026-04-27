@@ -302,10 +302,17 @@ cd ~/DEADSERPENT/HFL/SIMULATORS
 mkdir -p results/phase5 checkpoints onnx
 ```
 
-**Step 3 — Launch the pipeline:**
+**Step 3 — Launch the unified pipeline (recommended):**
 ```bash
-python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
+python -u run_pipeline.py --mode all 2>&1 | tee results/phase5/run_log.txt
 ```
+
+This single command:
+- Trains all baselines (B0–B5) and HFL-MM-HC (P1)
+- **Automatically triggers NS-3 network simulation** (reads real uplink bytes from training)
+- **Automatically triggers CloudSim** energy/resource simulation
+- Collects all results into `phase5_results.csv`
+- Prints a colored QoS pass/fail dashboard
 
 **Step 4 — Detach from tmux (leave it running safely in background):**
 
@@ -323,6 +330,56 @@ tail -f ~/DEADSERPENT/HFL/SIMULATORS/results/phase5/run_log.txt
 tmux attach -t phase5
 ```
 
+---
+
+### Unified Pipeline Modes
+
+```bash
+# Full pipeline: baselines + HFL + NS-3 + CloudSim + collect (default)
+python -u run_pipeline.py --mode all
+
+# Baselines only → NS-3 → CloudSim → collect
+python -u run_pipeline.py --mode baselines
+
+# HFL-MM-HC only → NS-3 → CloudSim → collect  (most common during dev)
+python -u run_pipeline.py --mode hfl
+
+# Re-run simulations only (no training) — NS-3 + CloudSim + collect
+python -u run_pipeline.py --mode sim
+
+# Just re-aggregate results and print dashboard
+python -u run_pipeline.py --mode collect
+
+# Training only — skip NS-3 + CloudSim (quick accuracy check)
+python -u run_pipeline.py --mode hfl --no-sim
+
+# Skip CloudSim, keep NS-3
+python -u run_pipeline.py --mode all --no-cloudsim
+
+# Skip specific baselines (e.g., skip B4 DP-FedAvg which is slow)
+python -u run_pipeline.py --mode all --skip B4
+```
+
+All parameters carry through to the underlying training scripts:
+```bash
+python -u run_pipeline.py --mode all --rounds 20 --batch_size 64 --epsilon 1.0 --lr 1e-3
+```
+
+---
+
+### Granular step control (advanced)
+
+```bash
+python run_phase5.py --steps 4        # B0 centralized only
+python run_phase5.py --steps 5        # baselines B1–B5 only
+python run_phase5.py --steps 6        # HFL-MM-HC training only
+python run_phase5.py --steps 4,5,6    # steps 4, 5, and 6 only
+```
+
+`run_phase5.py` auto-triggers NS-3 + CloudSim after training steps (4/5/6) — same behaviour as `run_pipeline.py`.
+
+---
+
 **If data is not yet prepared (Steps 1–3), run everything in one shot inside tmux:**
 ```bash
 python data/loaders/download_datasets.py && \
@@ -334,22 +391,7 @@ python data/loaders/partition_noniid.py \
     --domain healthcare --alpha 0.5 --n_devices 6 --n_edges 2 \
     --input_dir  data/processed/healthcare \
     --output_dir data/processed/partitions && \
-python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
-```
-
-`run_phase5.py` defaults to all steps (4 through 11): B0 baseline → baselines B1–B5 → HFL-MM-HC training → ε sweep → ONNX export → latency benchmark → collect results.
-
-**Run individual steps only (useful for re-running or debugging):**
-```bash
-python run_phase5.py --steps 4        # B0 centralized only
-python run_phase5.py --steps 5        # baselines B1–B5 only
-python run_phase5.py --steps 6        # HFL-MM-HC training only
-python run_phase5.py --steps 4,5,6    # steps 4, 5, and 6 only
-```
-
-**Convenience script** (activates env + runs all ML steps — still run this inside tmux):
-```bash
-bash ~/DEADSERPENT/HFL/run_phase5.sh
+python -u run_pipeline.py --mode all 2>&1 | tee results/phase5/run_log.txt
 ```
 
 ---
@@ -789,17 +831,35 @@ QoS SUMMARY:
 
 ## 6. Running Individual Components
 
-### Run a single baseline only
+### Run all baselines (B0–B5) — paper-quality settings
 
 ```bash
-cd ~/HFL/SIMULATORS
-source ~/HFL/hfl_env/bin/activate
+cd ~/DEADSERPENT/HFL/SIMULATORS
+source ~/DEADSERPENT/HFL/hfl_env/bin/activate
 
-python model/baselines.py --mode fedavg \
-    --partition_dir data/processed/partitions/healthcare \
+python -u model/baselines.py \
     --data_dir data/processed/healthcare \
-    --output results/phase5/baseline_b2.csv
+    --partition_dir data/processed/partitions/healthcare \
+    --output_dir results/phase5 \
+    --b0_epochs 10 --b1_epochs 15 --rounds 20 \
+    --local_epochs 2 --batch_size 64 --lr 1e-3 \
+    2>&1 | tee results/phase5/final_baselines_log.txt
 ```
+
+### Run a single baseline (e.g. only B2 FedAvg)
+
+```bash
+cd ~/DEADSERPENT/HFL/SIMULATORS
+python -u model/baselines.py \
+    --data_dir data/processed/healthcare \
+    --partition_dir data/processed/partitions/healthcare \
+    --output_dir results/phase5 \
+    --rounds 20 --local_epochs 2 --batch_size 64 \
+    --skip b0 b1 b3 b4 b5
+```
+
+> **Note:** Use `--skip` to skip any combination of b0 b1 b2 b3 b4 b5.
+> Always use `python -u` (unbuffered) so progress prints in real time.
 
 ### Test FedMamba-HC encoder alone
 
@@ -859,17 +919,23 @@ python model/clinical_cmga_design.py
 | Inference latency (P95) | < 100 ms | — | ~67 ms | PASS |
 | Accuracy loss at ε=1 | ≤ 2% | — | ~1.5% | PASS |
 
-### Phase 5 Model Comparison
+### Phase 5 Model Comparison — REAL RESULTS (2026-04-27)
+
+Config: 20 rounds, local_epochs=2, batch_size=64, lr=1e-3, PTB-XL+Kermany, 6 devices
 
 | System | Macro-AUC | Accuracy | ε | Notes |
 |---|---|---|---|---|
-| B0 Centralized | ~0.870 | ~85% | ∞ | Upper bound |
-| B1 Local Only | ~0.730 | ~71% | ∞ | Lower bound |
-| B2 FedAvg | ~0.840 | ~82% | ∞ | Standard FL |
-| B3 FedProx | ~0.845 | ~82.5% | ∞ | Non-IID aware |
-| B4 DP-FedAvg | ~0.820 | ~80% | 1.0 | Flat DP-FL |
-| B5 MOON | ~0.835 | ~81.5% | ∞ | Contrastive FL |
-| **P1 HFL-MM-HC (Ours)** | **~0.850** | **~83%** | **1.0** | **Our model** |
+| B0 Centralized | **0.8788** | 0.6547 | ∞ | Upper bound — pooled training |
+| B2 FedAvg | **0.8787** | 0.6583 | ∞ | ≈ Centralized — FL works ✓ |
+| B3 FedProx | **0.8766** | 0.6450 | ∞ | μ=0.01, matches FedAvg ✓ |
+| B5 MOON | 0.6941 | 0.3709 | ∞ | Contrastive FL, 20 rounds |
+| B1 Local Only | 0.7738 ±0.060 | 0.4841 | ∞ | Lower bound — no federation |
+| B4 DP-FedAvg | **0.4792** | 0.1536 | 1.0 | **Flat DP-FL collapses −45.7%** |
+| **P1 HFL-MM-HC (Ours)** | **PENDING** | PENDING | **1.0** | **Target: ≥0.860** |
+
+> **Key finding:** Flat DP-FL (B4) drops from 0.879→0.479 at ε=1.0.
+> HFL-MM-HC two-tier hierarchy targets this gap (same privacy budget, better accuracy).
+> Full report: `SIMULATORS/results/phase5/resultreport.txt`
 
 ### Key result files
 
@@ -1030,12 +1096,24 @@ To force ECG-only mode, delete or rename `data/raw/chest-xray-pneumonia/` and ru
 
 | Phase | Title | Status | Key Output |
 |---|---|---|---|
-| Phase 1 | System Design & Topology | COMPLETE | Design topology: 20 devices → 3 edges → 1 cloud (simulation uses 6 devices, 2 edges for speed) |
+| Phase 1 | System Design & Topology | COMPLETE | 3-layer HFL: IoT → Edge → Cloud topology |
 | Phase 2 | Algorithm Design | COMPLETE | HFL-MM + PHANTOM-FL design |
 | Phase 3 | NS-3 + CloudSim Setup | COMPLETE | Simulators installed and validated |
-| Phase 4 | Simulation Validation | COMPLETE | Comm -76.4%, Energy -74.9%, Reliability 99.05% |
-| **Phase 5** | **Healthcare Dataset + Model** | **ACTIVE** | PTB-XL + Kermany CXR, HFL-MM-HC, B0–B5, ONNX |
+| Phase 4 | Simulation Validation | COMPLETE | Comm −76.4%, Energy −74.9%, Reliability 99.05% |
+| **Phase 5** | **Healthcare Dataset + Model** | **ACTIVE** | Baselines B0–B5 COMPLETE. HFL-MM-HC run PENDING |
 | Phase 6 | PHANTOM-FL + ClinicalCMGA | NEXT | Full novel model, ablation, paper figures |
+
+### Phase 5 Baseline Status (updated 2026-04-27)
+
+| Baseline | Status | Macro-AUC | Command |
+|---|---|---|---|
+| B0 Centralized | ✅ DONE | 0.8788 | `--skip b1 b2 b3 b4 b5` |
+| B1 Local Only | ✅ DONE | 0.7738 | `--skip b0 b2 b3 b4 b5` |
+| B2 FedAvg | ✅ DONE | 0.8787 | `--skip b0 b1 b3 b4 b5` |
+| B3 FedProx | ✅ DONE | 0.8766 | `--skip b0 b1 b2 b4 b5` |
+| B4 DP-FedAvg | ✅ DONE | 0.4792 | `--skip b0 b1 b2 b3 b5` |
+| B5 MOON | ✅ DONE | 0.6941 | `--skip b0 b1 b2 b3 b4` |
+| P1 HFL-MM-HC | ⏳ PENDING | — | `python -u model/hfl_trainer.py ...` |
 
 ### What is implemented as of Phase 5
 
@@ -1062,4 +1140,84 @@ To force ECG-only mode, delete or rename `data/raw/chest-xray-pneumonia/` and ru
 
 ---
 
-*Last updated: 2026-04-27 | Phase 5 active — always run pipeline steps inside tmux*
+---
+
+## 11. Two-Device Workflow (Sync Between Machines)
+
+You are working on **two devices**. The repo excludes datasets and hfl_env (too large).
+Follow this workflow to stay in sync.
+
+### What is in git (committed, syncs automatically)
+- All source code (`SIMULATORS/model/`, `SIMULATORS/data/loaders/`, etc.)
+- All configs (`SIMULATORS/config/`, `hfl_config.json`)
+- All results CSVs and reports (`SIMULATORS/results/`)
+- Small partition index files (`data/processed/partitions/healthcare/*.npy`)
+- Small label files (`ecg_labels.npy`, `cxr_labels.npy`, `tabular_features.npy`)
+- RUNBOOK.md, phase reports, .gitignore
+
+### What is NOT in git (re-create on new device)
+- `hfl_env/` — 5.9 GB virtual environment
+- `SIMULATORS/data/raw/` — 2.6 GB raw datasets
+- `SIMULATORS/data/processed/healthcare/ecg/ecg_signals.npy` — 229 MB
+- `SIMULATORS/data/processed/healthcare/cxr/cxr_images.npy` — 1.7 GB
+
+### Push from Device A (after any code/results change)
+
+```bash
+cd ~/DEADSERPENT/HFL
+git add -A
+git status          # review what will be committed — check no large files
+git commit -m "phase5: <brief description of what changed>"
+git push
+```
+
+### Pull on Device B
+
+```bash
+cd ~/DEADSERPENT/HFL
+git pull
+# Code and results are now up to date.
+# No need to re-run preprocessing — small .npy partition files are already synced.
+# Only need to re-download raw data and re-process large arrays if not done yet.
+```
+
+### First-time setup on Device B (after cloning)
+
+```bash
+# 1. Clone repo
+git clone <your-repo-url> ~/DEADSERPENT/HFL
+cd ~/DEADSERPENT/HFL
+
+# 2. Create venv and install packages
+python3.11 -m venv hfl_env
+source hfl_env/bin/activate
+pip install --upgrade pip
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip install opacus wfdb scipy scikit-learn pandas pillow torchvision openpyxl
+
+# 3. Download raw datasets (PTB-XL auto, CXR via Kaggle)
+cd SIMULATORS
+python scripts/download_datasets.py
+
+# 4. Re-run preprocessing for the two large arrays only
+python data/loaders/preprocess_healthcare.py \
+    --ptbxl_dir data/raw/ptb-xl \
+    --cxr_dir data/raw/chest-xray-pneumonia \
+    --output_dir data/processed/healthcare \
+    --skip_ecg   # only regenerate CXR if ECG was already done
+
+# 5. Partition files are already synced from git — skip partition step
+# 6. Run baselines or hfl_trainer directly
+```
+
+### Check what git will commit (safety check before every push)
+
+```bash
+git status          # shows modified + untracked
+git diff --stat     # shows what changed in tracked files
+# If you see any .npy > 1MB or hfl_env/ — stop and check .gitignore
+```
+
+---
+
+*Last updated: 2026-04-27 | Phase 5 Baselines COMPLETE — HFL-MM-HC run PENDING*

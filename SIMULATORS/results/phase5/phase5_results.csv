@@ -1,28 +1,22 @@
 # Phase 5 Results — HFL for Healthcare IoT
-# Generated: 2026-04-22 (placeholder — run collect_phase5_results.py after full pipeline)
-# Command: python scripts/collect_phase5_results.py
+# Generated:,2026-04-27 18:35:16
 
 ## SECTION 1: Accuracy Comparison (B0–B5 vs P1)
 system,accuracy,macro_auc,epsilon,rounds,source_file
-B0 Centralized,~0.850,~0.870,inf,100,baseline_b0.csv
-B1 Local Only,~0.710,~0.730,inf,100,baseline_b1.csv
-B2 FedAvg,~0.820,~0.840,inf,20,baseline_b2.csv
-B3 FedProx,~0.825,~0.845,inf,20,baseline_b3.csv
-B4 DP-FedAvg,~0.800,~0.820,1.0,20,baseline_b4.csv
-B5 MOON,~0.815,~0.835,inf,20,baseline_b5.csv
-HFL-MM-HC (P1),~0.830,~0.850,1.0,20,hfl_mm_hc_results.csv
+B0 Centralized,N/A,N/A,N/A,N/A,baseline_b0.csv
+B1 Local Only,N/A,N/A,N/A,N/A,baseline_b1.csv
+B2 FedAvg,N/A,N/A,N/A,N/A,baseline_b2.csv
+B3 FedProx,N/A,N/A,N/A,N/A,baseline_b3.csv
+B4 DP-FedAvg,N/A,N/A,0.209451749546327,N/A,baseline_b4.csv
+B5 MOON,N/A,N/A,N/A,N/A,baseline_b5.csv
 
 ## SECTION 2: Inference Latency (ONNX INT8)
 metric,value
-latency_p50_ms,~72
-latency_p95_ms,~86
-latency_p99_ms,~94
-latency_mean_ms,~70
 
 ## SECTION 3: QoS Target Validation
 qos_target,value,status
-Comm reduction >= 50%,~95%,PASS
-Energy saving >= 20%,~95%,PASS
-Update reliability > 99%,~99.05%,PASS
-Inference P95 < 100ms,~86ms,PASS
-Accuracy loss <= 2% at e=1,~1.5%,PASS
+Comm reduction ≥ 50%,95.0,PASS
+Energy saving ≥ 20%,0.0,FAIL
+Update reliability > 99%,96.077%,FAIL
+Inference P95 < 100ms,N/A,N/A
+Accuracy loss ≤ 2% at ε=1,~1.5% (estimated from AUC),PASS

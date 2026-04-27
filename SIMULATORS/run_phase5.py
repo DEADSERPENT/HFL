@@ -2,9 +2,14 @@
 Phase 5 Pipeline Runner — runs all steps sequentially.
 Usage: python run_phase5.py [--steps 4,5,6,7,8,9,11]
        (default: all steps 4-11)
+
+NOTE: For the full integrated pipeline (training + NS-3 + CloudSim + QoS
+      dashboard), prefer the unified runner:
+        python run_pipeline.py --mode all
+      This file remains for step-by-step granular control.
 """
 
-import os, sys, argparse, time
+import os, sys, argparse, time, subprocess
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "model"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "data", "loaders"))
 
@@ -344,5 +349,19 @@ if __name__ == "__main__":
     if 11 in steps:
         step11_collect()
 
-    elapsed = time.time() - t0
-    log(f"Pipeline complete in {elapsed/60:.1f} min")
+    # ── Auto-trigger NS-3 + CloudSim after any training step ─────────────────
+    # Steps 4 (B0), 5 (B1-B5), or 6 (HFL-MM-HC) all produce results that
+    # feed the network simulation.  Run them automatically so the full
+    # pipeline feels integrated even when using this granular runner.
+    trained_steps = {4, 5, 6}
+    if trained_steps & steps and not any(arg in sys.argv for arg in ["--no-sim"]):
+        log("Training complete — auto-triggering NS-3 + CloudSim simulations...")
+        _pipeline = os.path.join(os.path.dirname(__file__), "run_pipeline.py")
+        subprocess.run(
+            [sys.executable, _pipeline, "--mode", "sim",
+             "--results_dir", RESULTS_DIR],
+            cwd=os.path.dirname(__file__)
+        )
+
+    elapsed_s = time.time() - t0
+    log(f"Pipeline complete in {elapsed_s/60:.1f} min")

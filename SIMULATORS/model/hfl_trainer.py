@@ -196,6 +196,7 @@ def train_hfl_mm_hc(args) -> Dict:
 
         edge_states = {e: copy.deepcopy(global_state) for e in range(n_edges)}
         round_eps_spent = []
+        round_uplink_bytes = 0   # total compressed bytes uploaded this global round
 
         for edge_round in range(1, args.tau_e + 1):
             edge_client_states = {e: [] for e in range(n_edges)}
@@ -223,6 +224,12 @@ def train_hfl_mm_hc(args) -> Dict:
                     if global_state[n].is_floating_point()
                 }
                 compressed = compressor.compress(delta_params)
+                # Measure actual uplink bytes: int32 indices + uint8 values + 8B header per layer
+                _uplink_bytes = sum(
+                    len(v["indices"]) * 4 + len(v["values_uint8"]) + 8
+                    for v in compressed.values()
+                )
+                round_uplink_bytes += _uplink_bytes
                 decompressed = compressor.decompress(compressed, device)
 
                 # Reconstruct full state with compressed delta
@@ -283,6 +290,7 @@ def train_hfl_mm_hc(args) -> Dict:
             "epsilon_spent": round(max_eps, 4),
             "q_global": round(q_global, 4),
             "round_time_s": round(round_time, 2),
+            "uplink_bytes": round_uplink_bytes,   # feeds ns3_phase5_integration.py
         }
         results_log.append(log_entry)
 
@@ -330,20 +338,37 @@ def train_hfl_mm_hc(args) -> Dict:
 
 
 if __name__ == "__main__":
+    import json as _json, os as _os
+    # Load shared config defaults (overridable by CLI args)
+    _cfg_path = _os.path.join(_os.path.dirname(__file__), "..", "config", "hfl_config.json")
+    _cfg = {}
+    if _os.path.exists(_cfg_path):
+        with open(_cfg_path) as _f:
+            _raw = _json.load(_f)
+        _cfg = {
+            "rounds":    _raw.get("federated_learning", {}).get("total_fl_rounds", 20),
+            "tau_e":     _raw.get("federated_learning", {}).get("tau_e", 5),
+            "epsilon":   _raw.get("privacy", {}).get("epsilon", 1.0),
+            "delta":     _raw.get("privacy", {}).get("delta", 1e-5),
+            "lr":        _raw.get("federated_learning", {}).get("learning_rate", 1e-3),
+            "batch_size":_raw.get("federated_learning", {}).get("batch_size", 32),
+        }
+        print(f"[Config] Loaded defaults from {_cfg_path}")
+
     parser = argparse.ArgumentParser(description="HFL-MM-HC Trainer")
     parser.add_argument("--data_dir",       default="data/processed/healthcare")
     parser.add_argument("--partition_dir",  default="data/processed/partitions/healthcare")
-    parser.add_argument("--rounds",         type=int,   default=20)
-    parser.add_argument("--tau_e",          type=int,   default=5)
+    parser.add_argument("--rounds",         type=int,   default=_cfg.get("rounds",     20))
+    parser.add_argument("--tau_e",          type=int,   default=_cfg.get("tau_e",      5))
     parser.add_argument("--n_devices",      type=int,   default=6)
     parser.add_argument("--n_edges",        type=int,   default=2)
     parser.add_argument("--n_classes",      type=int,   default=5)
-    parser.add_argument("--epsilon",        type=float, default=1.0)
-    parser.add_argument("--delta",          type=float, default=1e-5)
+    parser.add_argument("--epsilon",        type=float, default=_cfg.get("epsilon",    1.0))
+    parser.add_argument("--delta",          type=float, default=_cfg.get("delta",      1e-5))
     parser.add_argument("--max_grad_norm",  type=float, default=1.0)
     parser.add_argument("--alpha_conf",     type=float, default=0.1)
-    parser.add_argument("--lr",             type=float, default=1e-3)
-    parser.add_argument("--batch_size",     type=int,   default=32)
+    parser.add_argument("--lr",             type=float, default=_cfg.get("lr",         1e-3))
+    parser.add_argument("--batch_size",     type=int,   default=_cfg.get("batch_size", 32))
     parser.add_argument("--sparsity",       type=float, default=0.2)
     parser.add_argument("--quant_bits",     type=int,   default=8)
     parser.add_argument("--save_checkpoint", default="checkpoints/best_model_hc.pt")
