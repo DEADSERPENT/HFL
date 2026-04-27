@@ -28,14 +28,14 @@ ONNX_DIR      = "onnx"
 N_CLASSES     = 5
 N_DEVICES     = 6
 N_EDGES       = 2
-ROUNDS        = 20
-TAU_E         = 5
+ROUNDS        = 15
+TAU_E         = 3
 EPSILON       = 1.0
 DELTA         = 1e-5
 LR            = 1e-3
-BATCH_SIZE    = 32
-EPOCHS_B0     = 10   # reduced for speed (centralized baseline)
-EPOCHS_B1     = 5    # local only
+BATCH_SIZE    = 64   # larger batch = faster
+EPOCHS_B0     = 10
+EPOCHS_B1     = 5
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(CKPT_DIR,    exist_ok=True)
@@ -193,7 +193,7 @@ def step7_epsilon_sweep():
         n_edges       = N_EDGES,
         rounds        = 10,    # fewer rounds for sweep speed
         tau_e         = 3,
-        epsilons      = [0.1, 0.5, 1.0, 2.0, 5.0],
+        epsilons      = [0.5, 1.0, 2.0],   # key points only — 0.1 too noisy, inf = B0
         delta         = DELTA,
         output_dir    = f"{RESULTS_DIR}/epsilon_sweep",
     )
