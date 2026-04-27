@@ -81,9 +81,12 @@ def evaluate_model(model: nn.Module, loader: DataLoader,
     probs = torch.softmax(logits, dim=-1).numpy()
     preds = logits.argmax(dim=-1).numpy()
     acc = float((preds == labels).mean())
+    unique_classes = np.unique(labels)
     try:
-        auc = float(roc_auc_score(labels, probs, multi_class="ovr", average="macro"))
-    except Exception:
+        auc = float(roc_auc_score(labels, probs, multi_class="ovr", average="macro",
+                                  labels=list(range(probs.shape[1]))))
+    except Exception as e:
+        print(f"[AUC ERROR] {e} | unique labels: {unique_classes}")
         auc = 0.0
     return {"accuracy": acc, "macro_auc": auc}
 

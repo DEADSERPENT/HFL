@@ -302,9 +302,9 @@ class HealthcareDataset(Dataset):
                  cxr_labels:    np.ndarray,
                  tabular_feats: np.ndarray,
                  seed: int = 42):
-        self.ecg = torch.FloatTensor(ecg_signals)
-        self.cxr = torch.FloatTensor(cxr_images)
-        self.tab = torch.FloatTensor(tabular_feats)
+        self.ecg = torch.FloatTensor(np.array(ecg_signals))
+        self.cxr = torch.FloatTensor(np.array(cxr_images))
+        self.tab = torch.FloatTensor(np.array(tabular_feats))
         self.ecg_labels = ecg_labels
         self.label      = torch.LongTensor(ecg_labels)
 

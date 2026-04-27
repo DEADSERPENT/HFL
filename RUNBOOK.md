@@ -278,16 +278,53 @@ Run these steps **in order**. Each step's output is required by the next.
 
 ---
 
+### WARNING: Do NOT run from VS Code integrated terminal
+
+The Phase 5 pipeline loads ~2 GB of CXR data (expands to ~6–7 GB in RAM) and trains 7 models sequentially. Running it directly in the VS Code integrated terminal will cause VS Code to crash or be killed by the OS OOM killer.
+
+**Always run Phase 5 inside tmux.**
+
+---
+
 ### QUICK: Run All Phase 5 Steps (One Command)
 
-After datasets are downloaded and preprocessed (Steps 1–3), run the entire ML pipeline in one shot:
+After datasets are downloaded and preprocessed (Steps 1–3), run the entire ML pipeline inside tmux:
 
+**Step 1 — Open a tmux session:**
 ```bash
-cd ~/HFL
-source hfl_env/bin/activate
-cd SIMULATORS
+tmux new -s phase5
+```
 
-# Full pipeline: Steps 1-3 (data prep) + Steps 4-11 (training, evaluation, export)
+**Step 2 — Activate env and go to correct folder:**
+```bash
+source ~/DEADSERPENT/HFL/hfl_env/bin/activate
+cd ~/DEADSERPENT/HFL/SIMULATORS
+mkdir -p results/phase5 checkpoints onnx
+```
+
+**Step 3 — Launch the pipeline:**
+```bash
+python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
+```
+
+**Step 4 — Detach from tmux (leave it running safely in background):**
+
+Press `Ctrl+B`, then `D`
+
+---
+
+**Monitor progress from any terminal (VS Code or external):**
+```bash
+tail -f ~/DEADSERPENT/HFL/SIMULATORS/results/phase5/run_log.txt
+```
+
+**Reattach to the running session:**
+```bash
+tmux attach -t phase5
+```
+
+**If data is not yet prepared (Steps 1–3), run everything in one shot inside tmux:**
+```bash
 python data/loaders/download_datasets.py && \
 python data/loaders/preprocess_healthcare.py \
     --ptbxl_dir  data/raw/ptb-xl \
@@ -300,25 +337,19 @@ python data/loaders/partition_noniid.py \
 python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
 ```
 
-Or if data is already prepared (Steps 1–3 already done), just run the ML steps:
-
-```bash
-cd ~/HFL/SIMULATORS
-python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
-```
-
 `run_phase5.py` defaults to all steps (4 through 11): B0 baseline → baselines B1–B5 → HFL-MM-HC training → ε sweep → ONNX export → latency benchmark → collect results.
 
-Monitor training in real-time:
-
+**Run individual steps only (useful for re-running or debugging):**
 ```bash
-tail -f results/phase5/run_log.txt
+python run_phase5.py --steps 4        # B0 centralized only
+python run_phase5.py --steps 5        # baselines B1–B5 only
+python run_phase5.py --steps 6        # HFL-MM-HC training only
+python run_phase5.py --steps 4,5,6    # steps 4, 5, and 6 only
 ```
 
-**Convenience script** (activates env + runs all ML steps):
-
+**Convenience script** (activates env + runs all ML steps — still run this inside tmux):
 ```bash
-bash ~/HFL/run_phase5.sh
+bash ~/DEADSERPENT/HFL/run_phase5.sh
 ```
 
 ---
@@ -1031,4 +1062,4 @@ To force ECG-only mode, delete or rename `data/raw/chest-xray-pneumonia/` and ru
 
 ---
 
-*Last updated: 2026-04-27 | Phase 5 active*
+*Last updated: 2026-04-27 | Phase 5 active — always run pipeline steps inside tmux*

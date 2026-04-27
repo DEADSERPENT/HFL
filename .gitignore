@@ -98,8 +98,8 @@ RESUME/
 secrets.json
 credentials.json
 
-# ── fl-dashboard (React + Vite frontend) ─────────────────────
-fl-dashboard/node_modules/
-fl-dashboard/dist/
-fl-dashboard/.vite/
-fl-dashboard/*.local
+# ── flvision-dashboard (React + Vite frontend) ─────────────────────
+flvision-dashboard/node_modules/
+flvision-dashboard/dist/
+flvision-dashboard/.vite/
+flvision-dashboard/*.local

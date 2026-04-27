@@ -6,10 +6,13 @@ Fusion: Late fusion FC head with GroupNorm
 Wrapper: FedConform-HC (federated conformal prediction)  [IP-9]
 """
 
+import types
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
+from torchvision.models.mobilenetv3 import InvertedResidual
 from fedmamba_hc import build_fedmamba_hc
 
 
@@ -47,6 +50,26 @@ def replace_inplace_activations(module: nn.Module) -> nn.Module:
     return module
 
 
+def _patched_inverted_residual_forward(self, input: torch.Tensor) -> torch.Tensor:
+    """Out-of-place residual addition — required for Opacus per-sample gradient hooks."""
+    result = self.block(input)
+    if self.use_res_connect:
+        result = result + input  # was: result += input (inplace, breaks Opacus)
+    return result
+
+
+def fix_mobilenet_residuals(module: nn.Module) -> nn.Module:
+    """
+    Patch every InvertedResidual block in MobileNetV3 to use out-of-place addition.
+    Opacus's BackwardHookFunctionBackward cannot handle views modified inplace,
+    which is exactly what the default 'result += input' does.
+    """
+    for m in module.modules():
+        if isinstance(m, InvertedResidual):
+            m.forward = types.MethodType(_patched_inverted_residual_forward, m)
+    return module
+
+
 class CXREncoder(nn.Module):
     """MobileNetV3-Small for chest X-ray feature extraction."""
 
@@ -67,6 +90,8 @@ class CXREncoder(nn.Module):
 
         # Replace BatchNorm with GroupNorm for Opacus compatibility
         replace_bn_with_gn(self.features)
+        # Patch inplace residual += to out-of-place for Opacus
+        fix_mobilenet_residuals(self.features)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: [B, 3, 224, 224] → [B, 576]
@@ -146,6 +171,7 @@ def build_hfl_mm_hc(n_classes: int = 5, **kwargs) -> HFLMMHC:
     model = HFLMMHC(n_classes=n_classes, **kwargs)
     replace_bn_with_gn(model)
     replace_inplace_activations(model)
+    fix_mobilenet_residuals(model)
     return model
 
 

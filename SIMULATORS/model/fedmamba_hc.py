@@ -12,6 +12,7 @@ comparable accuracy and is fully compatible with DP-SGD (no BatchNorm).
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from opacus.layers import DPGRU
 
 
 class MultiScaleConvBlock(nn.Module):
@@ -99,7 +100,8 @@ class FedMambaHC(nn.Module):
         )
 
         # Stage 3: BiGRU captures long-range temporal dependencies
-        self.gru = nn.GRU(
+        # DPGRU is Opacus's DP-SGD-compatible GRU (same API as nn.GRU)
+        self.gru = DPGRU(
             input_size=d_model,
             hidden_size=d_model,
             num_layers=gru_layers,
@@ -134,10 +136,7 @@ class FedMambaHC(nn.Module):
 
 
 def build_fedmamba_hc(**kwargs) -> FedMambaHC:
-    model = FedMambaHC(**kwargs)
-    n_params = sum(p.numel() for p in model.parameters())
-    print(f"[ECG Encoder] 1D-CNN+BiGRU ready. Params: {n_params:,}")
-    return model
+    return FedMambaHC(**kwargs)
 
 
 if __name__ == "__main__":
