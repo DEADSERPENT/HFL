@@ -30,7 +30,7 @@ Guide: Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
 | GPU | NVIDIA GPU with CUDA 11.8+ (primary) — CPU fallback works but is slow |
 | VRAM | ≥ 8 GB recommended (RTX A2000 12GB confirmed working) |
 | RAM | ≥ 16 GB |
-| Disk | ≥ 20 GB free (PTB-XL subset ~500 MB, Kermany CXR ~1.15 GB, models + results ~5 GB) |
+| Disk | ≥ 8 GB free (PTB-XL raw ~156 MB, CXR raw ~1.3 GB, processed ~2 GB, results ~1 GB) |
 | Internet | Required for dataset download (PTB-XL auto via wfdb, Kermany CXR via Kaggle) |
 
 Check your GPU before anything:
@@ -262,6 +262,20 @@ cd ~/HFL/SIMULATORS
 
 Run these steps **in order**. Each step's output is required by the next.
 
+### Data Status (verified on this machine — 2026-04-27)
+
+| Step | What | Status | Location |
+|---|---|---|---|
+| Step 1 | PTB-XL 5,469 records downloaded | **DONE** | `SIMULATORS/data/raw/ptb-xl/` (~156 MB) |
+| Step 1 | Kermany CXR 5,863 images | **DONE** | `SIMULATORS/data/raw/chest-xray-pneumonia/` (~1.3 GB) |
+| Step 2 | ECG preprocessed tensor | **DONE** | `ecg/ecg_signals.npy` (229 MB) |
+| Step 2 | CXR preprocessed tensor | **DONE** | `cxr/cxr_images.npy` (1.7 GB) |
+| Step 2 | Tabular features | **DONE** | `tabular/tabular_features.npy` (98 KB) |
+| Step 3 | Partitions — 6 devices, 2 edges | **DONE** | `partitions/healthcare/device_00…05_*.npy` |
+| Steps 4–11 | Training, evaluation, export | **NOT YET RUN** | Run `bash ~/HFL/run_phase5.sh` |
+
+**On a fresh/another machine:** Steps 1–3 need to be re-run (raw data is not committed to git). Processed `.npy` files are also not committed (too large). Start from Step 1.
+
 ---
 
 ### QUICK: Run All Phase 5 Steps (One Command)
@@ -273,14 +287,14 @@ cd ~/HFL
 source hfl_env/bin/activate
 cd SIMULATORS
 
-# Full pipeline: Steps 1-3 (data) + Steps 4-11 (training, evaluation, export)
+# Full pipeline: Steps 1-3 (data prep) + Steps 4-11 (training, evaluation, export)
 python data/loaders/download_datasets.py && \
 python data/loaders/preprocess_healthcare.py \
     --ptbxl_dir  data/raw/ptb-xl \
     --cxr_dir    data/raw/chest-xray-pneumonia \
     --output_dir data/processed/healthcare && \
 python data/loaders/partition_noniid.py \
-    --domain healthcare --alpha 0.5 --n_devices 20 --n_edges 3 \
+    --domain healthcare --alpha 0.5 --n_devices 6 --n_edges 2 \
     --input_dir  data/processed/healthcare \
     --output_dir data/processed/partitions && \
 python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
@@ -315,11 +329,21 @@ bash ~/HFL/run_phase5.sh
 
 **Dataset summary:**
 
-| Modality | Dataset | Size | Download |
-|---|---|---|---|
-| ECG (Signal) | PTB-XL 12-lead | ~500 MB (stratified 5,500 records) | Auto via `wfdb` |
-| CXR (Image) | Kermany Chest X-Ray | ~1.15 GB (5,863 JPEGs) | Kaggle API key required |
-| Tabular | PTB-XL metadata CSV | included with PTB-XL | Auto |
+| Modality | Dataset | Raw size | Records | Download |
+|---|---|---|---|---|
+| ECG (Signal) | PTB-XL 12-lead | **~156 MB** | 5,469 records (stratified subset, 5 classes) | Auto via `wfdb` |
+| CXR (Image) | Kermany Chest X-Ray | **~1.3 GB** | 5,863 JPEGs (NORMAL + PNEUMONIA) | Kaggle API key required |
+| Tabular | PTB-XL metadata CSV | included with PTB-XL | scp_statements.csv | Auto |
+
+**Processed output sizes** (after Step 2):
+
+| File | Shape | Size on disk |
+|---|---|---|
+| `ecg/ecg_signals.npy` | (5469, 12, 1000) float32 | ~229 MB |
+| `ecg/ecg_labels.npy` | (5469,) int | ~40 KB |
+| `cxr/cxr_images.npy` | (N, 3, 224, 224) float32 | ~1.7 GB |
+| `cxr/cxr_labels.npy` | (N,) int | ~24 KB |
+| `tabular/tabular_features.npy` | (5469, features) float32 | ~98 KB |
 
 #### 1a — Install prerequisites (first time only)
 
@@ -342,8 +366,8 @@ python data/loaders/download_datasets.py
 When prompted enter your Kaggle username and API key (from `kaggle.json`).
 
 **What it does:**
-- Downloads a stratified 5,500-record subset of PTB-XL from PhysioNet via `wfdb` (~500 MB, ~25% of full dataset)
-- Downloads Kermany Chest X-Ray from Kaggle via `opendatasets` (~1.15 GB)
+- Downloads a stratified 5,500-record subset of PTB-XL from PhysioNet via `wfdb` (~156 MB actual, ~25% of full 1.7 GB dataset)
+- Downloads Kermany Chest X-Ray from Kaggle via `opendatasets` (~1.3 GB images)
 
 **Skip flags (if one dataset is already downloaded):**
 
@@ -378,7 +402,7 @@ Step 1/3 — Downloading PTB-XL metadata CSVs...
 Step 2/3 — Selecting 5,500 records (stratified)...
   Stratified subset: 5,500 records (~1100 per class × 5 classes)
 Step 3/3 — Downloading 11,000 record files (~440 MB estimated)...
-[OK] PTB-XL selective download complete. 5,500 records downloaded
+[OK] PTB-XL selective download complete. 5,469 records downloaded  (≈156 MB on disk)
 Downloading Kermany Chest X-Ray dataset from Kaggle...
 Please provide your Kaggle credentials.
 Username: <your-kaggle-username>
@@ -389,6 +413,30 @@ Key: <your-api-key>
 [OK] PTB-XL meta  : scp_statements.csv present (tabular modality)
 [OK] Chest X-Ray  : 1341 NORMAL + 3875 PNEUMONIA images → data/raw/chest-xray-pneumonia
 ```
+
+**Verified folder structure after download (confirmed working):**
+```
+data/raw/
+├── ptb-xl/
+│   ├── .download_complete          ← marker file; skip flag reads this
+│   ├── ptbxl_database.csv
+│   ├── scp_statements.csv
+│   └── records100/00000/ … /21000/ ← .dat + .hea pairs
+│
+└── chest-xray-pneumonia/
+    └── chest_xray/
+        ├── train/
+        │   ├── NORMAL/      (1,341 images)
+        │   └── PNEUMONIA/   (3,875 images)
+        ├── val/
+        │   ├── NORMAL/      (8 images)
+        │   └── PNEUMONIA/   (8 images)
+        └── test/
+            ├── NORMAL/      (234 images)
+            └── PNEUMONIA/   (390 images)
+```
+
+> The preprocess script reads from `chest_xray/{train,val,test}/{NORMAL,PNEUMONIA}/` — this matches exactly.
 
 ---
 
@@ -409,13 +457,17 @@ python data/loaders/preprocess_healthcare.py \
 
 **Runtime:** ~15–30 min depending on disk speed
 
-**Expected output files:**
+**Expected output files (actual verified sizes):**
 ```
-data/processed/healthcare/ecg/ecg_signals.npy    (21837, 12, 1000)
-data/processed/healthcare/ecg/ecg_labels.npy     (21837,)
-data/processed/healthcare/cxr/cxr_images.npy     (N, 3, 224, 224)
-data/processed/healthcare/cxr/cxr_primary_labels.npy
-data/processed/healthcare/pairs.json
+data/processed/healthcare/ecg/ecg_signals.npy       (~5469, 12, 1000) float32  ← 229 MB
+data/processed/healthcare/ecg/ecg_labels.npy        (~5469,)                   ← 40 KB
+data/processed/healthcare/ecg/ecg_ids.npy           (~5469,)
+data/processed/healthcare/ecg/ecg_folds.npy         (~5469,)
+data/processed/healthcare/cxr/cxr_images.npy        (N, 3, 224, 224) float32   ← 1.7 GB
+data/processed/healthcare/cxr/cxr_labels.npy        (N,)                        ← 24 KB
+data/processed/healthcare/tabular/tabular_features.npy  (5469, F)              ← 98 KB
+data/processed/healthcare/tabular/tabular_labels.npy
+data/processed/healthcare/tabular/tabular_columns.json
 ```
 
 ---
@@ -426,22 +478,27 @@ data/processed/healthcare/pairs.json
 python data/loaders/partition_noniid.py \
     --domain healthcare \
     --alpha 0.5 \
-    --n_devices 20 \
-    --n_edges 3 \
+    --n_devices 6 \
+    --n_edges 2 \
     --input_dir  data/processed/healthcare \
     --output_dir data/processed/partitions
 ```
 
 **What it does:**
-- Dirichlet(α=0.5) split across 20 IoT devices → realistic non-IID patient cohorts
+- Dirichlet(α=0.5) split across 6 IoT devices → realistic non-IID patient cohorts
 - 70% train / 15% val / 15% test per device
-- Assigns devices to 3 edge clusters (6–7 devices each)
+- Assigns devices to 2 edge clusters (3 devices each)
+
+**Actual partition (verified from partition_meta.json):**
+- 6 devices, 2 edges, 5,000 total samples
+- Edge 0: devices 0, 1, 2 | Edge 1: devices 3, 4, 5
+- Per-device samples: ~317–1090 (non-IID, Dirichlet α=0.5)
 
 **Expected output:**
 ```
-data/processed/partitions/device_00_train.npy  …  device_19_test.npy
-data/processed/partitions/partition_meta.json
-[Partition] Avg TVD from uniform: 0.42  (0=IID, 1=extreme non-IID)
+data/processed/partitions/healthcare/device_00_train.npy  …  device_05_test.npy
+data/processed/partitions/healthcare/partition_meta.json
+[Partition] 6 devices | 2 edges | α=0.5 | 5000 samples
 ```
 
 ---
@@ -455,7 +512,7 @@ python model/baselines.py \
     --output results/phase5/baseline_b0.csv
 ```
 
-**What it does:** Upper bound — trains on all 20 devices' data pooled, no FL, no DP
+**What it does:** Upper bound — trains on all 6 devices' data pooled, no FL, no DP
 
 **Expected result:** Macro-AUC ~0.87, Accuracy ~85%
 
@@ -469,14 +526,14 @@ Run all 5 in sequence (or in separate terminals for speed):
 # B1: Local Only (lower bound — no federation)
 python model/baselines.py \
     --mode local \
-    --partition_dir data/processed/partitions \
+    --partition_dir data/processed/partitions/healthcare \
     --data_dir data/processed/healthcare \
     --output results/phase5/baseline_b1.csv
 
 # B2: Standard FedAvg (McMahan 2017)
 python model/baselines.py \
     --mode fedavg \
-    --partition_dir data/processed/partitions \
+    --partition_dir data/processed/partitions/healthcare \
     --data_dir data/processed/healthcare \
     --output results/phase5/baseline_b2.csv
 
@@ -484,7 +541,7 @@ python model/baselines.py \
 python model/baselines.py \
     --mode fedprox \
     --mu 0.01 \
-    --partition_dir data/processed/partitions \
+    --partition_dir data/processed/partitions/healthcare \
     --data_dir data/processed/healthcare \
     --output results/phase5/baseline_b3.csv
 
@@ -492,7 +549,7 @@ python model/baselines.py \
 python model/baselines.py \
     --mode dp_fedavg \
     --epsilon 1.0 \
-    --partition_dir data/processed/partitions \
+    --partition_dir data/processed/partitions/healthcare \
     --data_dir data/processed/healthcare \
     --output results/phase5/baseline_b4.csv
 
@@ -500,7 +557,7 @@ python model/baselines.py \
 python model/baselines.py \
     --mode moon \
     --mu 5.0 \
-    --partition_dir data/processed/partitions \
+    --partition_dir data/processed/partitions/healthcare \
     --data_dir data/processed/healthcare \
     --output results/phase5/baseline_b5.csv
 ```
@@ -522,26 +579,26 @@ python model/baselines.py \
 
 ```bash
 python model/hfl_trainer.py \
-    --rounds 20 \
-    --tau_e 5 \
-    --n_devices 20 \
-    --n_edges 3 \
+    --rounds 15 \
+    --tau_e 3 \
+    --n_devices 6 \
+    --n_edges 2 \
     --epsilon 1.0 \
     --delta 1e-5 \
     --noise_mult 1.1 \
     --max_grad_norm 1.0 \
     --sparsity 0.2 \
     --quant_bits 8 \
-    --batch_size 32 \
+    --batch_size 64 \
     --n_classes 5 \
-    --partition_dir data/processed/partitions \
+    --partition_dir data/processed/partitions/healthcare \
     --data_dir data/processed/healthcare \
     --save_checkpoint checkpoints/best_model_hc.pt \
     --output results/phase5/hfl_mm_hc_results.csv
 ```
 
 **What it does:**
-- Two-tier FedAvg: 20 devices → 3 edges → 1 cloud
+- Two-tier FedAvg: 6 devices → 2 edges → 1 cloud
 - DP-SGD via Opacus (ε=1.0, σ=1.1, C=1.0)
 - Gradient compression: Top-20% sparsification + INT8 → 20× compression
 - FedConform-HC conformal calibration every edge round
@@ -708,7 +765,7 @@ cd ~/HFL/SIMULATORS
 source ~/HFL/hfl_env/bin/activate
 
 python model/baselines.py --mode fedavg \
-    --partition_dir data/processed/partitions \
+    --partition_dir data/processed/partitions/healthcare \
     --data_dir data/processed/healthcare \
     --output results/phase5/baseline_b2.csv
 ```
@@ -942,7 +999,7 @@ To force ECG-only mode, delete or rename `data/raw/chest-xray-pneumonia/` and ru
 
 | Phase | Title | Status | Key Output |
 |---|---|---|---|
-| Phase 1 | System Design & Topology | COMPLETE | Topology: 20 devices → 3 edges → 1 cloud |
+| Phase 1 | System Design & Topology | COMPLETE | Design topology: 20 devices → 3 edges → 1 cloud (simulation uses 6 devices, 2 edges for speed) |
 | Phase 2 | Algorithm Design | COMPLETE | HFL-MM + PHANTOM-FL design |
 | Phase 3 | NS-3 + CloudSim Setup | COMPLETE | Simulators installed and validated |
 | Phase 4 | Simulation Validation | COMPLETE | Comm -76.4%, Energy -74.9%, Reliability 99.05% |
