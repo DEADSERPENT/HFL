@@ -34,7 +34,7 @@ def evaluate(model: nn.Module, loader: DataLoader,
     all_logits, all_labels = [], []
     with torch.no_grad():
         for batch in loader:
-            ecg, cxr, labels = batch
+            ecg, cxr, _tab, labels = batch
             logits = model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
             all_logits.append(logits.cpu())
             all_labels.append(labels.cpu())
@@ -92,15 +92,15 @@ def run_centralized(model_fn, full_dataset, n_classes: int = 5,
     val_ds = Subset(full_dataset, range(n_train, n_train + n_val))
     test_ds = Subset(full_dataset, range(n_train + n_val, n))
 
-    train_loader = DataLoader(train_ds, batch_size=64, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_ds, batch_size=128, num_workers=4)
-    test_loader = DataLoader(test_ds, batch_size=128, num_workers=4)
+    train_loader = DataLoader(train_ds, batch_size=64, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=128, num_workers=0)
+    test_loader = DataLoader(test_ds, batch_size=128, num_workers=0)
 
     best_auc, best_state = 0.0, None
     for epoch in range(epochs):
         model.train()
         for batch in train_loader:
-            ecg, cxr, labels = batch
+            ecg, cxr, _tab, labels = batch
             optimizer.zero_grad()
             loss = loss_fn(model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)), labels.to(device, non_blocking=True))
             loss.backward()
@@ -150,7 +150,7 @@ def run_local_only(model_fn, device_loaders: List[Dict],
         for _ in range(epochs):
             model.train()
             for batch in loaders["train"]:
-                ecg, cxr, labels = batch
+                ecg, cxr, _tab, labels = batch
                 optimizer.zero_grad()
                 loss = loss_fn(model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)), labels.to(device, non_blocking=True))
                 loss.backward()
@@ -198,7 +198,7 @@ def run_fedavg(model_fn, device_loaders: List[Dict],
             n_samples = 0
             for _ in range(local_epochs):
                 for batch in loaders["train"]:
-                    ecg, cxr, labels = batch
+                    ecg, cxr, _tab, labels = batch
                     optimizer.zero_grad()
                     loss = loss_fn(local_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
                                    labels.to(device, non_blocking=True))
@@ -256,7 +256,7 @@ def run_fedprox(model_fn, device_loaders: List[Dict],
             n_samples = 0
             for _ in range(local_epochs):
                 for batch in loaders["train"]:
-                    ecg, cxr, labels = batch
+                    ecg, cxr, _tab, labels = batch
                     optimizer.zero_grad()
                     ce_loss = loss_fn(local_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
                                       labels.to(device, non_blocking=True))
@@ -323,7 +323,7 @@ def run_dp_fedavg(model_fn, device_loaders: List[Dict],
             n_samples = 0
             for _ in range(local_epochs):
                 for batch in dp_loader:
-                    ecg, cxr, labels = batch
+                    ecg, cxr, _tab, labels = batch
                     dp_opt.zero_grad()
                     loss = loss_fn(dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
                                    labels.to(device, non_blocking=True))
@@ -384,7 +384,7 @@ def run_moon(model_fn, device_loaders: List[Dict],
 
             for _ in range(local_epochs):
                 for batch in loaders["train"]:
-                    ecg, cxr, labels = batch
+                    ecg, cxr, _tab, labels = batch
                     ecg, cxr, labels = ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True), labels.to(device, non_blocking=True)
                     optimizer.zero_grad()
 
