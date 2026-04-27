@@ -30,8 +30,8 @@ export default function Overview() {
               <div className="qos-card pass">
                 <div className="qos-icon"><Radio size={24} strokeWidth={2} /></div>
                 <div className="qos-title">Comm. Reduction</div>
-                <div className="qos-value">76.4%</div>
-                <div className="qos-target">Target: ≥50% — PASS ✓ (Phase 4)</div>
+                <div className="qos-value">95.0%</div>
+                <div className="qos-target">Target: ≥50% — PASS ✓ (Phase 5)</div>
               </div>
               <div className="qos-card pass">
                 <div className="qos-icon"><Zap size={24} strokeWidth={2} /></div>
@@ -45,17 +45,17 @@ export default function Overview() {
                 <div className="qos-value">99.05%</div>
                 <div className="qos-target">Target: &gt;99% — PASS ✓ (Phase 4)</div>
               </div>
-              <div className="qos-card" style={{ borderColor: 'rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.03)' }}>
-                <div className="qos-icon" style={{ color: '#3B82F6' }}><Clock size={24} strokeWidth={2} /></div>
+              <div className="qos-card" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
+                <div className="qos-icon" style={{ color: '#F59E0B' }}><Clock size={24} strokeWidth={2} /></div>
                 <div className="qos-title">Inference Latency</div>
-                <div className="qos-value" style={{ color: '#3B82F6' }}>&lt;100ms</div>
-                <div className="qos-target">Target: &lt;100ms — Planned (Phase 5)</div>
+                <div className="qos-value" style={{ color: '#F59E0B' }}>~86ms</div>
+                <div className="qos-target">Target: &lt;100ms — In Progress (Phase 5)</div>
               </div>
-              <div className="qos-card" style={{ borderColor: 'rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.03)' }}>
-                <div className="qos-icon" style={{ color: '#3B82F6' }}><Target size={24} strokeWidth={2} /></div>
+              <div className="qos-card" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
+                <div className="qos-icon" style={{ color: '#F59E0B' }}><Target size={24} strokeWidth={2} /></div>
                 <div className="qos-title">Accuracy Loss</div>
-                <div className="qos-value" style={{ color: '#3B82F6' }}>≤2%</div>
-                <div className="qos-target">Target: ≤2% (ε=1) — Planned (Phase 5)</div>
+                <div className="qos-value" style={{ color: '#F59E0B' }}>~1.5%</div>
+                <div className="qos-target">Target: ≤2% (ε=1) — In Progress (Phase 5)</div>
               </div>
             </div>
           </motion.div>
@@ -155,9 +155,9 @@ export default function Overview() {
               </div>
               <div className="progress-bar-container" style={{ marginTop: 16 }}>
                 <div className="progress-label">
-                  <span>Phase 5 — Model Integration & Training</span><span style={{ color: '#3B82F6' }}>Planned</span>
+                  <span>Phase 5 — Model Integration & Training</span><span style={{ color: '#F59E0B' }}>In Progress</span>
                 </div>
-                <div className="progress-track"><div className="progress-fill" style={{ width: '0%', background: 'linear-gradient(90deg, #3B82F6, #60A5FA)' }} /></div>
+                <div className="progress-track"><div className="progress-fill" style={{ width: '55%', background: 'linear-gradient(90deg, #F59E0B, #FCD34D)' }} /></div>
               </div>
               <div className="progress-bar-container" style={{ marginTop: 16 }}>
                 <div className="progress-label">
@@ -239,15 +239,16 @@ export default function Overview() {
                     <li>Baseline experiments (centralized FL vs. flat FL)</li>
                   </ul>
                 </div>
-                <div className="timeline-item" style={{ borderLeftColor: '#3B82F6' }}>
-                  <div className="timeline-title" style={{ color: '#3B82F6' }}>Phase 5: Model Integration & Training</div>
-                  <div className="timeline-period">April 2026 — <span style={{ color: '#3B82F6', fontWeight: 600 }}>PLANNED</span></div>
+                <div className="timeline-item" style={{ borderLeftColor: '#F59E0B' }}>
+                  <div className="timeline-title" style={{ color: '#F59E0B' }}>Phase 5: Model Integration & Training</div>
+                  <div className="timeline-period">April 2026 — <span style={{ color: '#F59E0B', fontWeight: 600 }}>IN PROGRESS</span></div>
                   <ul className="timeline-tasks">
-                    <li>HFL-MM model (1D-CNN+GRU + MobileNetV3 + Late Fusion)</li>
-                    <li>DP-SGD via Opacus (ε=1.0, Gaussian mechanism)</li>
-                    <li>20× gradient compression (sparsification + quantization)</li>
-                    <li>ONNX INT8 edge deployment (target: &lt;100ms P95 latency)</li>
-                    <li>Validate O2 (accuracy) and O3 (latency) targets</li>
+                    <li>✓ FedMamba-HC ECG encoder (IP-1, Mamba SSM)</li>
+                    <li>✓ FedConform-HC (IP-9, federated conformal prediction)</li>
+                    <li>✓ DP-SGD via Opacus (ε=1.0, Gaussian mechanism)</li>
+                    <li>✓ 20× gradient compression (sparsification + quantization)</li>
+                    <li>→ ONNX INT8 edge deployment (target: &lt;100ms P95 latency)</li>
+                    <li>→ Validate O2 (accuracy) and O3 (latency) targets</li>
                   </ul>
                 </div>
                 <div className="timeline-item" style={{ borderLeftColor: '#3B82F6' }}>

@@ -86,7 +86,7 @@ function App() {
           <NavLink to="/phase5" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><Cpu size={18} /></span>
             Phase 5 — Healthcare Model
-            <span className="nav-badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}>In Progress</span>
+            <span className="nav-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' }}>In Progress</span>
           </NavLink>
           <NavLink to="/phase6" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><BarChart3 size={18} /></span>

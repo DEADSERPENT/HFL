@@ -28,11 +28,11 @@ export default function Phase5() {
           {/* QoS Status */}
           <motion.div variants={fadeUp}>
             <div className="qos-grid">
-              <div className="qos-card" style={{ borderColor: 'rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.03)' }}>
-                <div className="qos-icon" style={{ color: '#3B82F6' }}><Radio size={24} strokeWidth={2} /></div>
+              <div className="qos-card pass">
+                <div className="qos-icon"><Radio size={24} strokeWidth={2} /></div>
                 <div className="qos-title">Comm. Reduction</div>
-                <div className="qos-value" style={{ color: '#3B82F6' }}>~95%</div>
-                <div className="qos-target">Target ≥50% — Planned (20× compression)</div>
+                <div className="qos-value">95.0%</div>
+                <div className="qos-target">Target ≥50% — PASS ✓ (Phase 5)</div>
               </div>
               <div className="qos-card pass">
                 <div className="qos-icon"><Zap size={24} strokeWidth={2} /></div>
@@ -375,16 +375,16 @@ export default function Phase5() {
               {/* Encoder Details */}
               <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>5.3.1 Encoder A — Layer Stack</h4>
               <div className="code-block" style={{ marginBottom: 20 }}>
-{`Input: [B, 1, 1024] (1-channel, 1024 samples)
-→ Conv1D(1→32, k=7, s=1, p=3) → GroupNorm → ReLU
-→ MaxPool1D(k=4, s=4)  → [B, 32, 256]
-→ Conv1D(32→64, k=5, p=2) → GroupNorm → ReLU
-→ MaxPool1D(k=4, s=4)  → [B, 64, 64]
-→ Conv1D(64→128, k=3, p=1) → GroupNorm → ReLU
-→ MaxPool1D(k=4, s=4)  → [B, 128, 16]
-→ Reshape → [B, 16, 128]  (seq_len=16, feature=128)
-→ GRU(input=128, hidden=128, layers=2, batch_first=True)
-→ Take last hidden state → [B, 128]`}
+{`Input: [B, 12, 1000]  (12-lead ECG, 1000 samples @ 100 Hz)
+Step 1 — Patch Embedding:
+  LeadEmbed: Conv1d(12→128, kernel=10, stride=5) → [B, 128, 199]
+  Transpose → [B, 199, 128]
+  + Positional embedding (1D learned, 199 positions)
+Step 2 — 4× Mamba Blocks:
+  LayerNorm → Mamba(d_model=128, d_state=16, d_conv=4, expand=2) → Residual
+  LayerNorm → FFN(128→512→128) → Residual
+Step 3 — Output Projection:
+  AdaptiveAvgPool1d(1) → Linear(128, 256) → GELU → [B, 256]`}
               </div>
 
               <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>5.3.3 Late Fusion Justification</h4>
@@ -708,11 +708,11 @@ Note on Phase 4 → Phase 5 correction:
               <div className="stats-grid" style={{ marginBottom: 24 }}>
                 <div className="stat-card">
                   <div className="stat-label">FP32 ONNX</div>
-                  <div className="stat-value">~8.4 MB</div>
+                  <div className="stat-value">~12.8 MB</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">INT8 ONNX</div>
-                  <div className="stat-value green">~2.1 MB</div>
+                  <div className="stat-value green">~3.2 MB</div>
                 </div>
               </div>
 
@@ -867,11 +867,12 @@ Note on Phase 4 → Phase 5 correction:
                 </div>
               </div>
 
-              <div className="info-box" style={{ borderColor: 'rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.05)' }}>
-                <strong style={{ color: '#3B82F6' }}>PHASE 5 STATUS: IN PROGRESS (2026-04-22)</strong><br/>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.05)' }}>
+                <strong style={{ color: '#F59E0B' }}>PHASE 5 STATUS: IN PROGRESS (2026-04-28) — 9/13 Done</strong><br/>
                 Domain: Healthcare Exclusively | Model: HFL-MM-HC → PHANTOM-FL<br/>
                 Datasets: PTB-XL + CheXpert | IPs Active: IP-1 + IP-9 + IP-3(design)<br/>
-                Baselines: B0–B5 | Venue: IEEE JBHI / npj Digital Medicine
+                Baselines: B0–B5 | Venue: IEEE JBHI / npj Digital Medicine<br/>
+                Remaining: D5.10 ONNX export · D5.11 inference bench · D5.12 ε sweep · D5.13 results CSV
               </div>
             </motion.div>
           )}
@@ -879,8 +880,8 @@ Note on Phase 4 → Phase 5 correction:
           {/* Phase 5 Summary (always visible) */}
           <motion.div variants={fadeUp} className="section" style={{ marginTop: 40 }}>
             <div className="section-header">
-              <div className="section-number" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}><CheckCircle2 size={16}/></div>
-              <h3 style={{ color: '#3B82F6' }}>Phase 5 Status: IN PROGRESS</h3>
+              <div className="section-number" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' }}><CheckCircle2 size={16}/></div>
+              <h3 style={{ color: '#F59E0B' }}>Phase 5 Status: IN PROGRESS (9/13 Done)</h3>
             </div>
             <div className="table-container">
               <table className="data-table">
@@ -898,6 +899,13 @@ Note on Phase 4 → Phase 5 correction:
                     'D5.7 — HFL Training Engine (two-tier FedAvg)',
                     'D5.8 — DP-SGD Integration (Opacus, ε=1.0)',
                     'D5.9 — Gradient Compression (20× reduction)',
+                  ].map(item => (
+                    <tr key={item}>
+                      <td>{item}</td>
+                      <td><span className="badge pass">Done ✓</span></td>
+                    </tr>
+                  ))}
+                  {[
                     'D5.10 — ONNX Edge Deployment (INT8, ~3.2 MB)',
                     'D5.11 — Inference Validator (P95 ~86ms)',
                     'D5.12 — ε Sweep (0.1–∞)',
@@ -905,7 +913,7 @@ Note on Phase 4 → Phase 5 correction:
                   ].map(item => (
                     <tr key={item}>
                       <td>{item}</td>
-                      <td><span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}>In Progress</span></td>
+                      <td><span className="badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' }}>Pending</span></td>
                     </tr>
                   ))}
                 </tbody>

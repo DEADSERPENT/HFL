@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import {
-  Database, Download, Layers, BarChart3, FileText, HardDrive,
+  Database, Download, HardDrive,
   FolderTree, Cpu
 } from 'lucide-react'
 
@@ -18,7 +18,7 @@ export default function Datasets() {
     <>
       <div className="page-header">
         <h2>Dataset Access, Selection & Integration Guide</h2>
-        <p>5 datasets across 3 IoT domains — download, preprocessing, non-IID partitioning</p>
+        <p>Healthcare domain — PTB-XL (ECG) + CheXpert (CXR) · 6 devices · 2 edges · Dirichlet α=5.0</p>
       </div>
       <div className="page-body">
         <motion.div variants={stagger} initial="initial" animate="animate">
@@ -27,11 +27,8 @@ export default function Datasets() {
             <div className="tabs">
               {[
                 { key: 'overview', icon: <Database size={14} />, label: 'Overview' },
-                { key: 'cwru', icon: <Layers size={14} />, label: 'CWRU (IIoT)' },
-                { key: 'urban', icon: <BarChart3 size={14} />, label: 'UrbanSound8K' },
-                { key: 'epa', icon: <FileText size={14} />, label: 'EPA AQS' },
-                { key: 'wesad', icon: <Cpu size={14} />, label: 'WESAD' },
-                { key: 'chest', icon: <HardDrive size={14} />, label: 'ChestX-ray14' },
+                { key: 'ptbxl', icon: <Cpu size={14} />, label: 'PTB-XL (ECG)' },
+                { key: 'chexpert', icon: <HardDrive size={14} />, label: 'CheXpert (CXR)' },
                 { key: 'partition', icon: <FolderTree size={14} />, label: 'Non-IID Partition' },
                 { key: 'storage', icon: <Download size={14} />, label: 'Storage & Compute' }
               ].map(tab => (
@@ -46,198 +43,181 @@ export default function Datasets() {
           {/* OVERVIEW */}
           {activeTab === 'overview' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">1</div><h3>Why These Datasets</h3></div>
+              <div className="section-header"><div className="section-number">1</div><h3>Healthcare Dataset Selection</h3></div>
+              <div className="info-box success" style={{ marginBottom: 16 }}>
+                <strong>Scope (Healthcare-Only, 2026-04-22):</strong> PTB-XL (21,837 12-lead ECG records) + CheXpert (224,316 chest X-rays). FedMamba-HC encoder (IP-1) requires [B, 12, 1000] input — PTB-XL is the only large-scale dataset providing this format. 6 devices, 2 edge clusters, Dirichlet α=5.0.
+              </div>
               <div className="info-box note" style={{ marginBottom: 20 }}>
-                The HFL-MM framework targets THREE IoT application domains, each requiring TWO heterogeneous modalities. Selection criteria: publicly available, multi-class (≥3), appropriate size (12GB VRAM, 500GB disk), used in recent FL literature, represents real IoT data.
+                Selection criteria: publicly available, multi-class (≥3), fits 12 GB VRAM, used in recent FL literature, compatible with FedMamba-HC 12-lead input.
               </div>
               <div className="table-container" style={{ marginBottom: 24 }}>
                 <table className="data-table">
-                  <thead><tr><th>Domain</th><th>Primary Modality</th><th>Secondary Modality</th><th>Classes</th></tr></thead>
+                  <thead><tr><th>Dataset</th><th>Modality</th><th>Source</th><th>Size</th><th>Samples</th><th>Access</th></tr></thead>
                   <tbody>
-                    <tr><td><strong>IIoT</strong></td><td>CWRU vibration</td><td>STFT spectrograms</td><td>4</td></tr>
-                    <tr><td><strong>Smart City</strong></td><td>UrbanSound8K audio</td><td>EPA air quality CSV</td><td>5</td></tr>
-                    <tr><td><strong>Healthcare</strong></td><td>WESAD wearable EEG</td><td>ChestX-ray14 images</td><td>4/14</td></tr>
+                    <tr className="highlight-row"><td><strong>PTB-XL</strong></td><td>12-lead ECG (Primary)</td><td>PhysioNet / Wagner et al.</td><td>~1.7 GB</td><td>21,837 records</td><td>Public (CC-BY 4.0)</td></tr>
+                    <tr className="highlight-row"><td><strong>CheXpert</strong></td><td>Chest X-ray (Secondary)</td><td>Stanford ML Group</td><td>~11 GB</td><td>224,316 images</td><td>Registration req.</td></tr>
                   </tbody>
                 </table>
               </div>
               <div className="table-container">
                 <table className="data-table">
-                  <thead><tr><th>Dataset</th><th>Source</th><th>Size</th><th>Samples</th><th>Access</th></tr></thead>
+                  <thead><tr><th>Configuration</th><th>Value</th></tr></thead>
                   <tbody>
-                    <tr><td>CWRU Bearing</td><td>Case Western Reserve Univ.</td><td>~800 MB</td><td>~48K windows</td><td>Public (web)</td></tr>
-                    <tr><td>UrbanSound8K</td><td>NYU MARL / Salamon et al.</td><td>~6 GB</td><td>8,732 clips</td><td>Public (Zenodo)</td></tr>
-                    <tr><td>EPA AQS</td><td>US EPA</td><td>~500 MB</td><td>~365K hourly</td><td>Public (API/CSV)</td></tr>
-                    <tr><td>WESAD</td><td>ETH Zürich / UCI ML Repo</td><td>~4 GB</td><td>15 subjects</td><td>Public (UCI)</td></tr>
-                    <tr><td>ChestX-ray14</td><td>NIH Clinical Center</td><td>~42 GB</td><td>112,120 images</td><td>Public (Box)</td></tr>
+                    <tr><td>IoT Devices</td><td>6 (HC-A1, HC-A2, HC-A3, HC-B1, HC-B2, HC-B3)</td></tr>
+                    <tr><td>Edge Servers</td><td>2 (Edge-A: devices 0–2 · Edge-B: devices 3–5)</td></tr>
+                    <tr><td>Cloud Server</td><td>1 (hospital aggregator)</td></tr>
+                    <tr><td>Total Samples</td><td>5,000 (PTB-XL subset, Dirichlet α=5.0, seed=42)</td></tr>
+                    <tr><td>Task</td><td>5-class cardiac health: NORM / MI / STTC / CD / HYP</td></tr>
+                    <tr><td>Train / Val / Test</td><td>~70% / ~15% / ~15% per device</td></tr>
                   </tbody>
                 </table>
               </div>
             </motion.div>
           )}
 
-          {/* CWRU */}
-          {activeTab === 'cwru' && (
+          {/* PTB-XL */}
+          {activeTab === 'ptbxl' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">2</div><h3>CWRU Bearing Vibration (IIoT Primary)</h3></div>
+              <div className="section-header"><div className="section-number">2</div><h3>PTB-XL — 12-Lead ECG Waveform Dataset (Primary)</h3></div>
               <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">Rotating machinery fault detection</div></div>
-                <div className="kv-item"><div className="kv-label">Sampling Rate</div><div className="kv-value">12,000 Hz (drive-end)</div></div>
-                <div className="kv-item"><div className="kv-label">Load Conditions</div><div className="kv-value">0, 1, 2, 3 HP</div></div>
-                <div className="kv-item"><div className="kv-label">File Format</div><div className="kv-value">.mat (MATLAB)</div></div>
-                <div className="kv-item"><div className="kv-label">Total Size</div><div className="kv-value">~800 MB</div></div>
-                <div className="kv-item"><div className="kv-label">URL</div><div className="kv-value" style={{ fontSize: 10 }}>engineering.case.edu/bearingdatacenter</div></div>
+                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">5-class cardiac health classification</div></div>
+                <div className="kv-item"><div className="kv-label">Records</div><div className="kv-value">21,837 ECGs / 18,885 patients</div></div>
+                <div className="kv-item"><div className="kv-label">Sampling Rate</div><div className="kv-value">100 Hz (resampled from 500 Hz)</div></div>
+                <div className="kv-item"><div className="kv-label">Tensor Shape</div><div className="kv-value">[B, 12, 1000]</div></div>
+                <div className="kv-item"><div className="kv-label">Size</div><div className="kv-value">~1.7 GB</div></div>
+                <div className="kv-item"><div className="kv-label">License</div><div className="kv-value">CC-BY 4.0 (PhysioNet)</div></div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Classes</h4>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>5-Class Labels (SNOMED codes)</h4>
               <div className="table-container" style={{ marginBottom: 20 }}>
                 <table className="data-table">
-                  <thead><tr><th>Class</th><th>Condition</th><th>Fault Diameter</th></tr></thead>
+                  <thead><tr><th>Class</th><th>Label</th><th>SNOMED Code</th><th># Records</th></tr></thead>
                   <tbody>
-                    <tr><td>0</td><td>Normal (healthy bearing)</td><td>—</td></tr>
-                    <tr><td>1</td><td>Ball fault</td><td>0.007", 0.014", 0.021"</td></tr>
-                    <tr><td>2</td><td>Inner race fault</td><td>0.007", 0.014", 0.021"</td></tr>
-                    <tr><td>3</td><td>Outer race fault</td><td>0.007", 0.014", 0.021"</td></tr>
+                    <tr><td>0</td><td>Normal (NORM)</td><td>426783006</td><td>9,514</td></tr>
+                    <tr><td>1</td><td>Myocardial Infarction (MI)</td><td>164865005</td><td>5,469</td></tr>
+                    <tr><td>2</td><td>ST/T Change (STTC)</td><td>428750005</td><td>5,250</td></tr>
+                    <tr><td>3</td><td>Conduction Disturbance (CD)</td><td>233917008</td><td>4,907</td></tr>
+                    <tr><td>4</td><td>Hypertrophy (HYP)</td><td>164873001</td><td>2,649</td></tr>
                   </tbody>
                 </table>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Download</h4>
+              <div className="code-block" style={{ marginBottom: 20 }}>
+{`# Option A — wfdb Python library (recommended)
+pip install wfdb
+import wfdb
+wfdb.dl_database('ptb-xl', dl_dir='SIMULATORS/data/raw/ptbxl/')
+
+# Option B — wget (PhysioNet, CC-BY 4.0, no registration)
+wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.3/
+
+# Option C — Kaggle
+kaggle datasets download -d khyeh0719/ptb-xl-dataset`}
               </div>
 
               <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Preprocessing Pipeline</h4>
-              <div className="code-block">
-{`Step 1: Load .mat files → scipy.io.loadmat("97.mat")
-Step 2: Sliding window: size=1024, stride=512 (50% overlap)
-        → Each file yields ~500–2000 windows
-Step 3: Normalize: (signal - mean) / std, clip [-3, 3]
-Step 4: Generate spectrogram (second modality):
-        STFT(window, fs=12000, nperseg=256) → resize 224×224 → jet colormap RGB
-Step 5: Save: signals.npy (N, 1024), spectrograms.npy (N, 3, 224, 224)
-Total: ~35,000–50,000 windows`}
-              </div>
-            </motion.div>
-          )}
-
-          {/* URBANSOUND8K */}
-          {activeTab === 'urban' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">3</div><h3>UrbanSound8K (Smart City Primary)</h3></div>
-              <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">Urban sound event classification</div></div>
-                <div className="kv-item"><div className="kv-label">Clips</div><div className="kv-value">8,732 (≤4s each)</div></div>
-                <div className="kv-item"><div className="kv-label">Format</div><div className="kv-value">.wav (variable sample rate)</div></div>
-                <div className="kv-item"><div className="kv-label">Size</div><div className="kv-value">~6 GB (full), ~3 GB (5 classes)</div></div>
-                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">Salamon et al., ACM MM 2014</div></div>
-                <div className="kv-item"><div className="kv-label">Folds</div><div className="kv-value">10 pre-defined</div></div>
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Classes Used (5 of 10)</h4>
-              <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Class 0</div><div className="kv-value">air_conditioner</div></div>
-                <div className="kv-item"><div className="kv-label">Class 1</div><div className="kv-value">car_horn</div></div>
-                <div className="kv-item"><div className="kv-label">Class 2</div><div className="kv-value">children_playing</div></div>
-                <div className="kv-item"><div className="kv-label">Class 3</div><div className="kv-value">dog_bark</div></div>
-                <div className="kv-item"><div className="kv-label">Class 4</div><div className="kv-value">street_music</div></div>
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Preprocessing (Mel-Spectrogram)</h4>
-              <div className="code-block">
-{`librosa.load(file, sr=22050, duration=4.0, mono=True)
-→ Pad/trim to fixed duration → Mel spectrogram:
-  librosa.feature.melspectrogram(n_mels=128, hop=512, n_fft=1024)
-→ Power to dB → Normalize [0,1]
-→ Repeat 1ch → 3ch (gray → RGB) → resize to (3, 224, 224)
-→ Ready for MobileNetV3 (Encoder B)`}
-              </div>
-            </motion.div>
-          )}
-
-          {/* EPA AQS */}
-          {activeTab === 'epa' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">4</div><h3>EPA Air Quality System (Smart City Secondary)</h3></div>
-              <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">Air quality index classification</div></div>
-                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">US Environmental Protection Agency</div></div>
-                <div className="kv-item"><div className="kv-label">URL</div><div className="kv-value" style={{ fontSize: 10 }}>aqs.epa.gov/aqsweb/airdata/download_files.html</div></div>
-                <div className="kv-item"><div className="kv-label">Size</div><div className="kv-value">~500 MB</div></div>
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Feature Vector (6 dimensions)</h4>
               <div className="code-block" style={{ marginBottom: 20 }}>
-{`Per hourly aggregation window:
-  [PM2.5_mean, NO2_mean, O3_mean, CO_mean, AQI, temperature]
-Normalize each to [0,1] across training set.
-Label: AQI category (0=Good, 1=Moderate, 2=Unhealthy for Sensitive,
-                      3=Unhealthy, 4=Very Unhealthy)`}
+{`Step 1: Load via wfdb
+  record = wfdb.rdrecord("records100/{filename}")
+  signal = record.p_signal  # (1000, 12) @ 100 Hz
+
+Step 2: Transpose → [12, 1000]
+
+Step 3: Bandpass filter 0.5–40 Hz (removes baseline wander + EMG)
+  from scipy.signal import butter, filtfilt
+  b, a = butter(4, [0.5, 40], btype='bandpass', fs=100)
+  signal_filt = filtfilt(b, a, signal_t, axis=1)
+
+Step 4: Per-lead z-score normalization
+  (signal - mean) / (std + 1e-8)  per lead
+
+Step 5: Handle missing leads → zero-pad + lead-failure flag
+
+Step 6: Load labels from ptbxl_database.csv
+  label_map = {'NORM':0, 'MI':1, 'STTC':2, 'CD':3, 'HYP':4}
+
+Output: signals.npy (21837, 12, 1000) — ~2.0 GB float32`}
               </div>
-              <div className="info-box note">
-                <strong>Note:</strong> For Smart City domain, Encoder A is simplified to an FC encoder for the 6-dim environmental vector: FC(6)→FC(64)→FC(128) (no convolution needed). Encoder B processes the UrbanSound8K mel-spectrogram.
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Actual Partition (partition_meta.json, α=5.0, seed=42)</h4>
+              <div className="table-container">
+                <table className="data-table">
+                  <thead><tr><th>Device</th><th>Name</th><th>Edge</th><th>Total</th><th>NORM</th><th>MI</th><th>STTC</th><th>CD</th><th>HYP</th><th>Dominant</th></tr></thead>
+                  <tbody>
+                    <tr><td>device_00</td><td>HC-A1</td><td>A</td><td>573</td><td>58</td><td>151</td><td>75</td><td>127</td><td>162</td><td>HYP</td></tr>
+                    <tr><td>device_01</td><td>HC-A2</td><td>A</td><td>594</td><td>55</td><td>91</td><td>233</td><td>98</td><td>117</td><td>STTC</td></tr>
+                    <tr><td>device_02</td><td>HC-A3</td><td>A</td><td>896</td><td>212</td><td>149</td><td>111</td><td>207</td><td>217</td><td>HYP</td></tr>
+                    <tr><td>device_03</td><td>HC-B1</td><td>B</td><td>689</td><td>186</td><td>132</td><td>107</td><td>173</td><td>91</td><td>NORM</td></tr>
+                    <tr><td>device_04</td><td>HC-B2</td><td>B</td><td>919</td><td>213</td><td>199</td><td>245</td><td>124</td><td>138</td><td>STTC</td></tr>
+                    <tr className="highlight-row"><td>device_05</td><td>HC-B3</td><td>B</td><td>1329</td><td>276</td><td>278</td><td>229</td><td>271</td><td>275</td><td>MI</td></tr>
+                  </tbody>
+                </table>
               </div>
             </motion.div>
           )}
 
-          {/* WESAD */}
-          {activeTab === 'wesad' && (
+          {/* CHEXPERT */}
+          {activeTab === 'chexpert' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">5</div><h3>WESAD — Wearable Stress and Affect Detection (Healthcare Primary)</h3></div>
+              <div className="section-header"><div className="section-number">3</div><h3>CheXpert — Stanford Chest Radiograph Dataset (Secondary)</h3></div>
               <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">Physiological stress detection</div></div>
-                <div className="kv-item"><div className="kv-label">Subjects</div><div className="kv-value">15 participants</div></div>
-                <div className="kv-item"><div className="kv-label">Sensors</div><div className="kv-value">ACC (32Hz), EDA (4Hz), TEMP (4Hz)</div></div>
-                <div className="kv-item"><div className="kv-label">Format</div><div className="kv-value">.pkl per subject</div></div>
-                <div className="kv-item"><div className="kv-label">Size</div><div className="kv-value">~4 GB</div></div>
-                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">Schmidt et al., ACM ICMI 2018</div></div>
+                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">5-label multilabel CXR classification</div></div>
+                <div className="kv-item"><div className="kv-label">Images</div><div className="kv-value">224,316 frontal chest X-rays</div></div>
+                <div className="kv-item"><div className="kv-label">Patients</div><div className="kv-value">65,240</div></div>
+                <div className="kv-item"><div className="kv-label">Resolution</div><div className="kv-value">224×224 (small version, pre-resized)</div></div>
+                <div className="kv-item"><div className="kv-label">Size</div><div className="kv-value">~11 GB (small version)</div></div>
+                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">Irvin et al., AAAI 2019</div></div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Classes</h4>
-              <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Class 0</div><div className="kv-value">Baseline (relaxed)</div></div>
-                <div className="kv-item"><div className="kv-label">Class 1</div><div className="kv-value">Stress (Trier Social Stress)</div></div>
-                <div className="kv-item"><div className="kv-label">Class 2</div><div className="kv-value">Amusement (comedy video)</div></div>
-                <div className="kv-item"><div className="kv-label">Class 3</div><div className="kv-value">Meditation (optional)</div></div>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>5-Label Classification (u-zeros uncertainty policy)</h4>
+              <div className="table-container" style={{ marginBottom: 20 }}>
+                <table className="data-table">
+                  <thead><tr><th>Label</th><th>Pathology</th><th># Positive</th><th>Uncertain →</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>No Finding</td><td>16,627</td><td>N/A</td></tr>
+                    <tr><td>1</td><td>Pleural Effusion</td><td>75,696</td><td>→ 0</td></tr>
+                    <tr><td>2</td><td>Cardiomegaly</td><td>20,739</td><td>→ 0</td></tr>
+                    <tr><td>3</td><td>Atelectasis</td><td>29,420</td><td>→ 0</td></tr>
+                    <tr><td>4</td><td>Consolidation</td><td>12,730</td><td>→ 0</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Download</h4>
+              <div className="code-block" style={{ marginBottom: 20 }}>
+{`# Option A — Official Stanford (free registration required)
+# 1. Register: stanfordmlgroup.github.io/projects/chexpert/
+# 2. Download link sent by email — use small dataset (~11 GB)
+
+# Option B — Kaggle
+kaggle datasets download -d ashery/chexpert
+unzip chexpert.zip -d SIMULATORS/data/raw/chexpert/`}
               </div>
 
               <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Preprocessing</h4>
-              <div className="code-block">
-{`load_wesad_subject(id) → acc(3-axis), eda(1ch), temp(1ch), labels
-create_windows(signals, labels, window_sec=5, fs=32)
-  → 160 samples per window (5s × 32Hz)
-Output: (N, 5, 160) → [5 channels: ACC×3, EDA, TEMP]
-Reshape for 1D-CNN: (N, 5, 160) → Encoder A input
-in_channels=5 for Healthcare domain`}
-              </div>
-            </motion.div>
-          )}
+              <div className="code-block" style={{ marginBottom: 20 }}>
+{`import torchvision.transforms as T
+import pandas as pd
 
-          {/* CHESTXRAY14 */}
-          {activeTab === 'chest' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">6</div><h3>NIH ChestX-ray14 (Healthcare Secondary)</h3></div>
-              <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">Chest pathology detection</div></div>
-                <div className="kv-item"><div className="kv-label">Images</div><div className="kv-value">112,120 frontal-view X-rays</div></div>
-                <div className="kv-item"><div className="kv-label">Resolution</div><div className="kv-value">1024×1024 grayscale</div></div>
-                <div className="kv-item"><div className="kv-label">Full Size</div><div className="kv-value">~45 GB</div></div>
-                <div className="kv-item"><div className="kv-label">4-class Subset</div><div className="kv-value">~11 GB</div></div>
-                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">Wang et al., CVPR 2017</div></div>
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>4-Class Subset</h4>
-              <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Class 0</div><div className="kv-value">No Finding (normal)</div></div>
-                <div className="kv-item"><div className="kv-label">Class 1</div><div className="kv-value">Atelectasis</div></div>
-                <div className="kv-item"><div className="kv-label">Class 2</div><div className="kv-value">Cardiomegaly</div></div>
-                <div className="kv-item"><div className="kv-label">Class 3</div><div className="kv-value">Effusion</div></div>
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Preprocessing</h4>
-              <div className="code-block">
-{`T.Compose([
-    T.Grayscale(num_output_channels=3),  # Gray → RGB (MobileNetV3)
+transform = T.Compose([
     T.Resize(256),
     T.CenterCrop(224),
     T.ToTensor(),
     T.Normalize(mean=[0.485, 0.456, 0.406],  # ImageNet stats
                 std=[0.229, 0.224, 0.225])
-])`}
+])
+# CheXpert small is already RGB — no Grayscale conversion needed
+
+# Label loading (u-zeros: uncertain -1 → 0)
+df = pd.read_csv("train.csv")
+label_cols = ['No Finding','Pleural Effusion','Cardiomegaly',
+              'Atelectasis','Consolidation']
+labels = df[label_cols].fillna(0).replace(-1, 0).values`}
+              </div>
+
+              <div className="info-box note">
+                <strong>Pairing with PTB-XL:</strong> 70% direct patient pairs (same patient has both ECG + CXR). 30% within-class synthetic pairs (matching cardiac condition label). Combined loss: 0.7 × CrossEntropy(ECG_logits) + 0.3 × BCE(CXR_logits).
               </div>
             </motion.div>
           )}
@@ -245,39 +225,41 @@ in_channels=5 for Healthcare domain`}
           {/* NON-IID PARTITION */}
           {activeTab === 'partition' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">8</div><h3>Non-IID Partitioning Across 20 Devices</h3></div>
+              <div className="section-header"><div className="section-number">4</div><h3>Non-IID Partitioning — 6 Devices, Dirichlet α=5.0</h3></div>
               <div className="info-box note" style={{ marginBottom: 20 }}>
-                Dirichlet distribution (α=0.5) across devices per cluster. Strong class imbalance tests the HFL-MM framework's ability to converge under severe non-IID conditions — a key challenge addressed by two-tier FedAvg with weighted aggregation.
+                α=5.0 produces mild non-IID — near-uniform class distribution per device. This reflects realistic hospital deployment where each ward or clinic sees a mix of cardiac conditions. Authoritative source: <code>partition_meta.json</code>.
               </div>
 
               <div className="code-block" style={{ marginBottom: 20 }}>
 {`Algorithm (Dirichlet Non-IID, standard in FL literature):
-  For each class c in domain d:
-    proportions = np.random.dirichlet(α × ones(n_devices_in_cluster))
-    Assign fraction proportions[i] of class-c samples to device i.`}
+  For each class c in {NORM, MI, STTC, CD, HYP}:
+    proportions = np.random.dirichlet(α × ones(6), seed=42)
+    Assign proportions[i] fraction of class-c samples to device i.
+
+Run: python data/loaders/partition_noniid.py \\
+       --domain healthcare --n_devices 6 --alpha 5.0 --seed 42`}
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Example: IIoT Domain (7 devices, 4 classes, α=0.5)</h4>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Partition Table (partition_meta.json — 5,000 total samples)</h4>
               <div className="table-container" style={{ marginBottom: 24 }}>
                 <table className="data-table">
-                  <thead><tr><th>Device</th><th>Normal</th><th>Ball</th><th>Inner</th><th>Outer</th><th>Total</th></tr></thead>
+                  <thead><tr><th>Device</th><th>Name</th><th>Edge</th><th>Total</th><th>Train</th><th>Val</th><th>Test</th><th>NORM</th><th>MI</th><th>STTC</th><th>CD</th><th>HYP</th><th>Dominant</th></tr></thead>
                   <tbody>
-                    <tr><td>Dev-0</td><td>62.4%</td><td>18.3%</td><td>12.5%</td><td>6.8%</td><td>4,210</td></tr>
-                    <tr><td>Dev-1</td><td>8.1%</td><td>71.2%</td><td>15.3%</td><td>5.4%</td><td>3,870</td></tr>
-                    <tr><td>Dev-2</td><td>4.3%</td><td>3.2%</td><td>78.9%</td><td>13.6%</td><td>4,550</td></tr>
-                    <tr><td>Dev-3</td><td>21.7%</td><td>12.4%</td><td>4.8%</td><td>61.1%</td><td>3,990</td></tr>
-                    <tr><td>Dev-4</td><td>45.2%</td><td>30.1%</td><td>19.0%</td><td>5.7%</td><td>4,100</td></tr>
-                    <tr><td>Dev-5</td><td>7.8%</td><td>8.9%</td><td>6.4%</td><td>76.9%</td><td>3,750</td></tr>
-                    <tr><td>Dev-6</td><td>50.5%</td><td>6.0%</td><td>38.5%</td><td>5.0%</td><td>4,630</td></tr>
+                    <tr><td>device_00</td><td>HC-A1</td><td>A</td><td>573</td><td>401</td><td>85</td><td>87</td><td>58</td><td>151</td><td>75</td><td>127</td><td>162</td><td>HYP</td></tr>
+                    <tr><td>device_01</td><td>HC-A2</td><td>A</td><td>594</td><td>415</td><td>89</td><td>90</td><td>55</td><td>91</td><td>233</td><td>98</td><td>117</td><td>STTC</td></tr>
+                    <tr><td>device_02</td><td>HC-A3</td><td>A</td><td>896</td><td>627</td><td>134</td><td>135</td><td>212</td><td>149</td><td>111</td><td>207</td><td>217</td><td>HYP</td></tr>
+                    <tr><td>device_03</td><td>HC-B1</td><td>B</td><td>689</td><td>482</td><td>103</td><td>104</td><td>186</td><td>132</td><td>107</td><td>173</td><td>91</td><td>NORM</td></tr>
+                    <tr><td>device_04</td><td>HC-B2</td><td>B</td><td>919</td><td>643</td><td>137</td><td>139</td><td>213</td><td>199</td><td>245</td><td>124</td><td>138</td><td>STTC</td></tr>
+                    <tr className="highlight-row"><td>device_05</td><td>HC-B3</td><td>B</td><td>1329</td><td>930</td><td>199</td><td>200</td><td>276</td><td>278</td><td>229</td><td>271</td><td>275</td><td>MI</td></tr>
                   </tbody>
                 </table>
               </div>
 
               <div className="kv-grid">
-                <div className="kv-item"><div className="kv-label">Cluster 1 (IIoT)</div><div className="kv-value">Devices 0–6</div></div>
-                <div className="kv-item"><div className="kv-label">Cluster 2 (Smart City)</div><div className="kv-value">Devices 7–13</div></div>
-                <div className="kv-item"><div className="kv-label">Cluster 3 (Healthcare)</div><div className="kv-value">Devices 14–19</div></div>
-                <div className="kv-item"><div className="kv-label">Train/Val/Test</div><div className="kv-value">70% / 15% / 15%</div></div>
+                <div className="kv-item"><div className="kv-label">Edge A (HC-A)</div><div className="kv-value">HC-A1 (573) + HC-A2 (594) + HC-A3 (896) = 2,063</div></div>
+                <div className="kv-item"><div className="kv-label">Edge B (HC-B)</div><div className="kv-value">HC-B1 (689) + HC-B2 (919) + HC-B3 (1329) = 2,937</div></div>
+                <div className="kv-item"><div className="kv-label">Dirichlet α</div><div className="kv-value">5.0 (mild non-IID, seed=42)</div></div>
+                <div className="kv-item"><div className="kv-label">Split</div><div className="kv-value">70% train / 15% val / 15% test</div></div>
               </div>
             </motion.div>
           )}
@@ -285,19 +267,16 @@ in_channels=5 for Healthcare domain`}
           {/* STORAGE & COMPUTE */}
           {activeTab === 'storage' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">9–10</div><h3>Storage Structure & Compute Requirements</h3></div>
+              <div className="section-header"><div className="section-number">5</div><h3>Storage Structure & Compute Requirements</h3></div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Disk Space Requirements</h4>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Disk Space</h4>
               <div className="table-container" style={{ marginBottom: 24 }}>
                 <table className="data-table">
                   <thead><tr><th>Dataset</th><th>Raw Size</th><th>Processed</th><th>Download Time</th></tr></thead>
                   <tbody>
-                    <tr><td>CWRU Bearing</td><td>~800 MB</td><td>~2 GB</td><td>~5 min</td></tr>
-                    <tr><td>UrbanSound8K</td><td>~6 GB</td><td>~4 GB</td><td>~20 min</td></tr>
-                    <tr><td>EPA AQS</td><td>~500 MB</td><td>~100 MB</td><td>~5 min</td></tr>
-                    <tr><td>WESAD</td><td>~4 GB</td><td>~500 MB</td><td>~15 min</td></tr>
-                    <tr><td>ChestX-ray14 (4-cls)</td><td>~11 GB</td><td>~8 GB</td><td>~45 min</td></tr>
-                    <tr className="highlight-row"><td><strong>TOTAL</strong></td><td><strong>~22 GB</strong></td><td><strong>~15 GB</strong></td><td><strong>~90 min</strong></td></tr>
+                    <tr><td>PTB-XL</td><td>~1.7 GB</td><td>~2 GB</td><td>~10 min</td></tr>
+                    <tr><td>CheXpert (small)</td><td>~11 GB</td><td>~8 GB</td><td>~45 min</td></tr>
+                    <tr className="highlight-row"><td><strong>TOTAL</strong></td><td><strong>~12.7 GB</strong></td><td><strong>~10 GB</strong></td><td><strong>~55 min</strong></td></tr>
                   </tbody>
                 </table>
               </div>
@@ -306,42 +285,41 @@ in_channels=5 for Healthcare domain`}
               <div className="code-block" style={{ marginBottom: 20 }}>
 {`SIMULATORS/data/
 ├── raw/
-│   ├── cwru/           # Raw .mat files
-│   ├── urbansound/     # Raw .wav files (10 folds)
-│   ├── epa_aqs/        # Raw .zip / .csv files
-│   ├── wesad/          # Raw .pkl files (S2–S17)
-│   └── chestxray/      # Raw .png images + CSV
+│   ├── ptbxl/              # .hea/.dat waveforms + ptbxl_database.csv
+│   └── chexpert/           # .jpg images + train.csv / valid.csv
 ├── processed/
-│   ├── cwru/           # signals.npy, spectrograms.npy, labels.npy
-│   ├── smartcity/      # melspecs.npy, env_vectors.npy, labels.npy
-│   └── healthcare/     # wearable.npy, xray.npy, labels.npy
-└── partitioned/
-    ├── iiot/           # device_0/ → device_6/ (train.pt, val.pt, test.pt)
-    ├── smartcity/      # device_7/ → device_13/
-    └── healthcare/     # device_14/ → device_19/`}
+│   └── healthcare/         # ecg_signals.npy  (21837, 12, 1000)
+│                           # cxr_images.npy   (224316, 3, 224, 224)
+│                           # labels_ecg.npy, labels_cxr.npy
+└── partitions/
+    └── healthcare/
+        ├── partition_meta.json      # Ground-truth partition (α=5.0)
+        ├── device_00/ (HC-A1)       # train.pt, val.pt, test.pt — 573 samples
+        ├── device_01/ (HC-A2)       # 594 samples
+        ├── device_02/ (HC-A3)       # 896 samples
+        ├── device_03/ (HC-B1)       # 689 samples
+        ├── device_04/ (HC-B2)       # 919 samples
+        └── device_05/ (HC-B3)       # 1329 samples`}
               </div>
 
               <div className="kv-grid">
                 <div className="kv-item"><div className="kv-label">GPU</div><div className="kv-value">RTX A2000 12GB VRAM</div></div>
-                <div className="kv-item"><div className="kv-label">Batch Size</div><div className="kv-value">32 per device (federated)</div></div>
-                <div className="kv-item"><div className="kv-label">GPU Memory/Step</div><div className="kv-value">~4–6 GB</div></div>
-                <div className="kv-item"><div className="kv-label">Training Time</div><div className="kv-value">20 rounds × ~8 min ≈ 2.7h</div></div>
+                <div className="kv-item"><div className="kv-label">Batch Size</div><div className="kv-value">32 per device (virtual, federated)</div></div>
+                <div className="kv-item"><div className="kv-label">GPU Memory/Step</div><div className="kv-value">~4–6 GB (FedMamba-HC + MobileNetV3)</div></div>
+                <div className="kv-item"><div className="kv-label">Training Time</div><div className="kv-value">20 global rounds × τ_e=5 ≈ 2.7h</div></div>
               </div>
             </motion.div>
           )}
 
           {/* Backup Datasets */}
           <motion.div variants={fadeUp} className="section" style={{ marginTop: 40 }}>
-            <div className="section-header"><div className="section-number">7</div><h3>Backup Datasets</h3></div>
+            <div className="section-header"><div className="section-number">6</div><h3>Backup Datasets (Healthcare)</h3></div>
             <div className="table-container">
               <table className="data-table">
-                <thead><tr><th>Domain</th><th>Primary</th><th>Backup</th><th>Size</th></tr></thead>
+                <thead><tr><th>Modality</th><th>Primary (Active)</th><th>Backup</th><th>Reason</th></tr></thead>
                 <tbody>
-                  <tr><td>IIoT vibration</td><td>CWRU Bearing</td><td>MFPT Bearing (mfpt.org)</td><td>~1 GB</td></tr>
-                  <tr><td>Smart City audio</td><td>UrbanSound8K</td><td>ESC-50 (50 classes)</td><td>~600 MB</td></tr>
-                  <tr><td>Smart City env.</td><td>EPA AQS</td><td>Beijing PM2.5 (UCI)</td><td>Simpler</td></tr>
-                  <tr><td>Healthcare signal</td><td>WESAD</td><td>MIT-BIH Arrhythmia (PhysioNet)</td><td>Well-known</td></tr>
-                  <tr><td>Healthcare imaging</td><td>ChestX-ray14</td><td>CheXpert (Stanford)</td><td>Similar</td></tr>
+                  <tr><td>ECG (Primary)</td><td>PTB-XL (PhysioNet)</td><td>MIT-BIH Arrhythmia (PhysioNet)</td><td>Smaller (105 MB), 2-class only</td></tr>
+                  <tr><td>CXR (Secondary)</td><td>CheXpert (Stanford)</td><td>ChestX-ray14 (NIH)</td><td>Larger (45 GB), 14 labels, slower download</td></tr>
                 </tbody>
               </table>
             </div>

@@ -1,337 +1,174 @@
 
 =======================================================================
  DATASET ACCESS, SELECTION & INTEGRATION GUIDE
- HFL-MM: Hierarchical Federated Multimodal IoT Learning
+ HFL-MM-HC: Healthcare Federated Multimodal Learning
  Student : Samartha H V | MIT Bengaluru | Regd. 251580130019
+ Scope   : Healthcare-Only (revised 2026-04-22)
 =======================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 1: WHY THESE DATASETS
+  SECTION 1: DATASET OVERVIEW
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The HFL-MM framework targets THREE IoT application domains, each
-requiring TWO heterogeneous modalities. Dataset selection criteria:
+Project scope: Healthcare domain exclusively. Two modalities:
 
-  ✓ Publicly available (no purchase/institutional access required)
-  ✓ Multi-class (minimum 3 classes — tests non-IID partitioning)
-  ✓ Appropriate size (processable on 12GB VRAM, 500GB disk)
+  Dataset     Modality          Source              Size      Access
+  ─────────────────────────────────────────────────────────────────────
+  PTB-XL      12-lead ECG       PhysioNet (CC-BY)   ~1.7 GB  Public
+  CheXpert    Chest X-ray       Stanford ML Group   ~11 GB   Register
+  ─────────────────────────────────────────────────────────────────────
+
+Selection criteria:
+  ✓ Publicly available (no purchase required)
+  ✓ Multi-class (5 cardiac health classes — NORM/MI/STTC/CD/HYP)
+  ✓ Appropriate size (processable on 12GB VRAM)
   ✓ Used in recent FL literature (ensures fair comparison)
-  ✓ Represents real IoT data distribution (not curated lab data)
+  ✓ PTB-XL directly compatible with FedMamba-HC [B, 12, 1000] input
 
-  Domain          Primary Modality      Secondary Modality    Classes
-  ─────────────────────────────────────────────────────────────────────
-  IIoT            CWRU vibration        STFT spectrograms     4
-  Smart City      UrbanSound8K audio    EPA air quality CSV   5
-  Healthcare      WESAD wearable EEG    ChestX-ray14 images   4/14
-  ─────────────────────────────────────────────────────────────────────
+Topology: 6 IoT devices → 2 edge servers → 1 cloud
+Partition: Dirichlet α=5.0, seed=42, 5,000 total samples
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 2: DATASET 1 — CWRU BEARING VIBRATION (IIoT PRIMARY)
+  SECTION 2: DATASET 1 — PTB-XL (HEALTHCARE PRIMARY)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Name: Case Western Reserve University (CWRU) Bearing Dataset
-Task: Rotating machinery fault detection (Industrial IoT)
-Source: Case School of Engineering, CWRU
-
-2.1  Dataset Description
-  Vibration signal recordings from accelerometers on rolling-element
-  bearings under 4 fault conditions:
-    Class 0: Normal (healthy bearing)
-    Class 1: Ball fault (0.007", 0.014", 0.021" diameter)
-    Class 2: Inner race fault (0.007", 0.014", 0.021")
-    Class 3: Outer race fault (0.007", 0.014", 0.021")
-
-  Sampling rate: 12,000 Hz (drive-end) / 48,000 Hz (fan-end)
-  Load conditions: 0, 1, 2, 3 HP (4 operating conditions)
-  File format: .mat (MATLAB format) — readable via scipy.io.loadmat
-  Total size: ~800 MB (uncompressed)
-
-2.2  Download Instructions
-
-  Method A — Direct Download (recommended):
-    URL: https://engineering.case.edu/bearingdatacenter/download-data-file
-
-    Files to download (Drive End, 12kHz, all 4 loads):
-      Normal:       97.mat, 98.mat, 99.mat, 100.mat
-      Ball fault:   118.mat, 119.mat, 120.mat, 121.mat (0.007")
-                    185.mat, 186.mat, 187.mat, 188.mat (0.014")
-                    222.mat, 223.mat, 224.mat, 225.mat (0.021")
-      Inner race:   105.mat, 106.mat, 107.mat, 108.mat (0.007")
-                    169.mat, 170.mat, 171.mat, 172.mat (0.014")
-                    209.mat, 210.mat, 211.mat, 212.mat (0.021")
-      Outer race:   130.mat, 131.mat, 132.mat, 133.mat (0.007")
-                    197.mat, 198.mat, 199.mat, 200.mat (0.014")
-                    234.mat, 235.mat, 236.mat, 237.mat (0.021")
-
-    Download script (run from project root):
-      mkdir -p SIMULATORS/data/raw/cwru
-      cd SIMULATORS/data/raw/cwru
-      # Download each .mat file (example for normal, load 0):
-      wget "https://engineering.case.edu/sites/default/files/97.mat"
-      # (repeat for all files listed above — see download_datasets.py)
-
-  Method B — Python pyBearingDataset library:
-      pip install bearingdataset
-      from bearingdataset import CWRU
-      cwru = CWRU(setting="DE", rpm=1797, downsample=1)
-      cwru.download(save_dir="SIMULATORS/data/raw/cwru/")
-
-  Method C — Kaggle mirror (if direct access is slow):
-    Search: "CWRU Bearing Dataset" on Kaggle
-    Direct: kaggle datasets download -d brjapon/cwru-bearing-datasets
-
-2.3  Preprocessing
-
-  Step 1: Load .mat files
-    import scipy.io as sio
-    data = sio.loadmat("97.mat")
-    signal = data["X097_DE_time"].flatten()   # Drive-end 12kHz signal
-
-  Step 2: Sliding window segmentation
-    window_size = 1024 samples = 85.3ms at 12kHz
-    stride = 512 (50% overlap)
-    → Each file yields ~500–2000 windows depending on file length
-
-  Step 3: Normalize
-    signal = (signal - signal.mean()) / signal.std()
-    clip to [-3, 3] (remove rare spikes)
-
-  Step 4: Generate spectrogram (second modality)
-    from scipy.signal import stft
-    f, t, Zxx = stft(window, fs=12000, nperseg=256)
-    magnitude = np.abs(Zxx)  # shape: (129, ~9)
-    # Resize to 224×224 for MobileNetV3
-    from PIL import Image
-    img = Image.fromarray((magnitude_normalized * 255).astype(np.uint8))
-    img = img.resize((224, 224), Image.BICUBIC)
-    # Apply jet colormap → RGB
-    import matplotlib.cm as cm
-    img_rgb = cm.jet(np.array(img)/255.0)[:,:,:3]  # (224, 224, 3)
-
-  Step 5: Save as numpy arrays
-    np.save("SIMULATORS/data/processed/cwru/signals.npy", signals)   # (N, 1024)
-    np.save("SIMULATORS/data/processed/cwru/spectrograms.npy", imgs) # (N, 3, 224, 224)
-    np.save("SIMULATORS/data/processed/cwru/labels.npy", labels)     # (N,)
-
-  Total samples after windowing: ~35,000–50,000 windows
-
-2.4  Non-IID Partition (for 7 IIoT devices)
-
-  Apply Dirichlet allocation (α=0.5) across 7 devices:
-    python data/loaders/partition_noniid.py \
-      --domain iiot \
-      --n_devices 7 \
-      --alpha 0.5 \
-      --seed 42
-
-  Each device gets different class proportions, simulating reality:
-  Device 0: 70% normal, 20% ball, 10% inner, 0% outer
-  Device 1: 5% normal, 60% inner, 35% outer, 0% ball
-  (exact values sampled from Dirichlet(α=[0.5,0.5,0.5,0.5]))
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 3: DATASET 2 — UrbanSound8K (SMART CITY PRIMARY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Name: UrbanSound8K
-Task: Urban sound event classification (Smart City IoT)
-Source: Salamon et al., ACM MM 2014
-
-3.1  Dataset Description
-  8,732 labeled urban sound clips, 10 classes (we use 5 most distinct):
-    Class 0: air_conditioner
-    Class 1: car_horn
-    Class 2: children_playing
-    Class 3: dog_bark
-    Class 4: street_music
-    (Excluded: drilling, engine_idling, gun_shot, jackhammer, siren
-     — keep for potential extension)
-
-  Duration: ≤4 seconds per clip
-  Format: .wav (mono/stereo, variable sample rate)
-  Total size: ~6 GB (full), ~3 GB (5 classes only)
-  Organization: 10 pre-defined folds for cross-validation
-
-3.2  Download Instructions
-
-  Official:
-    URL: https://urbansounddataset.weebly.com/urbansound8k.html
-    Registration: free (name + email + affiliation)
-    Direct link (after registration): provided via email
-
-  Alternative — Kaggle:
-    kaggle datasets download -d chrisfilo/urbansound8k
-    unzip urbansound8k.zip -d SIMULATORS/data/raw/urbansound/
-
-  Using soundata library (recommended):
-    pip install soundata
-    import soundata
-    dataset = soundata.initialize("urbansound8k")
-    dataset.download()
-
-3.3  Preprocessing (Mel-Spectrogram)
-
-    import librosa
-    import numpy as np
-
-    def audio_to_mel(file_path, sr=22050, n_mels=128, duration=4.0):
-        y, sr = librosa.load(file_path, sr=sr, duration=duration, mono=True)
-        # Pad/trim to fixed duration
-        target_len = int(sr * duration)
-        if len(y) < target_len:
-            y = np.pad(y, (0, target_len - len(y)))
-        else:
-            y = y[:target_len]
-        # Mel spectrogram
-        mel = librosa.feature.melspectrogram(
-            y=y, sr=sr, n_mels=n_mels, hop_length=512, n_fft=1024)
-        mel_db = librosa.power_to_db(mel, ref=np.max)
-        # Normalize to [0, 1]
-        mel_norm = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min() + 1e-8)
-        return mel_norm  # shape: (128, 173) → resize to (128, 128) for Encoder B
-
-  Resize to (3, 224, 224) for MobileNetV3:
-    # Repeat single channel 3 times (gray → RGB)
-    mel_3ch = np.stack([mel_norm]*3, axis=0)  # (3, 128, 173)
-    # Use PIL resize
-    from torchvision.transforms.functional import resize
-    mel_tensor = torch.tensor(mel_3ch).float()
-    mel_resized = resize(mel_tensor, [224, 224])  # (3, 224, 224)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 4: DATASET 3 — EPA AQS (SMART CITY SECONDARY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Name: EPA Air Quality System (AQS) — Daily Summary Data
-Task: Air quality index classification (Smart City secondary modality)
-Source: U.S. Environmental Protection Agency
-
-4.1  Download Instructions
-
-  URL: https://aqs.epa.gov/aqsweb/airdata/download_files.html
-  Files: daily_88101_2023.zip (PM2.5), daily_42602_2023.zip (NO2)
-         daily_44201_2023.zip (Ozone), daily_42101_2023.zip (CO)
-
-  Python API alternative:
-    pip install pyaqsapi
-    import pyaqsapi as aqs
-    aqs.bystate.dailysummarybystate(
-        parameter="88101", bdate=date(2023,1,1),
-        edate=date(2023,12,31), stateFIPS="06"  # California
-    )
-
-4.2  Feature Vector (6 dimensions)
-
-  Per hourly aggregation window:
-    [PM2.5_mean, NO2_mean, O3_mean, CO_mean, AQI, temperature]
-  Normalize each to [0,1] across training set.
-  Label: AQI category (0=Good, 1=Moderate, 2=Unhealthy for Sensitive,
-                        3=Unhealthy, 4=Very Unhealthy)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 5: DATASET 4 — WESAD (HEALTHCARE PRIMARY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Name: WESAD — Wearable Stress and Affect Detection
-Task: Physiological stress detection (Healthcare IoT)
-Source: Schmidt et al., ACM ICMI 2018 | UCI ML Repository
+Name: PTB-XL — Large 12-Lead ECG Waveform Dataset
+Task: 5-class cardiac health classification (Healthcare IoT)
+Source: Wagner et al., Scientific Data 2020 | PhysioNet (CC-BY 4.0)
+Replaces: WESAD (superseded 2026-04-22 — PTB-XL directly compatible
+          with FedMamba-HC IP-1 12-lead input; larger scale; clinical)
 
 5.1  Dataset Description
-  15 subjects wearing chest-strap (RespiBAN) + wrist (Empatica E4)
-  Sensors used in our work:
-    ACC  : 3-axis accelerometer (32 Hz, chest)
-    EDA  : electrodermal activity (4 Hz, wrist)
-    TEMP : skin temperature (4 Hz, wrist)
-  Labels:
-    Class 0: Baseline (relaxed)
-    Class 1: Stress (Trier Social Stress Test)
-    Class 2: Amusement (comedy video)
-    Class 3: Meditation (optional, some subjects)
+  21,837 clinical 12-lead ECG records from 18,885 unique patients.
+  Sampling rate  : 100 Hz (resampled from 500 Hz native)
+  Duration       : 10 seconds per record → 1,000 samples @ 100 Hz
+  Tensor shape   : [B, 12, 1000] per sample
+  Total size     : ~1.7 GB
 
-  Format: .pkl files per subject
-  Total size: ~4 GB
+  5-class superdiagnostic labels (SNOMED codes):
+    Class 0 — NORM : Normal sinus rhythm        (9,514 records, code 426783006)
+    Class 1 — MI   : Myocardial Infarction       (5,469 records, code 164865005)
+    Class 2 — STTC : ST/T Change                 (5,250 records, code 428750005)
+    Class 3 — CD   : Conduction Disturbance      (4,907 records, code 233917008)
+    Class 4 — HYP  : Hypertrophy                 (2,649 records, code 164873001)
 
 5.2  Download Instructions
 
-  Official (requires free registration):
-    https://archive.ics.uci.edu/dataset/465/wesad+wearable+stress+and+affect+detection
+  Python wfdb library (recommended):
+    pip install wfdb
+    import wfdb
+    wfdb.dl_database('ptb-xl', dl_dir='SIMULATORS/data/raw/ptbxl/')
 
-  Direct download:
-    wget "https://archive.ics.uci.edu/static/public/465/wesad.zip"
-    unzip wesad.zip -d SIMULATORS/data/raw/wesad/
+  wget (PhysioNet — CC-BY 4.0, no registration):
+    wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.3/
 
-5.3  Preprocessing
+  Kaggle mirror:
+    kaggle datasets download -d khyeh0719/ptb-xl-dataset
 
-    import pickle
-    import numpy as np
+5.3  Preprocessing Pipeline
 
-    def load_wesad_subject(subject_id, data_dir):
-        path = f"{data_dir}/S{subject_id}/S{subject_id}.pkl"
-        with open(path, 'rb') as f:
-            data = pickle.load(f, encoding='latin1')
-        # Chest sensor: ACC (3-axis, 700Hz), downsample to 32Hz
-        acc = data['signal']['chest']['ACC']       # (N, 3)
-        # Wrist sensor: EDA (4Hz), TEMP (4Hz)
-        eda = data['signal']['wrist']['EDA']       # (N, 1)
-        temp = data['signal']['wrist']['TEMP']     # (N, 1)
-        labels = data['label']                     # (N,) 0=transient,1=base,2=stress,3=amu,4=med
-        return acc, eda, temp, labels
+  Step 1: Load ECG waveforms via wfdb
+    import wfdb
+    record = wfdb.rdrecord(f"SIMULATORS/data/raw/ptbxl/records100/{filename}")
+    signal = record.p_signal  # shape: (1000, 12) at 100 Hz
 
-    def create_windows(signals, labels, window_sec=5, fs=32):
-        window = window_sec * fs  # 160 samples at 32Hz
-        windows, window_labels = [], []
-        for i in range(0, len(signals) - window, window//2):
-            seg = signals[i:i+window]   # (160, C)
-            label = np.mode(labels[i:i+window])[0]
-            if label in [1, 2, 3, 4]:   # exclude transient
-                windows.append(seg)
-                window_labels.append(label - 1)  # remap to 0-3
-        return np.array(windows), np.array(window_labels)
+  Step 2: Transpose → [12, 1000]
+    signal_t = signal.T   # (12, 1000)
 
-  Output: signals shape (N, 160, 5) [5 channels: ACC×3, EDA, TEMP]
-  Reshape for 1D-CNN: (N, 5, 160) → Encoder A input
+  Step 3: Bandpass filter 0.5–40 Hz (removes baseline wander + EMG)
+    from scipy.signal import butter, filtfilt
+    b, a = butter(4, [0.5, 40], btype='bandpass', fs=100)
+    signal_filt = filtfilt(b, a, signal_t, axis=1)
+
+  Step 4: Per-lead z-score normalization
+    mean = signal_filt.mean(axis=1, keepdims=True)
+    std  = signal_filt.std(axis=1, keepdims=True) + 1e-8
+    signal_norm = (signal_filt - mean) / std
+
+  Step 5: Handle missing leads — zero-pad + lead-failure flag
+    # Missing lead → zero vector; flag passed as auxiliary input
+
+  Step 6: Load labels from metadata CSV
+    import pandas as pd
+    meta = pd.read_csv("SIMULATORS/data/raw/ptbxl/ptbxl_database.csv")
+    # Map superdiagnostic_class → {NORM:0, MI:1, STTC:2, CD:3, HYP:4}
+    label_map = {'NORM':0, 'MI':1, 'STTC':2, 'CD':3, 'HYP':4}
+
+  Output: signals.npy  shape (21837, 12, 1000) — ~2.0 GB float32
+          labels.npy   shape (21837,)
+
+5.4  Non-IID Partition (6 Healthcare Devices, Dirichlet α=5.0, seed=42)
+
+  ACTUAL partition from SIMULATORS/data/processed/partitions/healthcare/
+  partition_meta.json (ground truth — 5,000 samples, α=5.0):
+
+  Device    Name   Edge  Total  Train  Val   Test  Dominant
+  ──────────────────────────────────────────────────────────────
+  device_00 HC-A1   A     573    401    85    87    HYP (162)
+  device_01 HC-A2   A     594    415    89    90    STTC(233)
+  device_02 HC-A3   A     896    627   134   135    HYP (217)
+  device_03 HC-B1   B     689    482   103   104    NORM(186)
+  device_04 HC-B2   B     919    643   137   139    STTC(245)
+  device_05 HC-B3   B    1329    930   199   200    MI  (278)
+  ──────────────────────────────────────────────────────────────
+  TOTAL            —    5000   3498   607   755    —
+
+  Class counts per device:
+  Device   NORM  MI   STTC  CD   HYP
+  ─────────────────────────────────────
+  HC-A1     58   151   75   127  162
+  HC-A2     55    91  233    98  117
+  HC-A3    212   149  111   207  217
+  HC-B1    186   132  107   173   91
+  HC-B2    213   199  245   124  138
+  HC-B3    276   278  229   271  275
+  ─────────────────────────────────────
+
+  NOTE: α=5.0 produces mild non-IID (near-uniform within each device)
+  as opposed to α=0.5 (extreme skew). Reflects realistic hospital
+  device deployment where each ward sees a mix of conditions.
+
+  Run partition script:
+    python data/loaders/partition_noniid.py \
+      --domain healthcare \
+      --n_devices 6 \
+      --alpha 5.0 \
+      --seed 42
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 6: DATASET 5 — NIH ChestX-ray14 (HEALTHCARE SECONDARY)
+  SECTION 3: DATASET 2 — CheXpert (HEALTHCARE SECONDARY)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Name: NIH ChestX-ray14 (subset: 4 classes)
-Task: Chest pathology detection (Healthcare imaging modality)
-Source: Wang et al., CVPR 2017 | NIH Clinical Center
+Name: CheXpert — Stanford Chest Radiograph Dataset
+Task: 5-label multilabel chest pathology classification
+Source: Irvin et al., AAAI 2019 | Stanford ML Group
+Replaces: NIH ChestX-ray14 (superseded 2026-04-22 — CheXpert has
+          better uncertainty labeling, larger scale, same task)
 
 6.1  Dataset Description
-  112,120 frontal-view chest X-ray images, 14 pathology labels.
-  We use 4-class subset for FL experiment tractability:
-    Class 0: No Finding (normal)
-    Class 1: Atelectasis
-    Class 2: Cardiomegaly
-    Class 3: Effusion
-  (Top 4 classes by count → most balanced distribution)
+  224,316 frontal chest X-ray images from 65,240 unique patients.
+  Resolution: 224×224 (small version — pre-resized from ~3000×2000)
+  Format: .jpg
+  Total size: ~11 GB (small 224×224 version)
 
-  Format: .png, 1024×1024 grayscale
-  Total size (full): ~45 GB | 4-class subset: ~11 GB
+  5-label multilabel classification (u-zeros uncertainty policy):
+    Label 0: No Finding       (16,627 positive)
+    Label 1: Pleural Effusion  (75,696 positive) — most common
+    Label 2: Cardiomegaly      (20,739 positive)
+    Label 3: Atelectasis       (29,420 positive)
+    Label 4: Consolidation     (12,730 positive)
+  Uncertain labels (U=−1 in CSV) → mapped to 0 (u-zeros policy)
 
 6.2  Download Instructions
 
-  Official NIH:
-    https://nihcc.app.box.com/v/ChestXray-NIHCC
-    (18 .tar.gz files — download all or specific batches)
+  Official (Stanford — free registration required):
+    1. Register at: stanfordmlgroup.github.io/projects/chexpert/
+    2. Download link provided by email
+    3. Use small dataset version (~11 GB, 224×224 pre-resized)
 
-  Google Cloud Storage (faster):
-    gsutil -m cp -r gs://gcs-public-data--chest-xray/chest-xray-14/ \
-      SIMULATORS/data/raw/chestxray/
-
-  Kaggle (easiest):
-    kaggle datasets download -d nih-chest-xrays/data
-    # Then filter to 4 classes using metadata CSV
-
-  Filter script:
-    import pandas as pd
-    meta = pd.read_csv("Data_Entry_2017.csv")
-    target = meta[meta["Finding Labels"].isin(
-        ["No Finding", "Atelectasis", "Cardiomegaly", "Effusion"])]
-    # Single-label only (exclude multi-label for clean classification)
-    target_single = target[~target["Finding Labels"].str.contains("|")]
+  Kaggle mirror (easiest):
+    kaggle datasets download -d ashery/chexpert
+    unzip chexpert.zip -d SIMULATORS/data/raw/chexpert/
 
 6.3  Preprocessing
 
@@ -339,92 +176,119 @@ Source: Wang et al., CVPR 2017 | NIH Clinical Center
     import torchvision.transforms as T
 
     transform = T.Compose([
-        T.Grayscale(num_output_channels=3),  # Gray → RGB (MobileNetV3 input)
         T.Resize(256),
         T.CenterCrop(224),
         T.ToTensor(),
         T.Normalize(mean=[0.485, 0.456, 0.406],  # ImageNet stats
                     std=[0.229, 0.224, 0.225])
     ])
+    # CheXpert small version is already RGB — no Grayscale conversion needed
+
+  Label loading (handle uncertain -1 values):
+    import pandas as pd
+    import numpy as np
+    df = pd.read_csv("SIMULATORS/data/raw/chexpert/train.csv")
+    label_cols = ['No Finding','Pleural Effusion','Cardiomegaly',
+                  'Atelectasis','Consolidation']
+    labels = df[label_cols].fillna(0).replace(-1, 0).values  # u-zeros
+
+6.4  Multimodal Pairing with PTB-XL
+
+  Combined task: 5-class cardiac health assessment
+  Pairing strategy:
+    70% direct patient pairs (same patient has both ECG + CXR records)
+    30% within-class synthetic pairs (matching cardiac condition label)
+  Combined loss: 0.7 × CrossEntropy(ECG_logits) + 0.3 × BCE(CXR_logits)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 7: ALTERNATIVE / BACKUP DATASETS
+  SECTION 4: ALTERNATIVE / BACKUP DATASETS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   If download/preprocessing of primary datasets is infeasible:
 
-  Domain         Primary               Backup                Why Backup
+  Modality        Primary               Backup                Why Backup
   ─────────────────────────────────────────────────────────────────────
-  IIoT vibr.     CWRU Bearing           MFPT Bearing          Same task,
-                                        (mfpt.org/fault-data) smaller (1GB)
-  Smart City aud. UrbanSound8K          ESC-50 (50 classes)   Smaller (600MB)
-                                        github.com/karolpiczak/ESC-50
-  Smart City env. EPA AQS               Beijing PM2.5 (UCI)   Simpler format
-                                        archive.ics.uci.edu/dataset/381
-  Healthcare sig. WESAD                 MIT-BIH Arrhythmia    Well-known ECG
-                                        (physionet.org)       benchmark
-  Healthcare img. ChestX-ray14          CheXpert (Stanford)   Similar task
-                                        stanfordmlgroup.github.io/projects/chexpert/
+  ECG (Primary)   PTB-XL (PhysioNet)    MIT-BIH Arrhythmia    Smaller (105MB),
+                                        (physionet.org)       2-class only
+  CXR (Secondary) CheXpert (Stanford)   ChestX-ray14 (NIH)    Larger (45GB),
+                                        nihcc.app.box.com     14 labels
   ─────────────────────────────────────────────────────────────────────
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 8: NON-IID PARTITIONING ACROSS 20 DEVICES
+  SECTION 5: NON-IID PARTITIONING (HEALTHCARE — 6 DEVICES, α=5.0)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Full partitioning script: SIMULATORS/data/loaders/partition_noniid.py
+Partition metadata: SIMULATORS/data/processed/partitions/healthcare/
+                    partition_meta.json (authoritative — do not edit)
 
   Algorithm (Dirichlet Non-IID, standard in FL literature):
 
-    For each class c in domain d:
-      proportions = np.random.dirichlet(α × ones(n_devices_in_cluster))
+    For each class c:
+      proportions = np.random.dirichlet(α × ones(n_devices))
       Assign fraction proportions[i] of class-c samples to device i.
 
-  Example output for IIoT domain (7 devices, 4 classes, α=0.5):
+  α=5.0 produces mild non-IID (near-uniform within each device).
+  This reflects realistic hospital deployment where each ward or
+  clinic sees a representative mix of cardiac conditions.
+  Contrast: α=0.5 would produce extreme class skew (single dominant
+  class per device), which is less realistic for healthcare.
 
-  Device  Normal   Ball    Inner   Outer   Total
-  ──────────────────────────────────────────────────
-  Dev-0   62.4%   18.3%   12.5%   6.8%   4,210
-  Dev-1   8.1%    71.2%   15.3%   5.4%   3,870
-  Dev-2   4.3%    3.2%    78.9%  13.6%   4,550
-  Dev-3   21.7%   12.4%   4.8%   61.1%   3,990
-  Dev-4   45.2%   30.1%   19.0%   5.7%   4,100
-  Dev-5   7.8%    8.9%    6.4%   76.9%   3,750
-  Dev-6   50.5%   6.0%    38.5%   5.0%   4,630
-  ──────────────────────────────────────────────────
+  ACTUAL partition (from partition_meta.json, seed=42, 5000 total):
 
-  This strong class imbalance (α=0.5) tests the HFL-MM framework's
-  ability to converge under severe non-IID conditions — a key challenge
-  addressed by the two-tier FedAvg with weighted aggregation.
+  Device    Name   Edge  Total  NORM  MI   STTC  CD   HYP  Dominant
+  ─────────────────────────────────────────────────────────────────────
+  device_00 HC-A1   A     573    58   151   75   127  162   HYP
+  device_01 HC-A2   A     594    55    91  233    98  117   STTC
+  device_02 HC-A3   A     896   212   149  111   207  217   HYP
+  device_03 HC-B1   B     689   186   132  107   173   91   NORM
+  device_04 HC-B2   B     919   213   199  245   124  138   STTC
+  device_05 HC-B3   B    1329   276   278  229   271  275   MI
+  ─────────────────────────────────────────────────────────────────────
+  TOTAL             —    5000   1000 1000  1000  1000 1000  —
+
+  Run command:
+    python data/loaders/partition_noniid.py \
+      --domain healthcare \
+      --n_devices 6 \
+      --alpha 5.0 \
+      --seed 42
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 9: DATASET STORAGE STRUCTURE
+  SECTION 6: DATASET STORAGE STRUCTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   SIMULATORS/data/
   ├── raw/
-  │   ├── cwru/                    # Raw .mat files
-  │   ├── urbansound/              # Raw .wav files (10 folds)
-  │   ├── epa_aqs/                 # Raw .zip / .csv files
-  │   ├── wesad/                   # Raw .pkl files (S2–S17)
-  │   └── chestxray/               # Raw .png images + CSV
+  │   ├── cwru/                    # Raw .mat files (IIoT — retained)
+  │   ├── urbansound/              # Raw .wav files (Smart City — retained)
+  │   ├── epa_aqs/                 # Raw .zip / .csv files (Smart City)
+  │   ├── ptbxl/                   # Raw .hea/.dat files + ptbxl_database.csv
+  │   └── chexpert/                # Raw .jpg images + train.csv/valid.csv
   ├── processed/
   │   ├── cwru/                    # signals.npy, spectrograms.npy, labels.npy
   │   ├── smartcity/               # melspecs.npy, env_vectors.npy, labels.npy
-  │   └── healthcare/              # wearable.npy, xray.npy, labels.npy
-  └── partitioned/
-      ├── iiot/
-      │   ├── device_0/ → device_6/    # train.pt, val.pt, test.pt
-      ├── smartcity/
-      │   ├── device_7/ → device_13/
+  │   └── healthcare/              # ecg_signals.npy (21837,12,1000)
+  │                                # cxr_images.npy (224316,3,224,224)
+  │                                # labels_ecg.npy, labels_cxr.npy
+  └── partitions/
       └── healthcare/
-          ├── device_14/ → device_19/
+          ├── partition_meta.json      # Ground-truth partition config
+          ├── device_00/ (HC-A1)       # train.pt, val.pt, test.pt — 573 samples
+          ├── device_01/ (HC-A2)       # 594 samples
+          ├── device_02/ (HC-A3)       # 896 samples
+          ├── device_03/ (HC-B1)       # 689 samples
+          ├── device_04/ (HC-B2)       # 919 samples
+          └── device_05/ (HC-B3)       # 1329 samples
 
   Each device folder contains PyTorch Dataset files:
-    TensorDataset(signal_tensor, image_tensor, label_tensor)
+    TensorDataset(ecg_tensor, cxr_tensor, label_tensor)
+    ecg_tensor: [N, 12, 1000] float32
+    cxr_tensor: [N, 3, 224, 224] float32
     Saved as: torch.save(dataset, "train.pt")
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 10: DISK SPACE & COMPUTE REQUIREMENTS
+  SECTION 7: DISK SPACE & COMPUTE REQUIREMENTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Dataset               Raw Size    Processed Size    Download Time
@@ -432,13 +296,16 @@ Full partitioning script: SIMULATORS/data/loaders/partition_noniid.py
   CWRU Bearing           ~800 MB      ~2 GB            ~5 min
   UrbanSound8K           ~6 GB        ~4 GB            ~20 min
   EPA AQS                ~500 MB      ~100 MB          ~5 min
-  WESAD                  ~4 GB        ~500 MB          ~15 min
-  ChestX-ray14 (4-cls)   ~11 GB       ~8 GB            ~45 min
+  PTB-XL                 ~1.7 GB      ~2 GB            ~10 min
+  CheXpert (small)       ~11 GB       ~8 GB            ~45 min
   ─────────────────────────────────────────────────────────────────
-  TOTAL                  ~22 GB       ~15 GB            ~90 min
+  TOTAL                  ~20 GB       ~16 GB            ~85 min
   ─────────────────────────────────────────────────────────────────
+  NOTE: Replaced WESAD (~4 GB) + ChestX-ray14 (~45 GB) with
+        PTB-XL (~1.7 GB) + CheXpert small (~11 GB) → LESS disk needed.
 
   Available on your machine: NVIDIA RTX A2000 12GB VRAM
-  Training batch size: 32 per device (federated, not all at once)
-  GPU memory per training step: ~4–6 GB (MobileNetV3 + 1D-CNN parallel)
-  Expected training time: 20 rounds × ~8 min/round ≈ 2.7 hours total
+  Training batch size: 32 per device (virtual, federated)
+  GPU memory per training step: ~4–6 GB (FedMamba-HC + MobileNetV3)
+  Expected training time: 20 global rounds × τ_e=5 inner rounds
+    ≈ 20 rounds × ~8 min/round ≈ 2.7 hours total
