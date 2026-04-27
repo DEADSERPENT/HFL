@@ -1,0 +1,339 @@
+PHASE 1 — Research Understanding & Planning
+                                                                                                                                                  
+  ---                                                                                                                                             
+  1. Paper Summaries & Gap Analysis                                                                                                               
+                                                                                                                                                  
+  Paper 1 — FL2DP (Gu et al., IEEE Trans. Industrial Informatics, 2024)                                                                           
+                                                                                                                                                  
+  What it does: Combines Differential Privacy with a shuffling mechanism. Uses an exponential noise mechanism (instead of standard                
+  Gaussian/Laplace) to perturb gradients. Introduces a "shuffler" entity to break the identity link between users and gradients.                  
+
+  Findings: Achieves "gradient indistinguishability" — better accuracy than standard DP while maintaining formal privacy guarantees.
+
+  Gaps relevant to  work:
+  - Flat single-tier architecture — no hierarchical edge-cloud structure
+  - Does not address multimodal data fusion (treats all data as generic gradient vectors)
+  - No bandwidth optimization for high-volume multimodal streams (camera + vibration + audio)
+
+  ---
+  Paper 2 — HED-FL (De Rango et al., Pervasive and Mobile Computing, 2023)
+
+  What it does: Hierarchical FL with dynamic device clustering at the edge. Reduces communication distance and energy cost by avoiding long-range
+  transmissions to the cloud.
+
+  Findings: Hierarchical clustering significantly extends IoT network lifetime vs. flat FL.
+
+  Gaps relevant to  work:
+  - No Differential Privacy — privacy risks are unaddressed
+  - Treats all data generically — no awareness of heterogeneous QoS needs (high-bandwidth video vs. low-bandwidth sensor data)
+  - No multimodal fusion strategy
+
+  ---
+  Paper 3 — HCEF (Zhang et al., IEEE Trans. Mobile Computing, 2025)
+
+  What it does: Heterogeneity-Aware Cooperative Edge-based Federated Averaging. Online control algorithm dynamically adjusts computation
+  frequencies and gradient compression ratios per device to prevent straggler bottlenecks.
+
+  Findings: Reduces training time and energy by adapting to each device's capability.
+
+  Gaps relevant to  work:
+  - Focuses on compression, not privacy-preserving noise injection — no guarantee of ε ≤ 1
+  - Does not target real-time inference latency < 100ms for fused multimodal streams
+  - Optimizes convergence speed, not end-to-end QoS
+
+  ---
+  Paper 4 — RoPPFL (Zhou et al., Computer Networks, 2024)
+
+  What it does: Edge nodes perform similarity-based robust aggregation to detect poisoned model updates, while Local Differential Privacy (LDP)
+  protects user data. Dual-layer defense: privacy + robustness.
+
+  Findings: Edge nodes can serve as effective security verifiers, reducing cloud computational burden.
+
+  Gaps relevant to  work:
+  - Treats learning task as generic vector aggregation — no multimodal fusion
+  - Does not target ≥50% uplink traffic reduction
+  - Prioritizes security robustness over strict latency QoS (<100ms)
+
+  ---
+  Paper 5 — Mhaisen et al. (IEEE Trans. Netw. Sci. Eng., 2022)
+
+  What it does: Dynamic user-edge assignment in hierarchical FL based on data distribution statistics. Uses FedSGD at user-edge layer and FedAvg
+  at edge-cloud layer to optimize convergence under non-IID data.
+
+  Findings: Statistically optimized assignment reduces model weight divergence and accelerates convergence on MNIST and CIFAR-10.
+
+  Gaps relevant to  work:
+  - Single modality only (image classification) — no multimodal extension
+  - Relies on exposing local class label statistics, which directly violates ε ≤ 1 privacy budget
+  - No cross-modal fusion, no QoS latency targets
+
+  ---
+  2. Consolidated Problem Statement
+
+  Multimodal IoT devices generate large, heterogeneous data streams (images, audio, vibration, environmental sensors) that overload networks and
+  risk privacy when centralized. Existing federated learning frameworks fail to simultaneously address multimodal fusion, hierarchical bandwidth
+  optimization, formal differential privacy guarantees, and real-time QoS constraints. No unified framework jointly optimizes communication
+  efficiency, privacy, inference latency, and energy for heterogeneous edge-cloud IoT deployments.
+
+  Formal Problem Statement (thesis-grade):
+
+  Design and validate a Hierarchical Federated Multimodal Learning (HFML) framework for edge-cloud IoT that enforces strict differential privacy
+  (ε ≤ 1), achieves ≥50% uplink communication reduction through two-tier aggregation, maintains inference latency below 100 ms, and delivers ≥20%
+  energy savings per training round — with model accuracy degradation limited to ≤2%.
+
+  ---
+  3. Research Objectives (Quantified)
+
+  ┌─────┬─────────────────────────────────────┬───────────────────────────┬──────────────────────────────────────────────────────────────────┐
+  │  #  │              Objective              │       Target Metric       │                              Method                              │
+  ├─────┼─────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ O1  │ Reduce uplink communication         │ ≥50% vs. centralized FL   │ Two-tier aggregation + gradient sparsification + quantization    │
+  ├─────┼─────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ O2  │ Preserve model accuracy under       │ ≤2% accuracy loss at ε ≤  │ Calibrated Gaussian noise + Moments Accountant + DP-SGD          │
+  │     │ privacy                             │ 1                         │                                                                  │
+  ├─────┼─────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ O3  │ Real-time inference QoS             │ < 100ms end-to-end        │ Edge-side inference + model pruning + async aggregation          │
+  │     │                                     │ latency                   │                                                                  │
+  ├─────┼─────────────────────────────────────┼───────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ O4  │ Energy efficiency                   │ ≥20% savings per round    │ Local computation trade-off + DVFS + reduced transmission        │
+  │     │                                     │                           │ frequency                                                        │
+  └─────┴─────────────────────────────────────┴───────────────────────────┴──────────────────────────────────────────────────────────────────┘
+
+  ---
+  4. Vision Map
+
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║              RESEARCH VISION MAP                                 ║
+  ║   Hierarchical Federated Multimodal IoT Learning                 ║
+  ╚══════════════════════════════════════════════════════════════════╝
+
+       PROBLEM SPACE                    SOLUTION SPACE
+    ┌─────────────────┐             ┌──────────────────────┐
+    │ Multimodal IoT  │             │  HFL Framework       │
+    │ Data Overload   │────────────▶│  Two-Tier Aggregation│
+    └─────────────────┘             └──────────────────────┘
+    ┌─────────────────┐             ┌──────────────────────┐
+    │ Privacy Risks   │             │  Differential Privacy│
+    │ (raw data →     │────────────▶│  ε ≤ 1 Guarantee     │
+    │  cloud)         │             │  (Gaussian Mechanism)│
+    └─────────────────┘             └──────────────────────┘
+    ┌─────────────────┐             ┌──────────────────────┐
+    │ High Latency    │             │  Edge Inference +    │
+    │ (>100ms end-    │────────────▶│  Model Pruning       │
+    │  to-end)        │             │  + Async Aggregation │
+    └─────────────────┘             └──────────────────────┘
+    ┌─────────────────┐             ┌──────────────────────┐
+    │ Energy Waste    │             │  Local Compute       │
+    │ (device         │────────────▶│  Balancing + DVFS    │
+    │  exhaustion)    │             │  + D2D Offloading    │
+    └─────────────────┘             └──────────────────────┘
+
+       APPLICATION DOMAINS
+    ┌──────────┐  ┌──────────┐  ┌──────────┐
+    │  IIoT    │  │  Smart   │  │Healthcare│
+    │ Camera + │  │  City    │  │ Wearable │
+    │Vibration │  │Traffic + │  │+ Imaging │
+    │  Fusion  │  │Pollution │  │  Data    │
+    └──────────┘  └──────────┘  └──────────┘
+
+       EVALUATION TARGETS
+    ≥50% comm. reduction | ε≤1 privacy | <100ms latency | ≥20% energy saved
+
+  ---
+  5. System Architecture Map
+
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║         THREE-LAYER HFL ARCHITECTURE                                 ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  LAYER 3: CLOUD SERVER                                              │
+  │  ┌──────────────────────────────────────────────────────────────┐   │
+  │  │  Global Model Aggregation (FedAvg on edge-aggregated updates) │   │
+  │  │  → Global Model W_global distributed back to all edge servers │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  │         ↑  Encrypted Edge Updates (W_edge)     ↓ W_global           │
+  └─────────────────────────────────────────────────────────────────────┘
+                      ↑ Uplink (compressed, encrypted)
+                      ↓ Downlink (global model)
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  LAYER 2: EDGE SERVER (Multiple per region)                         │
+  │  ┌──────────────────────────────────────────────────────────────┐   │
+  │  │  Partial Aggregation (FedAvg on device updates)              │   │
+  │  │  → Compression + Sparsification → Encrypt → Forward to Cloud │   │
+  │  │  → Distribute local model back to cluster devices            │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  │         ↑ Encrypted Local Updates {w_i, w_j}   ↓ Local Model        │
+  └─────────────────────────────────────────────────────────────────────┘
+                      ↑ Uplink (noisy, compressed)
+                      ↓ Downlink (local aggregated model)
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  LAYER 1: IoT / END DEVICES (Heterogeneous)                         │
+  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
+  │  │ Device i     │  │ Device j     │  │ Device k ... │              │
+  │  │ ┌──────────┐ │  │ ┌──────────┐ │  │ ┌──────────┐ │              │
+  │  │ │Multimodal│ │  │ │Multimodal│ │  │ │Multimodal│ │              │
+  │  │ │  Data    │ │  │ │  Data    │ │  │ │  Data    │ │              │
+  │  │ │Collection│ │  │ │Collection│ │  │ │Collection│ │              │
+  │  │ │& Feature │ │  │ │& Feature │ │  │ │& Feature │ │              │
+  │  │ │Extraction│ │  │ │Extraction│ │  │ │Extraction│ │              │
+  │  │ └────┬─────┘ │  │ └────┬─────┘ │  │ └────┬─────┘ │              │
+  │  │      ▼       │  │      ▼       │  │      ▼       │              │
+  │  │ ┌──────────┐ │  │ ┌──────────┐ │  │              │              │
+  │  │ │Local Model│ │  │ │Local Model│ │  │              │              │
+  │  │ │ Training │ │  │ │ Training │ │  │              │              │
+  │  │ └────┬─────┘ │  │ └────┬─────┘ │  │              │              │
+  │  │      ▼       │  │      ▼       │  │              │              │
+  │  │ ┌──────────┐ │  │ ┌──────────┐ │  │              │              │
+  │  │ │   DP     │ │  │ │   DP     │ │  │              │              │
+  │  │ │Mechanism │ │  │ │Mechanism │ │  │              │              │
+  │  │ │(ε≤1 noise│ │  │ │(ε≤1 noise│ │  │              │              │
+  │  │ │ addition)│ │  │ │ addition)│ │  │              │              │
+  │  │ └──────────┘ │  │ └──────────┘ │  │              │              │
+  │  └──────────────┘  └──────────────┘  └──────────────┘              │
+  │                                                                     │
+  │  Modalities: [Camera] [Microphone] [Vibration] [Env. Sensor]       │
+  └─────────────────────────────────────────────────────────────────────┘
+
+    DATA FLOW:  Raw Sensors → Feature Extraction → Local Train →
+                DP Noise → Encrypt → Edge Aggregate → Cloud Aggregate
+
+  ---
+  6. Development Roadmap
+
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║               DEVELOPMENT ROADMAP (Jan–May 2026)                ║
+  ╚══════════════════════════════════════════════════════════════════╝
+
+  PHASE 1: Research & Planning          [JAN 2026] ← YOU ARE HERE
+  ├── Literature synthesis (5 papers)
+  ├── Gap identification (4 gaps)
+  ├── Vision & Architecture maps
+  └── Roadmap & Evaluation Calendar
+
+  PHASE 2: Simulator Selection & Design [FEB 2026]
+  ├── Justify NS-3 (network layer modeling)
+  ├── Justify CloudSim Plus / EdgeCloudSim
+  ├── Design simulation architecture
+  └── Define conceptual integration between simulators
+
+  PHASE 3: Environment Setup            [FEB 2026]
+  ├── NS-3 installation (Python bindings)
+  ├── CloudSim Plus / EdgeCloudSim setup
+  └── Reproducibility & compatibility check
+
+  PHASE 4: Simulator Implementation     [MAR–APR 2026]
+  ├── NS-3: Network topology, traffic modeling, QoS metrics
+  │   ├── 3-tier topology (device–edge–cloud)
+  │   ├── Wireless channel models (WiFi / LTE / 5G)
+  │   └── Metric collection: latency, throughput, packet loss
+  ├── CloudSim: Edge-cloud resource modeling
+  │   ├── VM provisioning, task scheduling
+  │   ├── Energy modeling (computation + communication)
+  │   └── Workload simulation (multimodal data transfer)
+  └── Baseline experiments (centralized FL vs. flat FL)
+
+  PHASE 5: Main Model Integration        [APR–MAY 2026]
+  ├── Implement HFL algorithm (two-tier FedAvg)
+  ├── Multimodal feature fusion module
+  ├── DP mechanism (Gaussian noise + Moments Accountant)
+  ├── Adaptive compression (gradient sparsification + quantization)
+  ├── QoS optimizer (latency-energy trade-off controller)
+  ├── Integration with simulation results
+  └── Graphs, tables, analysis for thesis + paper
+
+  DELIVERABLES:
+  ├── Thesis Report (May 2026)
+  ├── Q1/Q2 Journal Paper Submission (May 2026)
+  └── Simulation codebase (NS-3 + CloudSim)
+
+  ---
+  7. Experiment & Evaluation Calendar
+
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║           EXPERIMENT & EVALUATION CALENDAR                       ║
+  ╚══════════════════════════════════════════════════════════════════╝
+
+  ┌──────────────┬─────────────────────────────────────────────────┐
+  │   PERIOD     │  EXPERIMENTS & METRICS                          │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ Feb–Mar 2026 │ BASELINE EXPERIMENTS                            │
+  │              │ • Centralized FL (no privacy, no hierarchy)     │
+  │              │ • Flat FL with DP (FL2DP baseline)              │
+  │              │ • Hierarchical FL without DP (HED-FL baseline)  │
+  │              │ Metrics: accuracy, comm. overhead, latency       │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ Mar 2026     │ OBJECTIVE 1: Communication Reduction            │
+  │              │ • Vary tau_e (edge aggregation frequency)       │
+  │              │ • Compare: centralized vs. 2-tier aggregation   │
+  │              │ • Test gradient sparsification ratios (10–50%)  │
+  │              │ • Test quantization (8-bit vs. 4-bit)           │
+  │              │ Target: ≥50% uplink reduction                   │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ Apr 2026     │ OBJECTIVE 2: Privacy-Accuracy Trade-off         │
+  │              │ • Vary epsilon (0.1, 0.5, 1.0, 2.0, 5.0)       │
+  │              │ • Measure accuracy on multimodal task           │
+  │              │ • Compare: Gaussian vs. Laplace vs. Exponential │
+  │              │ • Privacy accounting across FL rounds           │
+  │              │ Target: ≤2% accuracy loss at ε=1               │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ Apr 2026     │ OBJECTIVE 3: Latency QoS Validation             │
+  │              │ • NS-3: simulate WiFi / LTE / 5G channels       │
+  │              │ • Measure L_sensor + L_preproc + L_infer +      │
+  │              │   L_comm + L_agg per scenario                   │
+  │              │ • Compare: flat FL vs. hierarchical FL latency  │
+  │              │ Target: <100ms end-to-end                       │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ Apr–May 2026 │ OBJECTIVE 4: Energy Efficiency                  │
+  │              │ • CloudSim: model computation energy per round  │
+  │              │ • Vary local vs. comm computation balance       │
+  │              │ • Test DVFS (dynamic freq. scaling) impact      │
+  │              │ • Compare energy: centralized vs. HFL           │
+  │              │ Target: ≥20% savings per training round         │
+  ├──────────────┼─────────────────────────────────────────────────┤
+  │ May 2026     │ JOINT EVALUATION                                │
+  │              │ • Full system: all 4 objectives simultaneously  │
+  │              │ • Dataset: non-IID multimodal distribution       │
+  │              │   (IIoT: vibration+camera, SmartCity, Health)   │
+  │              │ • Ablation study: remove each component,        │
+  │              │   measure degradation                           │
+  │              │ • Generate: graphs, tables, comparison plots    │
+  └──────────────┴─────────────────────────────────────────────────┘
+
+  DATASETS TO BE USED:
+    • IIoT: CWRU Bearing dataset (vibration) + custom camera frames
+    • Smart City: MISR dataset / air quality + traffic video
+    • Healthcare: WESAD (wearable) + ChestX-ray14 (imaging)
+    Data Partitioning: non-IID (Dirichlet distribution, α=0.5)
+
+  KEY COMPARISON BASELINES:
+    1. Centralized Training (upper bound accuracy)
+    2. Flat FL (FedAvg, no hierarchy, no DP)
+    3. FL2DP (flat FL + DP, no hierarchy)
+    4. HED-FL (hierarchy + no DP)
+    5. PROPOSED: HFL + DP + multimodal fusion ( system)
+
+  ---
+  Phase 1 Summary
+
+  ┌──────────────────────────────────┬────────┐
+  │           Deliverable            │ Status │
+  ├──────────────────────────────────┼────────┤
+  │ Paper summaries (5 papers)       │ Done   │
+  ├──────────────────────────────────┼────────┤
+  │ Problem statement                │ Done   │
+  ├──────────────────────────────────┼────────┤
+  │ Quantified objectives            │ Done   │
+  ├──────────────────────────────────┼────────┤
+  │ Research gaps (4 core)           │ Done   │
+  ├──────────────────────────────────┼────────┤
+  │ Vision Map                       │ Done   │
+  ├──────────────────────────────────┼────────┤
+  │ Architecture Map (3-layer)       │ Done   │
+  ├──────────────────────────────────┼────────┤
+  │ Development Roadmap              │ Done   │
+  ├──────────────────────────────────┼────────┤
+  │ Experiment & Evaluation Calendar │ Done   │
+  └──────────────────────────────────┴────────┘

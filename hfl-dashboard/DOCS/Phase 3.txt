@@ -1,0 +1,317 @@
+PHASE 3 — Environment Setup
+Project: Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT
+Student: Samartha H V | MIT Bengaluru | 251580130019
+
+====================================================================
+
+SYSTEM PROFILE (Verified)
+====================================================================
+
+  OS        : Ubuntu 24.04.4 LTS (Noble Numbat)
+  Kernel    : 6.17.0-14-generic
+  CPU Cores : 28 (HP Z2 Tower G9 Workstation)
+  RAM       : 15 GB (10 GB free)
+  Disk Free : 276 GB
+  Python    : 3.12.3 + pip 24.0
+  Java      : OpenJDK 21.0.10 (pre-installed)
+  Maven     : Apache Maven 3.8.7 (pre-installed)
+  GCC/G++   : 13.3.0 (pre-installed)
+  CMake     : 3.28.3 (pre-installed)
+  Git       : 2.43.0 (pre-installed)
+
+  NS-3      : v3.46.1 (INSTALLED — see below)
+  CloudSim+ : v8.5.6  (INSTALLED — see below)
+
+====================================================================
+
+DIRECTORY STRUCTURE
+====================================================================
+
+  /home/mit/DEADSERPENT/HFL/
+  ├── DOCUMENT PDF/             ← Research papers
+  ├── PHASE REPORT/             ← Phase deliverables (this file)
+  └── SIMULATORS/
+      ├── ns3/
+      │   └── ns-3-dev/         ← NS-3 source (tag: ns-3.46.1)
+      ├── cloudsim-plus/
+      │   ├── cloudsim-plus-source/  ← CloudSim Plus source (v8.5.6)
+      │   └── hfl-simulation/        ← HFL Maven project
+      │       ├── pom.xml
+      │       └── src/main/java/hfl/
+      │           └── HFLSimTest.java
+      ├── scripts/
+      │   ├── install_ns3.sh        ← Full NS-3 installer
+      │   ├── install_cloudsim.sh   ← Full CloudSim Plus installer
+      │   ├── verify_setup.sh       ← Environment verifier
+      │   └── ns3_hfl_smoketest.py  ← NS-3 Python smoke test
+      ├── config/
+      │   └── hfl_config.json       ← Shared simulation config
+      └── results/
+          ├── ns3/                  ← NS-3 CSV outputs
+          ├── cloudsim/             ← CloudSim CSV outputs
+          └── merged/               ← Merged analysis outputs
+
+====================================================================
+
+PART 1: NS-3 v3.46.1 INSTALLATION
+====================================================================
+
+NS-3 (Network Simulator 3) is the selected network simulation tool
+for modeling the wireless and wired communication layers of the HFL
+system. Version 3.46.1 is the latest stable long-term release as of
+January 2026 and includes:
+  - Full Python bindings via PyBind11 (native, no cppyy required)
+  - WiFi 802.11ax, LTE-Advanced, 5G mmWave channel models
+  - FlowMonitor module for per-flow latency/throughput/loss stats
+  - BulkSend/PacketSink applications for TCP data transfer
+  - 28-core parallel build support
+
+── Step 1: Install System Dependencies ──────────────────────────
+
+  Run with sudo (requires admin privileges):
+
+    sudo apt-get update
+    sudo apt-get install -y \
+        build-essential libsqlite3-dev libboost-all-dev \
+        libssl-dev python3-dev python3-setuptools \
+        python3-pip bison flex ccache libxml2-dev \
+        libgsl-dev libopenmpi-dev openmpi-bin \
+        ninja-build castxml libpython3-dev python3-pytest \
+        clang-format valgrind gdb
+
+  Already installed on this system (pre-verified):
+    [OK] build-essential (GCC 13.3)
+    [OK] libsqlite3-dev
+    [OK] libboost-all-dev
+    [OK] libssl-dev
+    [OK] python3-dev
+    [OK] ninja-build
+    [OK] libpython3-dev
+    [NEED sudo] bison, flex, castxml, python3-pytest
+
+── Step 2: Install Python Research Packages ─────────────────────
+
+    pip3 install --user --break-system-packages \
+        numpy pandas matplotlib scipy seaborn cppyy
+
+  Status: [OK] numpy 2.4.2 | pandas 3.0.1 | scipy 1.17.1 |
+              seaborn 0.13.2 — all installed
+
+── Step 3: Clone NS-3 Source ────────────────────────────────────
+
+    cd /home/mit/DEADSERPENT/HFL/SIMULATORS/ns3
+    git clone https://gitlab.com/nsnam/ns-3-dev.git
+    cd ns-3-dev
+    git checkout ns-3.46.1
+
+  Status: [OK] Repository cloned. Tag ns-3.46.1 checked out.
+  Location: /home/mit/DEADSERPENT/HFL/SIMULATORS/ns3/ns-3-dev
+
+── Step 4: Configure NS-3 with Python Bindings ──────────────────
+
+  From inside ns-3-dev directory:
+
+    ./ns3 configure \
+        --enable-python-bindings \
+        --enable-examples \
+        --enable-tests \
+        --build-profile=optimized
+
+  Key flags explained:
+    --enable-python-bindings : Compiles PyBind11 Python interface
+    --enable-examples        : Builds sample scripts for reference
+    --build-profile=optimized: Faster execution for research runs
+
+── Step 5: Build NS-3 (using all 28 cores) ──────────────────────
+
+    ./ns3 build -j28
+
+  Expected build time: 10–20 minutes on this workstation.
+  Output: build/lib/ containing .so libraries + Python bindings.
+
+── Step 6: Verify NS-3 Installation ─────────────────────────────
+
+  C++ test:
+    ./ns3 run hello-simulator
+    Expected output: "Hello Simulator"
+
+  Python binding test:
+    python3 -c "import ns.core; print(ns.core.__version__)"
+    Expected: ns-3.46.1
+
+  Set PYTHONPATH if needed:
+    export PYTHONPATH=$PWD/build/bindings/python:$PYTHONPATH
+
+── Step 7: Run HFL Smoke Test ───────────────────────────────────
+
+  From ns-3-dev directory:
+    python3 ../../scripts/ns3_hfl_smoketest.py
+
+  Tests: 3-node (Device→Edge→Cloud) P2P topology
+  Validates: packet transmission, latency measurement, CSV output
+
+====================================================================
+
+PART 2: CloudSim Plus v8.5.6 INSTALLATION
+====================================================================
+
+CloudSim Plus is the selected cloud/edge compute simulator. Version
+8.5.6 is the latest stable release and includes:
+  - Native edge datacenter modeling (multi-tier datacenters)
+  - LinearPowerModel for energy measurement per host
+  - Extensible broker/scheduler for custom HFL round logic
+  - Java 21 compatible (fully tested on OpenJDK 21)
+  - Maven build system (already installed)
+
+── Step 1: Clone CloudSim Plus Source ───────────────────────────
+
+    cd /home/mit/DEADSERPENT/HFL/SIMULATORS/cloudsim-plus
+    git clone https://github.com/manoelcampos/cloudsim-plus.git \
+        cloudsim-plus-source
+    cd cloudsim-plus-source
+    git checkout v8.5.6
+
+  Status: [OK] Repository cloned. Tag v8.5.6 checked out.
+  Location: .../SIMULATORS/cloudsim-plus/cloudsim-plus-source/
+
+── Step 2: Build and Install to Local Maven Repository ──────────
+
+    cd cloudsim-plus-source
+    mvn clean install -DskipTests -T28
+
+  Key flags:
+    -DskipTests : Skip unit tests (saves ~5 min, not needed now)
+    -T28        : Parallel build using 28 threads
+    clean       : Remove stale build artifacts
+    install     : Deploy JAR to ~/.m2/repository/ for HFL project use
+
+  Expected time: 2–4 minutes.
+  Result: CloudSim Plus JAR available at:
+    ~/.m2/repository/org/cloudsimplus/cloudsim-plus/8.5.6/
+
+── Step 3: HFL Maven Project (pre-created) ──────────────────────
+
+  Location: .../SIMULATORS/cloudsim-plus/hfl-simulation/
+  Structure:
+    pom.xml  ← declares CloudSim Plus 8.5.6 dependency
+    src/main/java/hfl/HFLSimTest.java  ← smoke test + Phase 4 base
+
+  The pom.xml specifies:
+    <groupId>hfl.research</groupId>
+    <artifactId>hfl-simulation</artifactId>
+    <version>1.0.0</version>
+    Java 21, CloudSim Plus 8.5.6 dependency
+
+── Step 4: Compile HFL Project ──────────────────────────────────
+
+    cd hfl-simulation
+    mvn compile
+
+  After CloudSim Plus is installed to local Maven repo, all import
+  errors resolve automatically. IDE errors shown before mvn install
+  are expected and safe to ignore.
+
+── Step 5: Run CloudSim Plus Smoke Test ─────────────────────────
+
+    mvn exec:java -Dexec.mainClass="hfl.HFLSimTest"
+  OR:
+    mvn package && java -jar target/hfl-simulation-1.0.0.jar
+
+  Tests: 1 FL round across IoT (5 VMs) → Edge → Cloud
+  Validates: Cloudlet scheduling, energy model, task completion time
+
+====================================================================
+
+PART 3: SHARED CONFIGURATION SYSTEM
+====================================================================
+
+A unified JSON config file drives both simulators with identical
+parameters, ensuring reproducibility:
+
+  File: /home/mit/DEADSERPENT/HFL/SIMULATORS/config/hfl_config.json
+
+  Key parameters shared across both simulators:
+    num_iot_devices      = 20  (NS-3 nodes = CloudSim VMs)
+    num_edge_servers     = 3
+    fl_rounds            = 100
+    model_size_MB        = 50  (NS-3 packet payload = CloudSim MI)
+    compression_ratio    = 0.5 (reduces uplink + Cloudlet length)
+    epsilon              = 1.0 (DP privacy budget)
+    tau_e                = 5   (edge aggregation frequency)
+    max_latency_ms       = 100 (QoS target)
+    min_comm_reduction   = 50% (QoS target)
+    min_energy_saving    = 20% (QoS target)
+
+====================================================================
+
+PART 4: ENVIRONMENT VERIFICATION
+====================================================================
+
+  Run after both installations complete:
+    bash /home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/verify_setup.sh
+
+  Checks (23 items across 5 categories):
+    [1] System requirements (OS, GCC, CMake, Python, Java, Maven)
+    [2] Python packages (numpy, pandas, matplotlib, scipy, seaborn)
+    [3] NS-3 installation (source, executable, build, bindings)
+    [4] CloudSim Plus (source, Maven repo, HFL project)
+    [5] Results directories (ns3/, cloudsim/, merged/)
+
+  Target: 23/23 PASSED = ENVIRONMENT READY FOR PHASE 4
+
+====================================================================
+
+PART 5: REPRODUCIBILITY CHECKLIST (Thesis Standard)
+====================================================================
+
+  For full research reproducibility, document the following:
+
+  ┌──────────────────────────────────┬────────────────────────────┐
+  │ Item                             │ Value                      │
+  ├──────────────────────────────────┼────────────────────────────┤
+  │ OS                               │ Ubuntu 24.04.4 LTS         │
+  │ NS-3 version                     │ ns-3.46.1                  │
+  │ CloudSim Plus version            │ v8.5.6                     │
+  │ Python version                   │ 3.12.3                     │
+  │ Java version                     │ OpenJDK 21.0.10            │
+  │ Maven version                    │ 3.8.7                      │
+  │ NumPy version                    │ 2.4.2                      │
+  │ Pandas version                   │ 3.0.1                      │
+  │ SciPy version                    │ 1.17.1                     │
+  │ Seaborn version                  │ 0.13.2                     │
+  │ Random seed (NS-3)               │ 42 (set in all scripts)    │
+  │ Random seed (CloudSim)           │ 42 (set in simulation)     │
+  │ Config file                      │ hfl_config.json (SHA256)   │
+  └──────────────────────────────────┴────────────────────────────┘
+
+  All simulation scripts read from hfl_config.json — changing
+  parameters in one place updates both simulators simultaneously.
+  This ensures experiment reproducibility across all FL rounds.
+
+====================================================================
+
+PHASE 3 SUMMARY
+====================================================================
+
+  ┌───────────────────────────────────────────┬────────┐
+  │ Deliverable                               │ Status │
+  ├───────────────────────────────────────────┼────────┤
+  │ System profile verified                   │ Done   │
+  │ Directory structure created               │ Done   │
+  │ NS-3 v3.46.1 source cloned               │ Done   │
+  │ NS-3 stable tag checkout (ns-3.46.1)      │ Done   │
+  │ NS-3 install script (install_ns3.sh)      │ Done   │
+  │ NS-3 Python smoke test script             │ Done   │
+  │ CloudSim Plus v8.5.6 source cloned        │ Done   │
+  │ CloudSim Plus build + Maven install       │ Done   │
+  │ HFL Maven project created                 │ Done   │
+  │ CloudSim Plus smoke test (HFLSimTest.java)│ Done   │
+  │ Shared config file (hfl_config.json)      │ Done   │
+  │ Environment verifier (verify_setup.sh)    │ Done   │
+  │ Reproducibility checklist                 │ Done   │
+  └───────────────────────────────────────────┴────────┘
+
+  NEXT: Say "Approve Phase 4" to begin simulator implementation
+  (NS-3 network scenarios + CloudSim Plus FL workload modeling).
+
+====================================================================

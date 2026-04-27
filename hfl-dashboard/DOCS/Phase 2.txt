@@ -1,0 +1,368 @@
+PHASE 2 — Simulator Selection & Design
+                                                                                                                                                  
+  ---
+  1. Why NS-3?                                                                                                                                    
+                  
+  Justification (Research-Grade)
+
+  NS-3 (Network Simulator 3) is the de facto standard for academic network simulation and is mandatory for credible QoS validation in FL research.
+   Here is the structured justification:
+
+  ┌────────────────────────┬───────────────────────────────────────────────────┬─────────────────────────────────────────┬───────────────────┐
+  │       Criterion        │                       NS-3                        │              Alternatives               │      Verdict      │
+  ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
+  │ Wireless channel       │ Full PHY/MAC stack (WiFi 802.11, LTE, 5G NR)      │ OMNET++ (no built-in LTE), GNS3         │ NS-3 wins         │
+  │ fidelity               │                                                   │ (emulation only)                        │                   │
+  ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
+  │ Packet-level accuracy  │ True packet-level simulation with queuing, loss,  │ Matlab (abstract only), NS2 (outdated)  │ NS-3 wins         │
+  │                        │ delay models                                      │                                         │                   │
+  ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
+  │ Python interface       │ PyBind11-based Python bindings (ns3-gym, direct   │ OMNET++ (C++ only), NS2 (TCL only)      │ NS-3 wins         │
+  │                        │ API)                                              │                                         │                   │
+  ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
+  │ FL research adoption   │ Cited in HED-FL, RoPPFL, HCEF for network         │ —                                       │ NS-3 is the       │
+  │                        │ evaluation                                        │                                         │ standard          │
+  ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
+  │ Open-source +          │ BSD license, fully open                           │ Qualnet (commercial)                    │ NS-3 wins         │
+  │ reproducible           │                                                   │                                         │                   │
+  ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
+  │ Topology flexibility   │ Star, mesh, tree, hybrid (exactly the 3-tier you  │ —                                       │ NS-3 wins         │
+  │                        │ need)                                             │                                         │                   │
+  └────────────────────────┴───────────────────────────────────────────────────┴─────────────────────────────────────────┴───────────────────┘
+
+  What NS-3 models in  project:
+  - Device → Edge wireless link (WiFi 802.11ax or LTE-Advanced)
+  - Edge → Cloud wired/fiber link (CSMA or point-to-point)
+  - Packet loss, jitter, channel congestion under load
+  - Uplink traffic volume per round (for ≥50% reduction measurement)
+  - End-to-end latency (L_comm component of the <100ms target)
+  - Reliability: % of model update packets successfully delivered (>99% target)
+
+  ---
+  2. Why CloudSim Plus?
+
+  Justification (Research-Grade)
+
+  CloudSim Plus is the most actively maintained fork of the original CloudSim, purpose-built for modern edge-cloud research.
+
+  ┌─────────────────────┬──────────────────────────────────────────────────┬───────────────────────────────────────────────┬─────────────────┐
+  │      Criterion      │                  CloudSim Plus                   │                 Alternatives                  │     Verdict     │
+  ├─────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────┼─────────────────┤
+  │ Edge computing      │ Native edge datacenter + VM modeling             │ Original CloudSim (cloud only, outdated),     │ CloudSim Plus   │
+  │ support             │                                                  │ GreenCloud (limited)                          │ wins            │
+  ├─────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────┼─────────────────┤
+  │ Energy modeling     │ Built-in power models (LinearPowerModel,         │ ECOVISOR (specialized), PeerSim (P2P focus)   │ CloudSim Plus   │
+  │                     │ SquareRootPowerModel)                            │                                               │ wins            │
+  ├─────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────┼─────────────────┤
+  │ Task scheduling     │ Custom broker + scheduler extensible in Java     │ EdgeCloudSim (CloudSim Plus-based, good but   │ CloudSim Plus   │
+  │                     │                                                  │ less flexible)                                │ wins            │
+  ├─────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────┼─────────────────┤
+  │ FL workload mapping │ Cloudlets = FL training tasks; VMs = edge/cloud  │ —                                             │ Natural mapping │
+  │                     │ nodes                                            │                                               │                 │
+  ├─────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────┼─────────────────┤
+  │ Java + performance  │ Java 17+; suitable for large-scale simulation    │ Python-based sims (slow for large scale)      │ CloudSim Plus   │
+  │                     │                                                  │                                               │ wins            │
+  ├─────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────┼─────────────────┤
+  │ Active maintenance  │ v8.x (2024), IEEE-cited, 600+ publications       │ CloudSim (last update 2013)                   │ CloudSim Plus   │
+  │                     │                                                  │                                               │ wins            │
+  ├─────────────────────┼──────────────────────────────────────────────────┼───────────────────────────────────────────────┼─────────────────┤
+  │ Reproducibility     │ Maven/Gradle build, deterministic simulation     │ —                                             │ Standard for    │
+  │                     │                                                  │                                               │ thesis          │
+  └─────────────────────┴──────────────────────────────────────────────────┴───────────────────────────────────────────────┴─────────────────┘
+
+  What CloudSim Plus models in  project:
+  - Edge server resource provisioning (CPU, RAM, bandwidth per VM)
+  - FL round scheduling: local training → edge aggregation → cloud aggregation tasks
+  - Computation energy: E_comp = κ · f² · C · D per device per round
+  - Communication energy: E_comm = P_tx · t_tx + P_rx · t_rx
+  - VM migration / dynamic clustering (for HED-FL-style edge grouping)
+  - Total energy per training round (for ≥20% savings comparison)
+
+  Note on EdgeCloudSim: EdgeCloudSim is a wrapper built on top of CloudSim, specifically designed for mobile edge computing. It is a valid
+  alternative and provides pre-built mobility and task offloading models. We recommend CloudSim Plus for maximum flexibility in customizing the
+  HFL-specific scheduling logic, with EdgeCloudSim modules imported selectively where mobility models are needed.
+
+  ---
+  3. Simulation Architecture Design
+
+  ╔══════════════════════════════════════════════════════════════════════════╗
+  ║           DUAL-SIMULATOR ARCHITECTURE FOR HFL EVALUATION                ║
+  ╚══════════════════════════════════════════════════════════════════════════╝
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                         SIMULATION LAYER                                │
+  │                                                                         │
+  │  ┌──────────────────────────┐    ┌──────────────────────────────────┐   │
+  │  │       NS-3               │    │       CloudSim Plus              │   │
+  │  │  (Network Layer)         │    │  (Compute/Resource Layer)        │   │
+  │  │                          │    │                                  │   │
+  │  │  Models:                 │    │  Models:                         │   │
+  │  │  • 3-tier topology       │    │  • IoT Device VMs (Layer 1)      │   │
+  │  │    (Device-Edge-Cloud)   │    │  • Edge Server VMs (Layer 2)     │   │
+  │  │  • WiFi 802.11ax (L1→L2) │    │  • Cloud Datacenter (Layer 3)    │   │
+  │  │  • LTE/5G (L1→L2)        │    │  • FL Cloudlets (training tasks) │   │
+  │  │  • CSMA (L2→L3)          │    │  • Energy power models           │   │
+  │  │  • Packet loss / jitter  │    │  • Task scheduler (HFL logic)    │   │
+  │  │  • Channel congestion    │    │  • Aggregation broker            │   │
+  │  │                          │    │                                  │   │
+  │  │  Outputs:                │    │  Outputs:                        │   │
+  │  │  • Latency (ms)          │    │  • Energy per round (J)          │   │
+  │  │  • Throughput (Mbps)     │    │  • CPU utilization (%)           │   │
+  │  │  • Packet loss rate (%)  │    │  • Task completion time (ms)     │   │
+  │  │  • Uplink traffic (MB)   │    │  • VM allocation efficiency      │   │
+  │  │  • Reliability (%)       │    │  • Cost per training round       │   │
+  │  └──────────┬───────────────┘    └────────────────┬─────────────────┘   │
+  │             │                                     │                     │
+  │             └──────────────┬──────────────────────┘                     │
+  │                            ▼                                            │
+  │             ┌──────────────────────────┐                                │
+  │             │   RESULT AGGREGATOR      │                                │
+  │             │  (Python Post-Processor) │                                │
+  │             │                         │                                 │
+  │             │  • Merge NS-3 + CloudSim│                                 │
+  │             │    output CSV/JSON logs │                                 │
+  │             │  • Compute composite    │                                 │
+  │             │    QoS score            │                                 │
+  │             │  • Generate plots       │                                 │
+  │             │    (matplotlib/seaborn) │                                 │
+  │             └──────────────────────────┘                                │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  4. Detailed NS-3 Simulation Architecture
+
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║           NS-3: NETWORK SIMULATION DESIGN                        ║
+  ╚══════════════════════════════════════════════════════════════════╝
+
+  TOPOLOGY: 3-Tier Hierarchical (matches  HFL architecture exactly)
+
+    [IoT Device Cluster A]          [IoT Device Cluster B]
+     Dev-1  Dev-2  Dev-3             Dev-4  Dev-5  Dev-6
+       \      |      /                 \      |      /
+        \     |     / WiFi 802.11ax     \     |     / LTE-A
+         \    |    /  (2.4/5 GHz)       \    |    /
+          [Edge Server 1]               [Edge Server 2]
+                 \                           /
+                  \  Point-to-Point Link     /
+                   \  (1 Gbps fiber sim.)   /
+                    [     CLOUD SERVER     ]
+
+  CHANNEL MODELS SELECTED:
+    Layer 1→2 (Device to Edge):
+      • WiFi: YansWifiChannel + LogDistancePropagationLossModel
+      • LTE:  LteHelper with EpcHelper (for mobility scenarios)
+      • 5G:   MmWave module (ns-3-mmwave extension)
+
+    Layer 2→3 (Edge to Cloud):
+      • PointToPointHelper (1 Gbps, 5ms propagation delay baseline)
+      • CsmaHelper (LAN simulation for co-located edge-cloud)
+
+  TRAFFIC MODEL (FL Communication Pattern):
+    Round structure:
+    1. DOWNLINK: Cloud → Edge → Device  (global model broadcast)
+       • Packet size: model_size / compression_ratio MB
+    2. UPLINK:   Device → Edge → Cloud  (gradient update upload)
+       • Packet size: gradient_size × sparsification_ratio MB
+       • This is the key metric for ≥50% reduction target
+
+  APPLICATIONS USED:
+    • UdpClientServer / BulkSendApplication for FL traffic
+    • OnOffApplication for background IoT sensor traffic
+    • Custom Application for synchronized FL round triggering
+
+  METRICS COLLECTED (per FL round):
+    ┌─────────────────────────────┬──────────────────────────┐
+    │ Metric                      │ How Measured             │
+    ├─────────────────────────────┼──────────────────────────┤
+    │ End-to-end latency (ms)     │ FlowMonitor + timestamps │
+    │ Uplink traffic volume (MB)  │ PacketSink byte counter  │
+    │ Packet loss rate (%)        │ FlowMonitor lost packets │
+    │ Throughput (Mbps)           │ FlowMonitor rx bytes/sec │
+    │ Update reliability (%)      │ ACK success rate         │
+    └─────────────────────────────┴──────────────────────────┘
+
+  PYTHON INTERFACE:
+    • ns3-gym (OpenAI Gym environment for NS-3) OR
+    • Direct Python binding via PyBind11 (ns-3 native from v3.37+)
+    • Post-processing: Python reads FlowMonitor XML → pandas → plots
+
+  ---
+  5. Detailed CloudSim Plus Simulation Architecture
+
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║       CloudSim Plus: COMPUTE SIMULATION DESIGN                   ║
+  ╚══════════════════════════════════════════════════════════════════╝
+
+  ENTITY MAPPING (HFL → CloudSim Plus):
+
+    HFL Concept          CloudSim Plus Entity
+    ─────────────────    ─────────────────────────────────────
+    IoT Device           VM (low MIPS: 100-500, 512MB RAM)
+    Edge Server          VM (medium MIPS: 4000-8000, 8GB RAM)
+    Cloud Server         Datacenter Host (high MIPS: 20000+)
+    FL Local Training    Cloudlet (length = ops per round)
+    Edge Aggregation     Cloudlet (aggregation task)
+    Cloud Aggregation    Cloudlet (global FedAvg task)
+    Training Round       Simulation clock tick / broker cycle
+
+  DATACENTERS DEFINED:
+    DC1: IoT Layer  → 20 hosts, each: 500 MIPS, 512MB RAM, 10Mbps BW
+    DC2: Edge Layer → 3 hosts,  each: 8000 MIPS, 16GB RAM, 1Gbps BW
+    DC3: Cloud      → 1 host,   single: 100000 MIPS, 256GB RAM, 10Gbps
+
+  ENERGY MODEL:
+    • LinearPowerModel: P = P_idle + (P_max - P_idle) × utilization
+    • IoT device:  P_idle=0.5W,  P_max=2W   (battery-constrained)
+    • Edge server: P_idle=50W,   P_max=200W (rack server)
+    • Cloud:       P_idle=500W,  P_max=2000W (data center)
+
+    E_total = Σ [ P(t) × Δt ]  over all FL rounds
+
+  FL SCHEDULING LOGIC (Custom Broker):
+    Phase 1 (Local Training):
+      → Assign Cloudlet(local_train) to each IoT VM
+      → Duration: proportional to data size + model complexity
+      → Energy: computed per VM per Cloudlet
+
+    Phase 2 (Edge Aggregation):
+      → Trigger after τ_e local rounds complete
+      → Assign Cloudlet(fedavg_partial) to Edge VM
+      → Compress + encrypt simulated via reduced Cloudlet length
+
+    Phase 3 (Cloud Aggregation):
+      → Trigger after all edge updates received
+      → Assign Cloudlet(fedavg_global) to Cloud Host
+      → Distribute updated model back (downlink Cloudlet)
+
+  METRICS COLLECTED:
+    ┌─────────────────────────────┬──────────────────────────────┐
+    │ Metric                      │ Source                       │
+    ├─────────────────────────────┼──────────────────────────────┤
+    │ Energy per round (Joules)   │ PowerModel.getEnergyConsumed │
+    │ Task completion time (sec)  │ Cloudlet.getFinishTime       │
+    │ CPU utilization (%)         │ Host.getCpuPercentUtilization│
+    │ VM allocation success (%)   │ DatacenterBroker logs        │
+    │ Aggregation overhead (ms)   │ Cloudlet exec time diff      │
+    └─────────────────────────────┴──────────────────────────────┘
+
+  LANGUAGE: Java 17 (Maven build)
+  EXTENSION: CloudSim Plus v8.x with custom HFL broker class
+
+  ---
+  6. Conceptual Integration Between NS-3 and CloudSim Plus
+
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║         SIMULATOR INTEGRATION MODEL (Loose Coupling)                ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+
+  STRATEGY: Sequential Decoupled Integration (research standard)
+    → NS-3 and CloudSim Plus run independently
+    → They share data through structured output files (CSV/JSON)
+    → A Python Orchestrator merges results for joint analysis
+
+  WHY NOT TIGHT COUPLING?
+    Tight coupling (real-time co-simulation) is complex to implement
+    and not required for academic validation. Sequential decoupling is
+    used by HED-FL, RoPPFL, and HCEF papers — it is the accepted standard.
+
+  INTEGRATION WORKFLOW:
+
+    ┌─────────────────────────────────────────────────────────────┐
+    │  STEP 1: Define Scenario Parameters (shared config file)    │
+    │  config.json:                                               │
+    │  { "num_devices": 20,                                       │
+    │    "num_edge_servers": 3,                                   │
+    │    "fl_rounds": 100,                                        │
+    │    "model_size_MB": 50,                                     │
+    │    "compression_ratio": 0.5,                                │
+    │    "epsilon": 1.0,                                          │
+    │    "tau_e": 5 }                                             │
+    └────────────────────────┬────────────────────────────────────┘
+                             │ read by both simulators
+                  ┌──────────┴──────────┐
+                  ▼                     ▼
+    ┌─────────────────────┐   ┌─────────────────────────┐
+    │  STEP 2a: NS-3 Run  │   │  STEP 2b: CloudSim Run  │
+    │                     │   │                         │
+    │  Simulate network   │   │  Simulate compute +     │
+    │  traffic for all    │   │  energy for all         │
+    │  FL rounds          │   │  FL rounds              │
+    │                     │   │                         │
+    │  Output:            │   │  Output:                │
+    │  ns3_results.csv    │   │  cloudsim_results.csv   │
+    │  [round, latency,   │   │  [round, energy,        │
+    │   uplink_MB,        │   │   cpu_util,             │
+    │   pkt_loss,         │   │   task_time,            │
+    │   reliability]      │   │   vm_alloc_success]     │
+    └──────────┬──────────┘   └────────────┬────────────┘
+               │                           │
+               └─────────────┬─────────────┘
+                             ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │  STEP 3: Python Orchestrator (merge + analyze)              │
+    │                                                             │
+    │  merged_df = pd.merge(ns3_df, cloudsim_df, on='round')     │
+    │                                                             │
+    │  Compute composite metrics:                                 │
+    │  • comm_reduction = (baseline_uplink - hfl_uplink)         │
+    │                     / baseline_uplink × 100                │
+    │  • energy_saving  = (baseline_energy - hfl_energy)         │
+    │                     / baseline_energy × 100                │
+    │  • latency_target = latency < 100 (ms)                     │
+    │  • reliability    = successful_updates / total × 100       │
+    │                                                             │
+    │  Generate: matplotlib / seaborn plots for thesis           │
+    └─────────────────────────────────────────────────────────────┘
+
+  SHARED PARAMETERS ACROSS SIMULATORS:
+    ┌────────────────────┬──────────────────┬──────────────────┐
+    │ Parameter          │ NS-3 Usage       │ CloudSim Usage   │
+    ├────────────────────┼──────────────────┼──────────────────┤
+    │ num_devices        │ Node count       │ VM count (DC1)   │
+    │ model_size_MB      │ Packet payload   │ Cloudlet length  │
+    │ compression_ratio  │ Uplink size ×    │ Aggregation cost │
+    │ tau_e              │ Round trigger    │ Phase 2 trigger  │
+    │ fl_rounds          │ Simulation time  │ Broker cycles    │
+    │ bandwidth (Mbps)   │ Channel capacity │ VM BW attribute  │
+    └────────────────────┴──────────────────┴──────────────────┘
+
+  ---
+  7. Simulator Comparison Summary (Thesis Table)
+
+  ┌───────────────────┬────────────────────────────────────┬──────────────────────────────┬─────────────────────────────────────┐
+  │     Dimension     │                NS-3                │        CloudSim Plus         │        Scope in  Project        │
+  ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
+  │ Simulation type   │ Packet-level network               │ Discrete-event compute       │ Complementary                       │
+  ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
+  │ Layer modeled     │ Physical + MAC + Network           │ Application + Resource       │ Different layers                    │
+  ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
+  │ Language          │ C++ / Python bindings              │ Java                         │ Separate runtimes                   │
+  ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
+  │ Key output        │ Latency, throughput, packet loss   │ Energy, CPU, task time       │ Merged for QoS analysis             │
+  ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
+  │ FL relevance      │ Communication overhead measurement │ Computation cost measurement │ Both required                       │
+  ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
+  │ Validation target │ O1 (comm reduction) + O3 (latency) │ O4 (energy)                  │ O2 (privacy) validated analytically │
+  └───────────────────┴────────────────────────────────────┴──────────────────────────────┴─────────────────────────────────────┘
+
+  ---
+  Phase 2 Summary
+
+  ┌─────────────────────────────────────────────────────────────────┬────────┐
+  │                           Deliverable                           │ Status │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ NS-3 selection + full justification                             │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ CloudSim Plus selection + full justification                    │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ NS-3 architecture design (topology, channels, metrics)          │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ CloudSim Plus architecture design (entities, energy, scheduler) │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ Simulator integration model (decoupled + Python orchestrator)   │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ Shared parameter mapping table                                  │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ Thesis-ready comparison table                                   │ Done   │
+  └─────────────────────────────────────────────────────────────────┴────────┘
