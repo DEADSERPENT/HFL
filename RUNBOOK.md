@@ -12,6 +12,7 @@ Guide: Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
 3. [Project Structure](#3-project-structure)
 4. [Every Session — Start Here](#4-every-session--start-here)
 5. [Phase 5 Pipeline — Full Run](#5-phase-5-pipeline--full-run)
+   - [QUICK: Run All Phase 5 Steps (One Command)](#quick-run-all-phase-5-steps-one-command)
 6. [Running Individual Components](#6-running-individual-components)
 7. [Expected Outputs & Results](#7-expected-outputs--results)
 8. [Verify GPU is Working](#8-verify-gpu-is-working)
@@ -29,8 +30,8 @@ Guide: Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
 | GPU | NVIDIA GPU with CUDA 11.8+ (primary) — CPU fallback works but is slow |
 | VRAM | ≥ 8 GB recommended (RTX A2000 12GB confirmed working) |
 | RAM | ≥ 16 GB |
-| Disk | ≥ 60 GB free (PTB-XL ~2 GB, CheXpert ~11 GB, models + results ~5 GB) |
-| Internet | Required for dataset download (PTB-XL auto, CheXpert manual) |
+| Disk | ≥ 20 GB free (PTB-XL subset ~500 MB, Kermany CXR ~1.15 GB, models + results ~5 GB) |
+| Internet | Required for dataset download (PTB-XL auto via wfdb, Kermany CXR via Kaggle) |
 
 Check your GPU before anything:
 
@@ -172,7 +173,7 @@ Expected output (GPU machine):
 │   └── Phase 6.txt                     ← PHANTOM-FL (next)
 │
 ├── DATASET & MODEL GUIDE/
-│   ├── 01_Datasets.txt                 ← PTB-XL + CheXpert details
+│   ├── 01_Datasets.txt                 ← PTB-XL + Kermany CXR details
 │   ├── 02_Model_Design.txt             ← HFL-MM-HC + PHANTOM-FL architecture
 │   └── 03_NS3_CloudSim_Integration.txt
 │
@@ -183,12 +184,12 @@ Expected output (GPU machine):
     ├── data/
     │   ├── raw/                        ← Downloaded datasets (git-ignored)
     │   │   ├── ptb-xl/                 ← Auto-downloaded by download_datasets.py
-    │   │   └── chexpert/               ← Manual download required
+    │   │   └── chest-xray-pneumonia/   ← Downloaded via Kaggle (Kermany CXR)
     │   ├── processed/
     │   │   ├── healthcare/             ← Preprocessed tensors (.npy)
     │   │   └── partitions/             ← Non-IID device splits (.npy)
     │   └── loaders/
-    │       ├── download_datasets.py    ← Step 1: download PTB-XL + CheXpert info
+    │       ├── download_datasets.py    ← Step 1: download PTB-XL + Kermany CXR
     │       ├── preprocess_healthcare.py ← Step 2: ECG + CXR preprocessing
     │       └── partition_noniid.py     ← Step 3: Dirichlet α=0.5 partition
     │
@@ -263,27 +264,130 @@ Run these steps **in order**. Each step's output is required by the next.
 
 ---
 
-### Step 1 — Download Datasets
+### QUICK: Run All Phase 5 Steps (One Command)
+
+After datasets are downloaded and preprocessed (Steps 1–3), run the entire ML pipeline in one shot:
 
 ```bash
+cd ~/HFL
+source hfl_env/bin/activate
+cd SIMULATORS
+
+# Full pipeline: Steps 1-3 (data) + Steps 4-11 (training, evaluation, export)
+python data/loaders/download_datasets.py && \
+python data/loaders/preprocess_healthcare.py \
+    --ptbxl_dir  data/raw/ptb-xl \
+    --cxr_dir    data/raw/chest-xray-pneumonia \
+    --output_dir data/processed/healthcare && \
+python data/loaders/partition_noniid.py \
+    --domain healthcare --alpha 0.5 --n_devices 20 --n_edges 3 \
+    --input_dir  data/processed/healthcare \
+    --output_dir data/processed/partitions && \
+python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
+```
+
+Or if data is already prepared (Steps 1–3 already done), just run the ML steps:
+
+```bash
+cd ~/HFL/SIMULATORS
+python run_phase5.py 2>&1 | tee results/phase5/run_log.txt
+```
+
+`run_phase5.py` defaults to all steps (4 through 11): B0 baseline → baselines B1–B5 → HFL-MM-HC training → ε sweep → ONNX export → latency benchmark → collect results.
+
+Monitor training in real-time:
+
+```bash
+tail -f results/phase5/run_log.txt
+```
+
+**Convenience script** (activates env + runs all ML steps):
+
+```bash
+bash ~/HFL/run_phase5.sh
+```
+
+---
+
+---
+
+### Step 1 — Download Datasets
+
+**Dataset summary:**
+
+| Modality | Dataset | Size | Download |
+|---|---|---|---|
+| ECG (Signal) | PTB-XL 12-lead | ~500 MB (stratified 5,500 records) | Auto via `wfdb` |
+| CXR (Image) | Kermany Chest X-Ray | ~1.15 GB (5,863 JPEGs) | Kaggle API key required |
+| Tabular | PTB-XL metadata CSV | included with PTB-XL | Auto |
+
+#### 1a — Install prerequisites (first time only)
+
+```bash
+pip install wfdb opendatasets pandas
+```
+
+#### 1b — Get a Kaggle API key (first time only, for Chest X-Ray)
+
+1. Log in at [kaggle.com](https://www.kaggle.com) → **Profile → Account → Create New API Token**
+2. This downloads `kaggle.json`. When `opendatasets` prompts you, enter the **username** and **key** from that file.
+
+#### 1c — Run the downloader
+
+```bash
+cd ~/HFL/SIMULATORS
 python data/loaders/download_datasets.py
 ```
 
-**What it does:**
-- Automatically downloads PTB-XL (~1.7 GB) from PhysioNet via `wfdb`
-- Prints the CheXpert registration URL (manual download required)
+When prompted enter your Kaggle username and API key (from `kaggle.json`).
 
-**CheXpert manual download:**
-1. Register at: https://stanfordmlgroup.github.io/competitions/chexpert/
-2. Download `CheXpert-v1.0-small.zip` (~11 GB)
-3. Unzip into `data/raw/chexpert/`
+**What it does:**
+- Downloads a stratified 5,500-record subset of PTB-XL from PhysioNet via `wfdb` (~500 MB, ~25% of full dataset)
+- Downloads Kermany Chest X-Ray from Kaggle via `opendatasets` (~1.15 GB)
+
+**Skip flags (if one dataset is already downloaded):**
+
+```bash
+# PTB-XL already present, only download Chest X-Ray:
+python data/loaders/download_datasets.py --skip_ptbxl
+
+# Chest X-Ray already present, only download PTB-XL:
+python data/loaders/download_datasets.py --skip_cxr
+
+# Just verify what's already downloaded:
+python data/loaders/download_datasets.py --verify_only
+```
+
+**Alternative: Kaggle CLI (if opendatasets fails)**
+
+```bash
+pip install kaggle
+mkdir -p ~/.kaggle
+cp /path/to/kaggle.json ~/.kaggle/kaggle.json
+chmod 600 ~/.kaggle/kaggle.json
+
+# Download and unzip directly:
+kaggle datasets download -d paultimothymooney/chest-xray-pneumonia \
+      --unzip -p data/raw/
+```
 
 **Expected output:**
 ```
-[PTB-XL] Downloading to data/raw/ptb-xl/ ...
-[PTB-XL] Download complete. 21,837 records.
-[CheXpert] Register at: https://stanfordmlgroup.github.io/competitions/chexpert/
-[CheXpert] After download, unzip CheXpert-v1.0-small.zip to data/raw/chexpert/
+Step 1/3 — Downloading PTB-XL metadata CSVs...
+  Metadata downloaded.
+Step 2/3 — Selecting 5,500 records (stratified)...
+  Stratified subset: 5,500 records (~1100 per class × 5 classes)
+Step 3/3 — Downloading 11,000 record files (~440 MB estimated)...
+[OK] PTB-XL selective download complete. 5,500 records downloaded
+Downloading Kermany Chest X-Ray dataset from Kaggle...
+Please provide your Kaggle credentials.
+Username: <your-kaggle-username>
+Key: <your-api-key>
+[OK] Chest X-Ray complete: 1341 NORMAL + 3875 PNEUMONIA (train)
+
+[OK] PTB-XL       : selective download complete → data/raw/ptb-xl
+[OK] PTB-XL meta  : scp_statements.csv present (tabular modality)
+[OK] Chest X-Ray  : 1341 NORMAL + 3875 PNEUMONIA images → data/raw/chest-xray-pneumonia
 ```
 
 ---
@@ -293,7 +397,7 @@ python data/loaders/download_datasets.py
 ```bash
 python data/loaders/preprocess_healthcare.py \
     --ptbxl_dir  data/raw/ptb-xl \
-    --chexpert_dir data/raw/chexpert \
+    --cxr_dir    data/raw/chest-xray-pneumonia \
     --output_dir data/processed/healthcare
 ```
 
@@ -826,9 +930,11 @@ python ~/HFL/SIMULATORS/model/hfl_trainer.py  # may break imports
 
 ---
 
-### CheXpert not found (skip for ECG-only testing)
+### Chest X-Ray (Kermany) not found — ECG-only testing
 
-If you only have PTB-XL downloaded and want to test the pipeline without CheXpert, the preprocessing script will generate synthetic CXR tensors as stand-ins. The model will still train — just note the CheXpert branch is synthetic.
+If you only have PTB-XL and want to test the pipeline without Chest X-Ray images, the preprocessing script generates synthetic CXR tensors as stand-ins. The model still trains — just note the CXR branch uses synthetic data.
+
+To force ECG-only mode, delete or rename `data/raw/chest-xray-pneumonia/` and run the preprocessor — it will detect the missing directory and warn you before falling back to synthetic CXR.
 
 ---
 
@@ -840,7 +946,7 @@ If you only have PTB-XL downloaded and want to test the pipeline without CheXper
 | Phase 2 | Algorithm Design | COMPLETE | HFL-MM + PHANTOM-FL design |
 | Phase 3 | NS-3 + CloudSim Setup | COMPLETE | Simulators installed and validated |
 | Phase 4 | Simulation Validation | COMPLETE | Comm -76.4%, Energy -74.9%, Reliability 99.05% |
-| **Phase 5** | **Healthcare Dataset + Model** | **ACTIVE** | PTB-XL + CheXpert, HFL-MM-HC, B0–B5, ONNX |
+| **Phase 5** | **Healthcare Dataset + Model** | **ACTIVE** | PTB-XL + Kermany CXR, HFL-MM-HC, B0–B5, ONNX |
 | Phase 6 | PHANTOM-FL + ClinicalCMGA | NEXT | Full novel model, ablation, paper figures |
 
 ### What is implemented as of Phase 5
@@ -868,4 +974,4 @@ If you only have PTB-XL downloaded and want to test the pipeline without CheXper
 
 ---
 
-*Last updated: 2026-04-22 | Phase 5 active*
+*Last updated: 2026-04-27 | Phase 5 active*
