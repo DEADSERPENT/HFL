@@ -1,0 +1,2 @@
+baseline,test_accuracy,test_macro_auc,mu,rounds
+B3_FedProx,0.6450331125827815,0.8765858213490837,0.01,20

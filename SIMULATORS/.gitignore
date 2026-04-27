@@ -1,51 +1,44 @@
-# ── Raw Datasets (never commit — too large) ───────────────────────────────────
-data/raw/ptb-xl/
-data/raw/chest-xray-pneumonia/
-data/raw/*.zip
-data/raw/*.tar
-data/raw/*.tar.gz
-data/raw/*.gz
+# ============================================================
+# SIMULATORS/.gitignore — HFL Research Project
+# Samartha H V | MIT Bengaluru | 2026
+# ============================================================
+# Rule: ignore large/generated blobs; track everything else
+# (config JSONs, result CSVs, partition indices, scripts)
 
-# ── Processed / Preprocessed Arrays ──────────────────────────────────────────
-data/processed/
+# ── Raw datasets ─────────────────────────────────────────────
+data/raw/
 
-# ── FL Partition Index Files ──────────────────────────────────────────────────
-data/processed/partitions/
+# ── Large processed arrays only (NOT the small ones) ─────────
+# ecg_signals.npy  = 229 MB  — re-generate with preprocess_healthcare.py
+data/processed/healthcare/ecg/ecg_signals.npy
+# cxr_images.npy   = 1.7 GB  — re-generate with preprocess_healthcare.py
+data/processed/healthcare/cxr/cxr_images.npy
+# duplicate label file at wrong path (correct copy is ecg/ecg_labels.npy)
+data/processed/healthcare/ecg_labels.npy
 
-# ── Model Checkpoints ─────────────────────────────────────────────────────────
+# Small .npy files ARE tracked (reproduce exact splits on any device):
+#   data/processed/partitions/healthcare/device_0X_{train,val,test}.npy (4-8 KB)
+#   data/processed/healthcare/ecg/ecg_labels.npy   (40 KB)
+#   data/processed/healthcare/cxr/cxr_labels.npy   (24 KB)
+#   data/processed/healthcare/tabular/*.npy         (≤100 KB)
+
+# ── Model checkpoints & ONNX exports (large binaries) ────────
 checkpoints/
+onnx/
 *.pt
 *.pth
 *.ckpt
-
-# ── ONNX Exports ──────────────────────────────────────────────────────────────
-onnx/
 *.onnx
 
-# ── Results / Logs ────────────────────────────────────────────────────────────
-results/
-*.csv
-*.log
-*.json
-
-# ── Python Cache ──────────────────────────────────────────────────────────────
+# ── Python cache ─────────────────────────────────────────────
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-
-# ── Virtual Environment ───────────────────────────────────────────────────────
-hfl_env/
-venv/
-env/
-.venv/
-
-# ── Jupyter ───────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
-*.ipynb
 
-# ── OS / Editor Noise ─────────────────────────────────────────────────────────
+# ── OS / editor noise ────────────────────────────────────────
 .DS_Store
 Thumbs.db
 *.swp
@@ -53,6 +46,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# ── Keep these tracked (loader scripts + partition metadata json if needed) ───
-!data/loaders/
-!data/loaders/*.py
+# ── Run logs (re-generated each run, not useful in history) ──
+results/**/*.txt
+results/phase5/run_log.txt

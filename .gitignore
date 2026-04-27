@@ -5,6 +5,7 @@
 
 # ── Python ───────────────────────────────────────────────────
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -18,8 +19,14 @@ build/
 .ruff_cache/
 .pytest_cache/
 .ipynb_checkpoints/
+pip-wheel-metadata/
 
 # ── Java / Maven ─────────────────────────────────────────────
+# CloudSim Plus upstream source (130 MB, 3rd-party library — not our code)
+SIMULATORS/cloudsim-plus/cloudsim-plus-source/
+# Only build artifacts from our hfl-simulation module
+SIMULATORS/cloudsim-plus/**/target/
+SIMULATORS/cloudsim-plus/**/*.class
 target/
 *.class
 *.jar
@@ -36,9 +43,6 @@ SIMULATORS/ns3/ns-3-dev/CMakeCache.txt
 SIMULATORS/ns3/ns-3-dev/.ninja*
 SIMULATORS/ns3/ns-3-dev/*.cmake
 SIMULATORS/ns3/ns-3-dev/compile_commands.json
-
-# ── CloudSim Plus source (large, not our code) ───────────────
-SIMULATORS/cloudsim-plus/cloudsim-plus-source/
 
 # ── Virtual environment (5.9 GB — never commit) ──────────────
 .venv/
@@ -64,6 +68,10 @@ SIMULATORS/data/processed/healthcare/ecg_labels.npy
 #   data/processed/healthcare/tabular/*.npy         (≤100 KB)
 # These let any device reproduce exact splits without re-running partition step.
 
+# .npz: NOT globally ignored — only large compressed data if generated
+# (small .npz metadata is useful to track)
+# SIMULATORS/data/**/*.npz   ← uncomment only if large .npz files appear
+
 # ── Model checkpoints & exported models (large binaries) ─────
 *.pt
 *.pth
@@ -71,7 +79,6 @@ SIMULATORS/data/processed/healthcare/ecg_labels.npy
 *.bin
 *.h5
 *.pkl
-*.npz
 checkpoints/
 onnx/
 
@@ -95,13 +102,17 @@ desktop.ini
 
 # ── Jupyter ──────────────────────────────────────────────────
 *.ipynb
+!notebooks/
 !notebooks/**/*.ipynb
 
 # ── Logs & temp ──────────────────────────────────────────────
 *.tmp
 *.bak
 *.orig
+*.log
 /tmp/
+# Experiment run logs (re-generated each run)
+SIMULATORS/results/**/*.txt
 
 # ── RESUME tmp (keep locally, not in repo) ───────────────────
 RESUME/
@@ -110,13 +121,10 @@ RESUME/
 .env
 secrets.json
 credentials.json
+# Provide .env.example instead (template with no real values)
 
-# ── Dashboard build artifacts ────────────────────────────────
-flvision-dashboard/node_modules/
-flvision-dashboard/dist/
-flvision-dashboard/.vite/
-flvision-dashboard/*.local
-hfl-dashboard/node_modules/
-hfl-dashboard/dist/
-hfl-dashboard/.vite/
-hfl-dashboard/*.local
+# ── Node / Frontend build artifacts ──────────────────────────
+node_modules/
+dist/
+.vite/
+*.local
