@@ -32,15 +32,18 @@ function Field({ label, description, children }: { label: string; description?: 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
+      type="button"
       onClick={() => onChange(!checked)}
       className={clsx(
-        'w-9 h-5 rounded-full relative transition-colors duration-200 shrink-0',
-        checked ? 'bg-fl-primary' : 'bg-fl-border',
+        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
+        'transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-fl-primary',
+        checked ? 'bg-fl-primary' : 'bg-slate-300',
       )}
     >
       <span className={clsx(
-        'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200',
-        checked ? 'translate-x-4' : 'translate-x-0.5',
+        'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md ring-0',
+        'transform transition-transform duration-200 ease-in-out',
+        checked ? 'translate-x-5' : 'translate-x-0',
       )} />
     </button>
   );
@@ -55,11 +58,11 @@ export function Settings() {
     serverHost: '0.0.0.0',
     serverPort: 8080,
     wsPort: 8081,
-    maxClients: 20,
-    roundTimeout: 30,
-    minParticipants: 3,
+    maxClients: 6,
+    roundTimeout: 60,
+    minParticipants: 6,
     // Privacy
-    dpEnabled: false,
+    dpEnabled: true,
     dpEpsilon: 1.0,
     dpDelta: 1e-5,
     secureAgg: true,
@@ -71,11 +74,11 @@ export function Settings() {
     metricsInterval: 1,
     logLevel: 'info',
     alertOnDrop: true,
-    alertThreshold: 5,
+    alertThreshold: 2,
     // Data
-    checkpointInterval: 10,
-    checkpointPath: './checkpoints',
-    maxCheckpoints: 5,
+    checkpointInterval: 5,
+    checkpointPath: 'checkpoints/best_model_hc.pt',
+    maxCheckpoints: 3,
   });
 
   const set = (key: string, value: unknown) => setSettings((s) => ({ ...s, [key]: value }));
@@ -91,7 +94,7 @@ export function Settings() {
         <div>
           <h2 className="text-sm font-semibold text-fl-text">System Configuration</h2>
           <p className="text-[11px] text-fl-muted mt-0.5">
-            FedVision server · PHANTOM-FL / HFL-MM runtime
+            run_phase5.py · 6 devices · 2 edges · ε=1.0 · Opacus DP-SGD
           </p>
         </div>
         <button
@@ -214,12 +217,19 @@ export function Settings() {
               className="fl-input w-28 text-right font-mono text-xs"
             />
           </Field>
-          <Field label="Checkpoint Path">
+          <Field label="Checkpoint Path" description="Relative to HFL project root">
             <input
               value={settings.checkpointPath}
               onChange={(e) => set('checkpointPath', e.target.value)}
-              className="fl-input w-48 text-right font-mono text-xs"
+              className="fl-input w-56 text-right font-mono text-xs"
             />
+          </Field>
+          <Field label="Results Dir" description="Phase 5 output directory">
+            <input value="results/phase5/" readOnly className="fl-input w-56 text-right font-mono text-xs opacity-60" />
+          </Field>
+          <Field label="Partition Meta" description="Non-IID device partition data">
+            <input value="data/processed/partitions/healthcare/partition_meta.json" readOnly
+              className="fl-input w-56 text-right font-mono text-[9px] opacity-60" />
           </Field>
           <Field label="Max Checkpoints" description="Older checkpoints are pruned">
             <input
@@ -272,12 +282,15 @@ export function Settings() {
         {/* System info */}
         <Section title="System Info" icon={Info}>
           {[
-            { label: 'Runtime',      value: 'PHANTOM-FL v2.4.1' },
-            { label: 'Model',        value: activeExp?.name ?? 'HFL-MM v2' },
-            { label: 'Aggregation',  value: activeExp?.hyperparams.aggregation ?? 'FedProx' },
-            { label: 'FL Framework', value: 'FedVision 1.0.0' },
-            { label: 'React',        value: '18.2.0' },
-            { label: 'Node Env',     value: 'development' },
+            { label: 'Runtime',         value: 'PHANTOM-FL · HFL-MM-HC' },
+            { label: 'Active Exp',      value: activeExp?.shortName ?? 'P1' },
+            { label: 'Aggregation',     value: activeExp?.hyperparams.aggregation ?? 'FedAvg' },
+            { label: 'Devices',         value: '6 IoT → 2 Edge → 1 Cloud' },
+            { label: 'Dataset',         value: 'PTB-XL · 5,000 ECG · 5 classes' },
+            { label: 'DP Mechanism',    value: 'Opacus DP-SGD σ=1.1 C=1.0' },
+            { label: 'Compression',     value: 'Top-20% sparsify + INT8 quant' },
+            { label: 'Partition',       value: 'Dirichlet α=0.5 non-IID' },
+            { label: 'Node Env',        value: 'development' },
           ].map((r) => (
             <div key={r.label} className="flex justify-between text-[11px]">
               <span className="text-fl-muted">{r.label}</span>

@@ -49,7 +49,8 @@ export function AccuracyChart({ height = 110, showGrid = true, compact = true }:
             formatter={(v: number) => [`${v.toFixed(3)}%`, 'Accuracy']}
             labelFormatter={(l) => `Round ${l}`}
           />
-          <ReferenceLine y={85} stroke="#05966940" strokeDasharray="4 4" />
+          <ReferenceLine y={83} stroke="#05966940" strokeDasharray="4 4"
+            label={{ value: '83%', position: 'right', fontSize: 8, fill: '#059669' }} />
           <Line
             type="monotone" dataKey="accuracy"
             stroke="#2563EB" strokeWidth={1.8}

@@ -1,61 +1,103 @@
 import { useEffect, useRef } from 'react';
 import { useFLStore } from '../store/useFLStore';
-import { ClientNode, LogEntry, RoundMetrics } from '../types';
+import { ClientNode, EdgeServer, LogEntry, RoundMetrics } from '../types';
 
 let logCounter = 0;
 function uid() { return `log-${Date.now()}-${++logCounter}`; }
 
+// Expected accuracy trajectory for P1 HFL-MM-HC over 15 rounds
+const ACC_TARGETS = [
+  0.643, 0.668, 0.688, 0.704, 0.718, 0.730, 0.742, 0.754,
+  0.764, 0.774, 0.783, 0.793, 0.803, 0.815, 0.832,
+];
+
 function buildRoundLogs(
-  round: number, clients: ClientNode[], globalAcc: number, globalLoss: number
+  round: number, clients: ClientNode[],
+  globalAcc: number, globalLoss: number, epsSpent: number
 ): LogEntry[] {
   const now = Date.now();
   const entries: LogEntry[] = [];
 
   entries.push({
-    id: uid(), timestamp: now - 2800, type: 'info', source: 'Server', round,
-    message: `Round ${round} started — broadcasting global model to ${clients.length} participants`,
+    id: uid(), timestamp: now - 3600, type: 'info', source: 'Cloud', round,
+    message: `Round ${round} — broadcasting global HFL-MM-HC model to Edge-A + Edge-B (τ_e=3)`,
+  });
+
+  entries.push({
+    id: uid(), timestamp: now - 3100, type: 'debug', source: 'Edge-A', round,
+    message: 'Relaying global model to HC-A1 (device_00) · HC-A2 (device_01) · HC-A3 (device_02)',
+  });
+  entries.push({
+    id: uid(), timestamp: now - 3000, type: 'debug', source: 'Edge-B', round,
+    message: 'Relaying global model to HC-B1 (device_03) · HC-B2 (device_04) · HC-B3 (device_05)',
   });
 
   clients.forEach((c, i) => {
+    const edgeName = c.edgeId === 0 ? 'Edge-A' : 'Edge-B';
+    const compBytes = Math.round(c.datasetSize * 820 * 0.2);
     entries.push({
-      id: uid(), timestamp: now - 2000 + i * 90, source: c.name, round,
+      id: uid(), timestamp: now - 2400 + i * 80, source: c.name, round,
       type: c.status === 'disconnected' ? 'warning' : 'success',
-      message: `Local update submitted — acc: ${(c.accuracy * 100).toFixed(2)}%  loss: ${c.loss.toFixed(4)}  Δ‖g‖: ${c.gradientNorm.toFixed(3)}  latency: ${c.latency.toFixed(0)}ms`,
+      message: `[${edgeName}] acc ${(c.accuracy * 100).toFixed(2)}%  loss ${c.loss.toFixed(4)}  ‖∇‖ ${c.gradientNorm.toFixed(3)}  ε ${epsSpent.toFixed(3)}  → ${compBytes.toLocaleString()}B (compressed)`,
     });
   });
 
+  const edge0 = clients.filter((c) => c.edgeId === 0);
+  const edge1 = clients.filter((c) => c.edgeId === 1);
+  const e0data = edge0.reduce((s, c) => s + c.datasetSize, 0);
+  const e1data = edge1.reduce((s, c) => s + c.datasetSize, 0);
+  const e0acc = edge0.reduce((s, c) => s + c.accuracy * c.datasetSize, 0) / e0data;
+  const e1acc = edge1.reduce((s, c) => s + c.accuracy * c.datasetSize, 0) / e1data;
+
   entries.push({
-    id: uid(), timestamp: now - 600, type: 'info', source: 'Aggregator', round,
-    message: `Aggregating ${clients.length} updates via FedProx  μ=0.01`,
+    id: uid(), timestamp: now - 1400, type: 'info', source: 'Edge-A', round,
+    message: `Edge-A agg done — 3 updates · FedProx μ=0.01 · edge_acc ${(e0acc * 100).toFixed(2)}% · FedConform-HC recalibrated (${e0data} samples)`,
+  });
+  entries.push({
+    id: uid(), timestamp: now - 1350, type: 'info', source: 'Edge-B', round,
+    message: `Edge-B agg done — 3 updates · FedProx μ=0.01 · edge_acc ${(e1acc * 100).toFixed(2)}% · FedConform-HC recalibrated (${e1data} samples)`,
   });
 
   entries.push({
-    id: uid(), timestamp: now, type: 'success', source: 'Server', round,
-    message: `Round ${round} complete — global accuracy: ${(globalAcc * 100).toFixed(3)}%  loss: ${globalLoss.toFixed(5)}`,
+    id: uid(), timestamp: now - 700, type: 'info', source: 'Cloud', round,
+    message: `Cloud agg: Edge-A (${e0data} samples) + Edge-B (${e1data} samples) → global model updated`,
+  });
+
+  entries.push({
+    id: uid(), timestamp: now, type: 'success', source: 'Cloud', round,
+    message: `Round ${round} done — global_acc ${(globalAcc * 100).toFixed(3)}%  loss ${globalLoss.toFixed(5)}  ε ${epsSpent.toFixed(4)}/1.0`,
   });
 
   if (round % 5 === 0) {
     entries.push({
       id: uid(), timestamp: now + 50, type: 'info', source: 'System', round,
-      message: `Checkpoint saved — weights serialized at round ${round}`,
+      message: `Checkpoint → SIMULATORS/checkpoints/best_model_hc.pt (round ${round})`,
     });
   }
 
-  if (globalAcc > 0.88 && round > 5) {
+  if (round >= 8) {
     const hist = useFLStore.getState().roundHistory;
     const prev = hist[hist.length - 1];
-    if (prev && globalAcc > prev.globalAccuracy + 0.003) {
+    if (!prev || globalAcc > prev.globalAccuracy + 0.004) {
       entries.push({
         id: uid(), timestamp: now + 100, type: 'success', source: 'Monitor', round,
-        message: `★ New best accuracy: ${(globalAcc * 100).toFixed(3)}% — convergence milestone`,
+        message: `★ New best acc ${(globalAcc * 100).toFixed(3)}% — hfl_mm_hc_results.csv updated`,
       });
     }
   }
 
-  if (Math.random() < 0.08) {
+  if (epsSpent >= 0.93) {
     entries.push({
-      id: uid(), timestamp: now + 150, type: 'warning', source: 'Network', round,
-      message: `High latency detected — client "${clients[Math.floor(Math.random() * clients.length)].name}" (${(80 + Math.random() * 60).toFixed(0)}ms)`,
+      id: uid(), timestamp: now + 120, type: 'warning', source: 'DP-Engine', round,
+      message: `Privacy budget near limit — ε_spent ${epsSpent.toFixed(4)} / 1.0 (δ=1e-5, σ=1.1, C=1.0)`,
+    });
+  }
+
+  if (Math.random() < 0.1) {
+    const c = clients[Math.floor(Math.random() * clients.length)];
+    entries.push({
+      id: uid(), timestamp: now + 160, type: 'warning', source: 'Network', round,
+      message: `High latency — ${c.name} (device_0${clients.indexOf(c)}) ${(70 + Math.random() * 55).toFixed(0)}ms · edge: ${c.edgeId === 0 ? 'Edge-A' : 'Edge-B'}`,
     });
   }
 
@@ -64,22 +106,19 @@ function buildRoundLogs(
 
 export function useSimulation() {
   const store = useFLStore;
-  const intervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const phaseRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Guards against overlapping rounds: interval (3200ms) < round duration (2100ms)
-  // would cause duplicate round execution without this flag.
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const phaseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRoundRunning = useRef(false);
 
   const runOneRound = () => {
     if (isRoundRunning.current) return;
-
     const state = store.getState();
     if (!state.isTraining) return;
     if (state.currentRound >= state.maxRounds) {
       state.stopTraining();
       state.addLogs([{
         id: uid(), timestamp: Date.now(), type: 'success', source: 'System',
-        message: `Training complete — ${state.maxRounds} rounds finished. Best accuracy: ${(Math.max(...state.roundHistory.map(r => r.globalAccuracy)) * 100).toFixed(2)}%`,
+        message: `Training complete — 15 rounds finished · results → SIMULATORS/results/phase5/hfl_mm_hc_results.csv`,
       }]);
       return;
     }
@@ -87,77 +126,99 @@ export function useSimulation() {
     isRoundRunning.current = true;
     const round = state.currentRound + 1;
 
-    // Phase 1: broadcast → local training (1200ms)
+    // Phase 1: local training
     state.setTrainingPhase('local-training');
     state.setSystemStatus('training');
     state.setActiveClients(state.clients.map((c) => c.id));
+    state.setActiveEdges([]);
 
     phaseRef.current = setTimeout(() => {
-      // Phase 2: aggregating (900ms)
-      state.setTrainingPhase('aggregating');
-      state.setSystemStatus('aggregating');
+      // Phase 2: edge aggregation
+      state.setTrainingPhase('edge-agg');
+      state.setSystemStatus('edge-agg');
       state.setActiveClients([]);
+      state.setActiveEdges([0, 1]);
 
       setTimeout(() => {
-        const current = store.getState().clients;
+        // Phase 3: cloud aggregation
+        state.setTrainingPhase('cloud-agg');
+        state.setSystemStatus('cloud-agg');
+        state.setActiveEdges([]);
 
-        const updated: ClientNode[] = current.map((c) => {
-          const gain  = 0.0045 * (1 - c.accuracy) * (0.7 + Math.random() * 0.6);
-          const noise = (Math.random() - 0.46) * 0.006;
-          const newAcc  = Math.min(0.972, Math.max(0.35, c.accuracy + gain + noise));
-          const lossRed = 0.012 + Math.random() * 0.018;
-          const newLoss = Math.max(0.055, c.loss * (1 - lossRed) + (Math.random() - 0.5) * 0.008);
-          return {
-            ...c,
-            accuracy: newAcc,
-            loss: newLoss,
-            latency: 18 + Math.random() * 92,
-            lastUpdate: Date.now(),
-            status: Math.random() > 0.06 ? 'active' : 'idle',
-            localRounds: c.localRounds + 1,
-            gradientNorm: 0.08 + Math.random() * 0.32,
-          } as ClientNode;
-        });
+        setTimeout(() => {
+          const current = store.getState().clients;
+          const accTarget = ACC_TARGETS[Math.min(round - 1, ACC_TARGETS.length - 1)];
+          const totalData = current.reduce((s, c) => s + c.datasetSize, 0);
 
-        const totalData  = updated.reduce((s, c) => s + c.datasetSize, 0);
-        const globalAcc  = updated.reduce((s, c) => s + c.accuracy  * c.datasetSize, 0) / totalData;
-        const globalLoss = updated.reduce((s, c) => s + c.loss      * c.datasetSize, 0) / totalData;
-        const avgLat     = updated.reduce((s, c) => s + c.latency, 0) / updated.length;
+          const updated: ClientNode[] = current.map((c) => {
+            const targetLocal = accTarget * (0.93 + Math.random() * 0.1);
+            const gap = targetLocal - c.accuracy;
+            const newAcc = Math.min(0.962, Math.max(0.35, c.accuracy + gap * 0.22 + (Math.random() - 0.48) * 0.008));
+            const lossRed = 0.014 + Math.random() * 0.016;
+            const newLoss = Math.max(0.055, c.loss * (1 - lossRed) + (Math.random() - 0.5) * 0.006);
+            return {
+              ...c,
+              accuracy: newAcc,
+              loss: newLoss,
+              latency: 20 + Math.random() * 85,
+              lastUpdate: Date.now(),
+              status: (Math.random() > 0.05 ? 'active' : 'idle') as ClientNode['status'],
+              localRounds: c.localRounds + 1,
+              gradientNorm: 0.08 + Math.random() * 0.28,
+              epsilonSpent: Math.min(1.0, c.epsilonSpent + 1.0 / 15),
+            };
+          });
 
-        const metrics: RoundMetrics = {
-          round, globalAccuracy: globalAcc, globalLoss,
-          timestamp: Date.now(),
-          participatingClients: updated.filter((c) => c.status !== 'disconnected').length,
-          avgLatency: avgLat,
-          communicationBytes: 800000 + Math.random() * 700000,
-        };
+          const globalAcc = updated.reduce((s, c) => s + c.accuracy * c.datasetSize, 0) / totalData;
+          const globalLoss = updated.reduce((s, c) => s + c.loss * c.datasetSize, 0) / totalData;
+          const avgLat = updated.reduce((s, c) => s + c.latency, 0) / updated.length;
+          const epsSpent = Math.min(1.0, round / 15);
+          const compRatio = (1 - 0.2) * (8 / 32); // sparsity + INT8
+          const uncompressed = 820000;
+          const compressed = uncompressed * compRatio;
+          const commReduction = ((uncompressed - compressed) / uncompressed) * 100;
 
-        const logs = buildRoundLogs(round, updated, globalAcc, globalLoss);
-        store.getState().advanceRound(metrics, updated, logs);
+          const updatedEdges: EdgeServer[] = state.edges.map((edge) => {
+            const devs = updated.filter((c) => c.edgeId === edge.id);
+            const data = devs.reduce((s, c) => s + c.datasetSize, 0);
+            return {
+              ...edge,
+              accuracy: devs.reduce((s, c) => s + c.accuracy * c.datasetSize, 0) / data,
+              latency: devs.reduce((s, c) => s + c.latency, 0) / devs.length,
+              status: 'idle' as const,
+            };
+          });
 
-        // Release lock — next interval tick can now run
-        isRoundRunning.current = false;
-      }, 900);
-    }, 1200);
+          const metrics: RoundMetrics = {
+            round, globalAccuracy: globalAcc, globalLoss,
+            macroAuc: globalAcc * 0.987 + 0.009,
+            epsilonSpent: epsSpent,
+            timestamp: Date.now(),
+            participatingClients: updated.filter((c) => c.status !== 'disconnected').length,
+            avgLatency: avgLat,
+            communicationBytes: Math.round(compressed + Math.random() * 40000),
+            commReduction,
+            avgSetSize: 1.1 + Math.random() * 0.85,
+          };
+
+          const logs = buildRoundLogs(round, updated, globalAcc, globalLoss, epsSpent);
+          store.getState().advanceRound(metrics, updated, updatedEdges, logs);
+          isRoundRunning.current = false;
+        }, 600);
+      }, 800);
+    }, 1400);
   };
 
-  // Auto-start simulation on mount
   useEffect(() => {
-    const boot = setTimeout(() => {
-      useFLStore.getState().startTraining();
-    }, 800);
+    const boot = setTimeout(() => useFLStore.getState().startTraining(), 900);
     return () => clearTimeout(boot);
   }, []);
 
-  // Manage interval based on isTraining state
   useEffect(() => {
     const unsub = useFLStore.subscribe((state) => {
       if (state.isTraining && !intervalRef.current) {
-        // Kick off first round, then tick every 3200ms
-        const first = setTimeout(runOneRound, 1200);
-        intervalRef.current = setInterval(runOneRound, 3200);
-        // Store first-timeout id so cleanup can cancel it
-        phaseRef.current = first;
+        phaseRef.current = setTimeout(runOneRound, 1200);
+        intervalRef.current = setInterval(runOneRound, 3500);
       }
       if (!state.isTraining && intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -166,11 +227,10 @@ export function useSimulation() {
         isRoundRunning.current = false;
       }
     });
-
     return () => {
       unsub();
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (phaseRef.current)    clearTimeout(phaseRef.current);
+      if (phaseRef.current) clearTimeout(phaseRef.current);
       isRoundRunning.current = false;
     };
   }, []);
