@@ -17,7 +17,7 @@
     "tau_c": 1,
     "fl_algorithm": "FedAvg",
     "batch_size": 32,
-    "learning_rate": 0.01
+    "learning_rate": 0.001
   },
 
   "model": {
@@ -82,20 +82,15 @@
   ],
 
   "datasets": {
-    "iiot": {
-      "name": "CWRU + Camera",
-      "modalities": ["vibration", "image"],
-      "num_samples": 12000
-    },
-    "smartcity": {
-      "name": "Air Quality + Traffic",
-      "modalities": ["environmental_sensor", "video"],
-      "num_samples": 8000
-    },
     "healthcare": {
-      "name": "WESAD + ChestXray14",
-      "modalities": ["wearable_eeg", "medical_image"],
-      "num_samples": 10000
+      "name": "PTB-XL ECG + Kermany Chest X-Ray",
+      "modalities": ["ecg_signal", "cxr_image", "tabular_metadata"],
+      "num_samples": 3000,
+      "ecg_classes": 5,
+      "cxr_classes": 2,
+      "tabular_features": 8,
+      "source_ecg": "PTB-XL (PhysioNet)",
+      "source_cxr": "Kermany et al. (Chest X-Ray Pneumonia)"
     },
     "noniid_dirichlet_alpha": 0.5
   },

@@ -172,6 +172,15 @@ def build_hfl_mm_hc(n_classes: int = 5, **kwargs) -> HFLMMHC:
     replace_bn_with_gn(model)
     replace_inplace_activations(model)
     fix_mobilenet_residuals(model)
+    # Opacus DP-SGD requires zero BatchNorm. Fail loudly at construction
+    # rather than letting it surface as an opaque Opacus validation error.
+    leftover = [name for name, m in model.named_modules()
+                if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d))]
+    if leftover:
+        raise RuntimeError(
+            f"build_hfl_mm_hc: BatchNorm layers remain after replacement: "
+            f"{leftover}. Opacus DP-SGD will fail."
+        )
     return model
 
 

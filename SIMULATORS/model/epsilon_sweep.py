@@ -58,7 +58,11 @@ def fedavg_round(global_model, device_loaders, n_rounds, device,
             local.train()
             n_samples = 0
             for _ in range(n_epochs):
-                for ecg, cxr, labels in train_loader:
+                for batch in train_loader:
+                    if len(batch) == 4:
+                        ecg, cxr, _tab, labels = batch
+                    else:
+                        ecg, cxr, labels = batch
                     opt.zero_grad()
                     loss = loss_fn(local(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
                                    labels.to(device, non_blocking=True))
@@ -98,9 +102,16 @@ def run_epsilon_sweep(args):
     ecg_labels = np.load(os.path.join(args.data_dir, "ecg", "ecg_labels.npy"))
     cxr_images = np.load(os.path.join(args.data_dir, "cxr", "cxr_images.npy"),
                          mmap_mode="r")
-    cxr_labels = np.load(os.path.join(args.data_dir, "cxr", "cxr_primary_labels.npy"))
+    cxr_labels_path = os.path.join(args.data_dir, "cxr", "cxr_primary_labels.npy")
+    if not os.path.exists(cxr_labels_path):
+        cxr_labels_path = os.path.join(args.data_dir, "cxr", "cxr_labels.npy")
+    cxr_labels = np.load(cxr_labels_path)
+    tabular_feats = np.load(os.path.join(args.data_dir, "tabular",
+                                         "tabular_features.npy"))
 
-    full_ds = HealthcareDataset(ecg_signals, ecg_labels, cxr_images, cxr_labels)
+    full_ds = HealthcareDataset(ecg_signals, ecg_labels,
+                                cxr_images, cxr_labels,
+                                tabular_feats)
     n = len(full_ds)
     n_train = int(0.70 * n)
     n_val = int(0.15 * n)
@@ -140,7 +151,11 @@ def run_epsilon_sweep(args):
         model.eval()
         all_logits, all_labels = [], []
         with torch.no_grad():
-            for ecg, cxr, labels in test_loader:
+            for batch in test_loader:
+                if len(batch) == 4:
+                    ecg, cxr, _tab, labels = batch
+                else:
+                    ecg, cxr, labels = batch
                 logits = model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
                 all_logits.append(logits.cpu())
                 all_labels.append(labels)

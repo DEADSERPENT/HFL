@@ -105,17 +105,19 @@ def main():
                         help="Output path for FP32 ONNX model")
     parser.add_argument("--output_int8", default="onnx/hfl_mm_hc_int8.onnx",
                         help="Output path for INT8 quantized ONNX model")
-    parser.add_argument("--n_classes", type=int, default=5)
-    parser.add_argument("--n_mamba_layers", type=int, default=4)
+    parser.add_argument("--n_classes",      type=int, default=5)
+    parser.add_argument("--n_mamba_blocks", type=int, default=4)
     args = parser.parse_args()
 
-    # Load model
-    model = HFLMMHC(n_classes=args.n_classes, n_mamba_layers=args.n_mamba_layers)
+    # Load model — constructor uses n_mamba_blocks (not n_mamba_layers)
+    model = HFLMMHC(n_classes=args.n_classes, n_mamba_blocks=args.n_mamba_blocks)
     if os.path.exists(args.checkpoint):
         _dev  = get_device(verbose=False)
         state = torch.load(args.checkpoint, map_location=_dev)
-        # Support both raw state_dict and wrapped checkpoint
-        sd = state.get("model_state_dict", state)
+        # hfl_trainer saves {"model_state": ..., "args": ..., ...}
+        sd = state.get("model_state",
+             state.get("model_state_dict",
+             state))   # fallback: raw state_dict
         model.load_state_dict(sd, strict=False)
         print(f"[LOAD] Checkpoint loaded from {args.checkpoint}")
     else:

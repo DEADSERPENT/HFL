@@ -35,6 +35,9 @@ P = dict(
     arr_h     = '#5D6D7E',
 )
 
+# ── font scale ────────────────────────────────────────────────────────────────
+SCALE = 1.4   # multiply all font sizes by this factor
+
 # ── helpers ───────────────────────────────────────────────────────────────────
 def box(x, y, w, h, fc, ec, lw=2.0, r=0.3, z=3):
     ax.add_patch(FancyBboxPatch((x, y), w, h,
@@ -43,7 +46,7 @@ def box(x, y, w, h, fc, ec, lw=2.0, r=0.3, z=3):
 
 def t(x, y, s, fs=12, bold=False, c='#1B2631',
       ha='center', va='center', z=6, it=False):
-    ax.text(x, y, s, fontsize=fs,
+    ax.text(x, y, s, fontsize=int(fs * SCALE),
             fontweight='bold' if bold else 'normal',
             fontstyle='italic' if it else 'normal',
             color=c, ha=ha, va=va, zorder=z, fontfamily='DejaVu Sans')
@@ -94,7 +97,7 @@ for yc, lbl, col in [
     ((L2[0]+L2[1])/2, 'LAYER 2\nEdge Servers',  '#145A32'),
     ((L3[0]+L3[1])/2, 'LAYER 3\nCloud Server',  '#1A5276'),
 ]:
-    ax.text(0.58, yc, lbl, fontsize=13, fontweight='bold', color=col,
+    ax.text(0.58, yc, lbl, fontsize=int(13 * SCALE), fontweight='bold', color=col,
             ha='center', va='center', rotation=90, zorder=6,
             fontfamily='DejaVu Sans')
 

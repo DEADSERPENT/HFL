@@ -18,7 +18,7 @@ from datetime import datetime
 
 
 RESULTS_DIR = "results/phase5"
-NS3_DIR     = "results/ns3"
+NS3_DIR     = "results/ns3"   # overridden by --ns3_dir CLI arg
 
 
 def safe_read_csv(path: str) -> list[dict]:
@@ -34,11 +34,18 @@ def extract_baseline_metrics(name: str, path: str) -> dict:
         return {}
     last = rows[-1]  # last row = final round or summary
     return {
-        "system":      name,
-        "accuracy":    last.get("accuracy", last.get("val_accuracy", "N/A")),
-        "macro_auc":   last.get("macro_auc", last.get("val_auc", "N/A")),
-        "epsilon":     last.get("epsilon_spent", last.get("epsilon", "N/A")),
-        "rounds":      last.get("round", last.get("epoch", "N/A")),
+        "system":    name,
+        "accuracy":  last.get("test_accuracy",
+                     last.get("accuracy",
+                     last.get("val_accuracy", "N/A"))),
+        "macro_auc": last.get("test_macro_auc",
+                     last.get("macro_auc",
+                     last.get("val_auc", "N/A"))),
+        "epsilon":   last.get("epsilon_spent",
+                     last.get("epsilon", "N/A")),
+        "rounds":    last.get("rounds",
+                     last.get("round",
+                     last.get("epoch", "N/A"))),
         "source_file": os.path.basename(path),
     }
 
@@ -51,12 +58,12 @@ def extract_hfl_final(path: str) -> dict:
     return {
         "system":       "HFL-MM-HC (P1)",
         "accuracy":     last.get("val_accuracy", "N/A"),
-        "macro_auc":    last.get("macro_auc", "N/A"),
+        "macro_auc":    last.get("val_macro_auc", "N/A"),   # key from hfl_trainer log_entry
         "epsilon":      last.get("epsilon_spent", "N/A"),
-        "rounds":       last.get("round", "N/A"),
+        "rounds":       last.get("global_round", "N/A"),    # key from hfl_trainer log_entry
         "uplink_bytes": last.get("uplink_bytes", "N/A"),
         "q_global":     last.get("q_global", "N/A"),
-        "set_size":     last.get("avg_set_size", "N/A"),
+        "train_loss":   last.get("train_loss", "N/A"),
         "source_file":  os.path.basename(path),
     }
 
@@ -184,6 +191,8 @@ def write_phase5_results(rows: list[dict], qos: list[dict], latency: dict,
 def main():
     parser = argparse.ArgumentParser(description="Collect all Phase 5 results")
     parser.add_argument("--results_dir", default=RESULTS_DIR)
+    parser.add_argument("--ns3_dir",     default=NS3_DIR,
+                        help="Directory containing ns3_phase5_results.csv")
     parser.add_argument("--output", default=os.path.join(RESULTS_DIR, "phase5_results.csv"))
     args = parser.parse_args()
 
@@ -191,7 +200,8 @@ def main():
     print("  PHASE 5 RESULTS COLLECTOR")
     print("=" * 60)
 
-    rdir = args.results_dir
+    rdir    = args.results_dir
+    ns3_dir = args.ns3_dir
 
     # Baseline rows
     baseline_files = {
@@ -238,7 +248,7 @@ def main():
         print("  [--] Latency: bench_results.csv not found")
 
     # NS-3
-    ns3_path = os.path.join(NS3_DIR, "ns3_phase5_results.csv")
+    ns3_path = os.path.join(ns3_dir, "ns3_phase5_results.csv")
     ns3 = extract_ns3(ns3_path)
     if ns3:
         print(f"  [OK] NS-3: comm_reduction={ns3.get('comm_reduction_pct','?')}%")

@@ -331,7 +331,12 @@ def run_dp_fedavg(model_fn, device_loaders: List[Dict],
                   delta: float = 1e-5, max_grad_norm: float = 1.0,
                   device: torch.device = None,
                   output_path: str = None) -> dict:
-    """B4: DP-FedAvg — flat topology + DP-SGD (no 2-tier hierarchy)."""
+    """B4: DP-FedAvg — flat topology + DP-SGD (no 2-tier hierarchy).
+
+    Persistent PrivacyEngine per device across all FL rounds, so cumulative
+    ε is tracked correctly under DP composition. σ is calibrated once for
+    ``rounds * local_epochs`` total epochs of training.
+    """
     if device is None:
         device = get_device(verbose=False)
         optimize_gpu()
@@ -339,40 +344,67 @@ def run_dp_fedavg(model_fn, device_loaders: List[Dict],
     from dp_engine import make_dp_model, get_epsilon_spent
 
     global_model = model_fn().to(device)
-    global_state = copy.deepcopy(global_model.state_dict())
-    client_states, client_sizes = [], []
-    total_eps = 0.0
+    loss_fn = nn.CrossEntropyLoss()
+    total_dp_epochs = max(1, rounds * local_epochs)
 
-    for dev_idx, loaders in enumerate(device_loaders):
-        print(f"  [B4 DP-FedAvg] Device {dev_idx+1}/{len(device_loaders)} — DP-SGD training...")
-        local_model = model_fn().to(device)
-        local_model.load_state_dict(global_state)
-        optimizer = torch.optim.Adam(local_model.parameters(), lr=lr)
-        try:
-            dp_model, dp_opt, dp_loader, pe = make_dp_model(
-                local_model, optimizer, loaders["train"],
-                target_epsilon=epsilon, target_delta=delta,
-                max_grad_norm=max_grad_norm, epochs=local_epochs * rounds
-            )
-            loss_fn = nn.CrossEntropyLoss()
-            dp_model.train()
+    # Persistent DP engines (one per device)
+    print(f"  [B4] Initializing persistent DP engines for "
+          f"{len(device_loaders)} devices "
+          f"(σ calibrated for {total_dp_epochs} total epochs)...")
+    dp_state = []
+    for loaders in device_loaders:
+        base = model_fn().to(device)
+        opt = torch.optim.Adam(base.parameters(), lr=lr)
+        dp_m, dp_o, dp_l, pe = make_dp_model(
+            base, opt, loaders["train"],
+            target_epsilon=epsilon, target_delta=delta,
+            max_grad_norm=max_grad_norm, epochs=total_dp_epochs,
+        )
+        dp_state.append({"dp_model": dp_m, "dp_opt": dp_o,
+                         "dp_loader": dp_l, "pe": pe})
+
+    total_eps = 0.0
+    for r in range(rounds):
+        global_state = copy.deepcopy(global_model.state_dict())
+        client_states, client_sizes = [], []
+
+        for dev_idx, state in enumerate(dp_state):
+            # Sync local model to current global weights
+            state["dp_model"]._module.load_state_dict(global_state, strict=False)
+            state["dp_opt"].original_optimizer.state = {}  # reset Adam moments
+
+            state["dp_model"].train()
             n_samples = 0
             for _ in range(local_epochs):
-                for batch in dp_loader:
-                    ecg, cxr, _tab, labels = batch
-                    dp_opt.zero_grad()
-                    loss = loss_fn(dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
+                for batch in state["dp_loader"]:
+                    if len(batch) == 4:
+                        ecg, cxr, _tab, labels = batch
+                    else:
+                        ecg, cxr, labels = batch
+                    state["dp_opt"].zero_grad()
+                    logits = state["dp_model"](
+                        ecg.to(device, non_blocking=True),
+                        cxr.to(device, non_blocking=True))
+                    loss = loss_fn(logits,
                                    labels.to(device, non_blocking=True))
                     loss.backward()
-                    dp_opt.step()
+                    state["dp_opt"].step()
                     n_samples += len(labels)
-            total_eps = max(total_eps, get_epsilon_spent(pe, delta))
-            client_states.append(copy.deepcopy(local_model.state_dict()))
+            total_eps = max(total_eps, get_epsilon_spent(state["pe"], delta))
+            trained = {k: v.detach().clone()
+                       for k, v in state["dp_model"]._module.state_dict().items()}
+            client_states.append(trained)
             client_sizes.append(n_samples)
-        except Exception as e:
-            raise RuntimeError(f"[B4] DP-SGD setup failed: {e}") from e
 
-    global_model.load_state_dict(weighted_fedavg(global_state, client_states, client_sizes))
+        global_model.load_state_dict(
+            weighted_fedavg(global_state, client_states, client_sizes))
+        if (r + 1) % 5 == 0 or (r + 1) == rounds:
+            print(f"  [B4 DP-FedAvg] Round {r+1}/{rounds} | "
+                  f"ε_spent={total_eps:.4f}")
+        if total_eps >= epsilon:
+            print(f"  [B4] Privacy budget exhausted at round {r+1}. Stopping.")
+            break
+
     global_test_ds = ConcatDataset([dl["test"].dataset for dl in device_loaders])
     global_test_loader = DataLoader(global_test_ds, batch_size=128, num_workers=0)
     final_m = evaluate(global_model, global_test_loader, device)
@@ -380,8 +412,10 @@ def run_dp_fedavg(model_fn, device_loaders: List[Dict],
               "test_accuracy": final_m["accuracy"],
               "test_macro_auc": final_m["macro_auc"],
               "epsilon_target": epsilon,
-              "epsilon_spent": total_eps}
-    print(f"[B4] DP-FedAvg AUC={final_m['macro_auc']:.4f} | ε_spent={total_eps:.4f}")
+              "epsilon_spent": total_eps,
+              "rounds": rounds}
+    print(f"[B4] DP-FedAvg AUC={final_m['macro_auc']:.4f} | "
+          f"ε_spent={total_eps:.4f}")
     if output_path:
         _save_csv(result, output_path)
     return result
@@ -442,9 +476,10 @@ def run_moon(model_fn, device_loaders: List[Dict],
                     sim_global = F.cosine_similarity(z_cur, z_global, dim=-1) / temperature
                     sim_prev = F.cosine_similarity(z_cur, z_prev, dim=-1) / temperature
 
-                    contrastive_loss = -torch.log(
-                        torch.exp(sim_global) / (torch.exp(sim_global) + torch.exp(sim_prev))
-                    ).mean()
+                    # Numerically stable form of -log(e^a / (e^a + e^b))
+                    # = log(1 + e^(b - a)) = softplus(b - a).
+                    # Avoids overflow on large similarities.
+                    contrastive_loss = F.softplus(sim_prev - sim_global).mean()
 
                     loss = ce_loss + mu * contrastive_loss
                     loss.backward()

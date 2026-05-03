@@ -16,32 +16,48 @@ from typing import List, Dict, Tuple
 
 def dirichlet_partition(labels: np.ndarray, n_clients: int,
                         alpha: float = 0.5,
-                        seed: int = 42) -> List[np.ndarray]:
+                        seed: int = 42,
+                        min_per_client: int = 10,
+                        max_resamples: int = 50) -> List[np.ndarray]:
     """
     Partition dataset indices using Dirichlet distribution.
     Higher alpha → more IID. Lower alpha (0.1–0.5) → more heterogeneous.
+
+    Re-samples up to ``max_resamples`` times until every client has at least
+    ``min_per_client`` indices, so we never silently produce an empty or
+    tiny partition that would corrupt downstream FL evaluation.
     """
-    np.random.seed(seed)
+    rng = np.random.default_rng(seed)
     n_classes = len(np.unique(labels))
     class_indices = [np.where(labels == c)[0] for c in range(n_classes)]
     for idx_list in class_indices:
-        np.random.shuffle(idx_list)
+        rng.shuffle(idx_list)
 
-    client_indices = [[] for _ in range(n_clients)]
+    for attempt in range(max_resamples):
+        client_indices = [[] for _ in range(n_clients)]
+        for c, cls_idx in enumerate(class_indices):
+            proportions = rng.dirichlet(np.repeat(alpha, n_clients))
+            proportions = (proportions * len(cls_idx)).astype(int)
+            proportions[-1] = len(cls_idx) - proportions[:-1].sum()
+            proportions = np.maximum(proportions, 0)
 
-    for c, cls_idx in enumerate(class_indices):
-        proportions = np.random.dirichlet(np.repeat(alpha, n_clients))
-        proportions = (proportions * len(cls_idx)).astype(int)
-        proportions[-1] = len(cls_idx) - proportions[:-1].sum()
-        proportions = np.maximum(proportions, 0)
+            start = 0
+            for client_id, count in enumerate(proportions):
+                end = start + count
+                client_indices[client_id].extend(cls_idx[start:end].tolist())
+                start = end
 
-        start = 0
-        for client_id, count in enumerate(proportions):
-            end = start + count
-            client_indices[client_id].extend(cls_idx[start:end].tolist())
-            start = end
+        sizes = [len(c) for c in client_indices]
+        if min(sizes) >= min_per_client:
+            return [np.array(idx) for idx in client_indices]
+        # otherwise reseed and try again
+        rng = np.random.default_rng(seed + attempt + 1)
 
-    return [np.array(idx) for idx in client_indices]
+    raise RuntimeError(
+        f"Dirichlet partition (α={alpha}, n_clients={n_clients}) could not "
+        f"give every client ≥{min_per_client} samples after {max_resamples} "
+        f"attempts. Sizes={sizes}. Increase α or reduce n_clients."
+    )
 
 
 # ── Edge Server Assignment ─────────────────────────────────────────────────────
@@ -115,7 +131,12 @@ def partition_and_save(labels:    np.ndarray,
 
     for device_id, indices in enumerate(device_indices):
         if len(indices) == 0:
-            indices = np.array([0])
+            # Should never happen — dirichlet_partition guarantees
+            # ``min_per_client`` samples or raises. Belt-and-braces only.
+            raise RuntimeError(
+                f"Empty partition for device {device_id}; "
+                f"raise α or lower n_devices."
+            )
 
         train_idx, val_idx, test_idx = split_local_data(
             indices, seed=seed + device_id)

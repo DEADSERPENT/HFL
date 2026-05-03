@@ -91,44 +91,86 @@ def evaluate_model(model: nn.Module, loader: DataLoader,
     return {"accuracy": acc, "macro_auc": auc}
 
 
-def local_dp_train(model: nn.Module, loader: DataLoader,
-                   device: torch.device, epsilon: float, delta: float,
-                   max_grad_norm: float, lr: float,
-                   n_epochs: int = 1) -> Dict:
-    """DP-SGD local training for one FL round."""
-    from dp_engine import make_dp_model, get_epsilon_spent
+def init_persistent_dp_state(args, device_loaders: List[Dict],
+                              device: torch.device, n_devices: int,
+                              total_dp_epochs: int) -> Dict:
+    """Build a persistent DP-wrapped (model, optimizer, loader, engine) per
+    device. The PrivacyEngine — and crucially its accountant — lives for the
+    entire training run, so cumulative ε across all rounds and edge iters is
+    tracked correctly. σ is calibrated once for the full training plan.
+    """
+    from hfl_mm_model import build_hfl_mm_hc
+    from dp_engine import make_dp_model
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
-    loss_fn = nn.CrossEntropyLoss()
-
-    try:
+    dp_state: Dict[int, Dict] = {}
+    for dev_id in range(n_devices):
+        base = build_hfl_mm_hc(n_classes=args.n_classes).to(device)
+        optimizer = torch.optim.Adam(base.parameters(),
+                                     lr=args.lr, weight_decay=1e-4)
         dp_model, dp_opt, dp_loader, pe = make_dp_model(
-            model, optimizer, loader,
-            target_epsilon=epsilon,
-            target_delta=delta,
-            max_grad_norm=max_grad_norm,
-            epochs=n_epochs,
+            base, optimizer, device_loaders[dev_id]["train"],
+            target_epsilon=args.epsilon,
+            target_delta=args.delta,
+            max_grad_norm=args.max_grad_norm,
+            epochs=total_dp_epochs,
         )
-        dp_model.train()
-        total_loss, total = 0.0, 0
-        for _ in range(n_epochs):
-            for ecg, cxr, _tab, labels in dp_loader:
-                dp_opt.zero_grad()
-                logits = dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
-                loss = loss_fn(logits, labels.to(device, non_blocking=True))
-                loss.backward()
-                dp_opt.step()
-                total_loss += loss.item() * len(labels)
-                total += len(labels)
-        eps_spent = get_epsilon_spent(pe, delta)
-        return {"loss": total_loss / max(total, 1),
-                "epsilon_spent": eps_spent,
-                "n_samples": total}
-    except Exception as e:
-        raise RuntimeError(f"[HFL-Trainer] DP-SGD training failed: {e}") from e
-    return {"loss": 0.0,
-            "epsilon_spent": 0.0,
-                "n_samples": total}
+        dp_state[dev_id] = {
+            "dp_model": dp_model,
+            "dp_opt":   dp_opt,
+            "dp_loader": dp_loader,
+            "pe":       pe,
+        }
+    return dp_state
+
+
+def local_dp_train_persistent(state: Dict, edge_state: dict,
+                              device: torch.device, delta: float,
+                              n_epochs: int = 1) -> Dict:
+    """One DP-SGD local-training round using the persistent engine.
+
+    The same PrivacyEngine is used across all rounds, so its accountant tracks
+    cumulative ε correctly. We only swap in the latest edge weights at the
+    start of the round and read the trained weights out at the end.
+    """
+    from dp_engine import get_epsilon_spent
+
+    dp_model  = state["dp_model"]
+    dp_opt    = state["dp_opt"]
+    dp_loader = state["dp_loader"]
+    pe        = state["pe"]
+
+    # Load latest edge weights into the underlying nn.Module (no _module. prefix).
+    dp_model._module.load_state_dict(edge_state, strict=False)
+    # Reset Adam moments so each round starts from clean optimizer state
+    # (matches vanilla FedAvg semantics; does not affect privacy accounting).
+    dp_opt.original_optimizer.state = {}
+
+    loss_fn = nn.CrossEntropyLoss()
+    dp_model.train()
+    total_loss, total = 0.0, 0
+    for _ in range(n_epochs):
+        for batch in dp_loader:
+            if len(batch) == 4:
+                ecg, cxr, _tab, labels = batch
+            else:
+                ecg, cxr, labels = batch
+            dp_opt.zero_grad()
+            logits = dp_model(ecg.to(device, non_blocking=True),
+                              cxr.to(device, non_blocking=True))
+            loss = loss_fn(logits, labels.to(device, non_blocking=True))
+            loss.backward()
+            dp_opt.step()
+            total_loss += loss.item() * len(labels)
+            total += len(labels)
+
+    eps_spent = get_epsilon_spent(pe, delta)
+    # Snapshot the underlying module's state for aggregation.
+    trained_state = {k: v.detach().clone()
+                     for k, v in dp_model._module.state_dict().items()}
+    return {"loss": total_loss / max(total, 1),
+            "epsilon_spent": eps_spent,
+            "n_samples": total,
+            "updated_state": trained_state}
 
 
 def edge_fedavg(global_state: dict, client_updates: List[Dict],
@@ -181,14 +223,36 @@ def train_hfl_mm_hc(args) -> Dict:
             args.partition_dir, args.data_dir, dev_id, args.batch_size)
         device_loaders.append(loaders)
 
+    # Pooled val and test sets across all devices — unbiased evaluation
+    from torch.utils.data import ConcatDataset
+    _dl_kw = get_dataloader_kwargs(device)
+    pooled_val_loader = DataLoader(
+        ConcatDataset([dl["val"].dataset for dl in device_loaders]),
+        batch_size=args.batch_size * 2, **_dl_kw)
+    pooled_test_loader = DataLoader(
+        ConcatDataset([dl["test"].dataset for dl in device_loaders]),
+        batch_size=args.batch_size * 2, **_dl_kw)
+
     # Results log
     results_log = []
     best_auc, best_state = 0.0, None
     q_global = 0.9  # initial conformal quantile
 
+    # Total epochs each device will train across the entire FL plan.
+    # Opacus needs this to calibrate σ correctly so ε is spread over all rounds.
+    total_dp_epochs = args.rounds * args.tau_e
+
     print(f"\nStarting HFL-MM-HC training: {args.rounds} global rounds, "
           f"{args.tau_e} edge rounds, {n_devices} devices, {n_edges} edges")
-    print(f"DP: ε={args.epsilon}, δ={args.delta}, σ auto, C={args.max_grad_norm}")
+    print(f"DP: ε={args.epsilon}, δ={args.delta}, σ auto (calibrated for "
+          f"{total_dp_epochs} total epochs), C={args.max_grad_norm}")
+
+    # One persistent DP engine per device — ε accumulates correctly across
+    # all (global_round × edge_round × device) calls instead of being reset
+    # each round.
+    print("\nInitializing persistent DP engines (one per device)...")
+    dp_state = init_persistent_dp_state(
+        args, device_loaders, device, n_devices, total_dp_epochs)
 
     for global_round in range(1, args.rounds + 1):
         round_start = time.time()
@@ -196,6 +260,7 @@ def train_hfl_mm_hc(args) -> Dict:
 
         edge_states = {e: copy.deepcopy(global_state) for e in range(n_edges)}
         round_eps_spent = []
+        round_train_losses = []
         round_uplink_bytes = 0   # total compressed bytes uploaded this global round
 
         for edge_round in range(1, args.tau_e + 1):
@@ -203,25 +268,26 @@ def train_hfl_mm_hc(args) -> Dict:
             edge_client_sizes = {e: [] for e in range(n_edges)}
             edge_q_tildes = {e: [] for e in range(n_edges)}
 
-            # Step 1: Local DP training on all devices
+            # Step 1: Local DP training on all devices via persistent engines
             for dev_id in range(n_devices):
                 edge_id = next(e for e, devs in edge_assignments.items()
                                if dev_id in devs)
-                local_model = build_hfl_mm_hc(n_classes=args.n_classes).to(device)
-                local_model.load_state_dict(edge_states[edge_id])
 
-                train_result = local_dp_train(
-                    local_model, device_loaders[dev_id]["train"],
-                    device, args.epsilon, args.delta,
-                    args.max_grad_norm, args.lr, n_epochs=1,
+                train_result = local_dp_train_persistent(
+                    dp_state[dev_id],
+                    edge_state=edge_states[edge_id],
+                    device=device, delta=args.delta, n_epochs=1,
                 )
                 round_eps_spent.append(train_result["epsilon_spent"])
+                round_train_losses.append(train_result["loss"])
 
-                # Compress delta
+                trained_state = train_result["updated_state"]
+
+                # Compress delta (trained − edge anchor)
                 delta_params = {
-                    n: local_model.state_dict()[n] - edge_states[edge_id][n]
+                    n: trained_state[n] - edge_states[edge_id][n]
                     for n in global_state
-                    if global_state[n].is_floating_point()
+                    if global_state[n].is_floating_point() and n in trained_state
                 }
                 compressed = compressor.compress(delta_params)
                 # Measure actual uplink bytes: int32 indices + uint8 values + 8B header per layer
@@ -240,11 +306,13 @@ def train_hfl_mm_hc(args) -> Dict:
                 edge_client_states[edge_id].append(updated_state)
                 edge_client_sizes[edge_id].append(train_result["n_samples"])
 
-                # Conformal calibration
+                # Conformal calibration on the (just-trained) underlying module
                 cal_loader = device_loaders[dev_id]["val"]
                 cal = LocalConformCalibrator(alpha=args.alpha_conf,
                                             epsilon_conf=0.1)
-                q_tilde = cal.calibrate(local_model, cal_loader, device)
+                q_tilde = cal.calibrate(
+                    dp_state[dev_id]["dp_model"]._module,
+                    cal_loader, device)
                 edge_q_tildes[edge_id].append(q_tilde)
 
             # Step 2: Edge aggregation
@@ -261,6 +329,12 @@ def train_hfl_mm_hc(args) -> Dict:
                           for d in edge_assignments[e])
                       for e in range(n_edges)]
         total_samples = sum(edge_sizes)
+        if total_samples == 0:
+            raise RuntimeError(
+                "Cloud aggregation: total training samples across all edges "
+                "is zero. Check partition_meta.json — likely an empty "
+                "partition was produced."
+            )
         new_global_state = {}
         for key in global_state:
             if not global_state[key].is_floating_point():
@@ -269,6 +343,7 @@ def train_hfl_mm_hc(args) -> Dict:
             new_global_state[key] = sum(
                 (n / total_samples) * edge_states[e][key].float()
                 for e, n in zip(range(n_edges), edge_sizes)
+                if n > 0
             )
         global_model.load_state_dict(new_global_state)
         compressor.reset_error_feedback()
@@ -278,13 +353,15 @@ def train_hfl_mm_hc(args) -> Dict:
                    for e in range(n_edges)]
         q_global = conform_agg.cloud_aggregate(q_edges)
 
-        # Step 5: Evaluate
-        val_metrics = evaluate_model(global_model, device_loaders[0]["val"], device)
+        # Step 5: Evaluate on pooled validation set (all devices)
+        val_metrics = evaluate_model(global_model, pooled_val_loader, device)
         max_eps = max(round_eps_spent) if round_eps_spent else 0.0
+        avg_train_loss = float(np.mean(round_train_losses)) if round_train_losses else 0.0
         round_time = time.time() - round_start
 
         log_entry = {
             "global_round": global_round,
+            "train_loss": round(avg_train_loss, 4),
             "val_accuracy": round(val_metrics["accuracy"], 4),
             "val_macro_auc": round(val_metrics["macro_auc"], 4),
             "epsilon_spent": round(max_eps, 4),
@@ -295,6 +372,7 @@ def train_hfl_mm_hc(args) -> Dict:
         results_log.append(log_entry)
 
         print(f"Round {global_round:3d}/{args.rounds} | "
+              f"TrainLoss={avg_train_loss:.4f} | "
               f"AUC={val_metrics['macro_auc']:.4f} | "
               f"Acc={val_metrics['accuracy']:.4f} | "
               f"ε={max_eps:.4f} | "
@@ -309,9 +387,9 @@ def train_hfl_mm_hc(args) -> Dict:
             print(f"Privacy budget exhausted at round {global_round}. Stopping.")
             break
 
-    # Final test evaluation
+    # Final test evaluation on pooled test set (all devices)
     global_model.load_state_dict(best_state)
-    test_metrics = evaluate_model(global_model, device_loaders[0]["test"], device)
+    test_metrics = evaluate_model(global_model, pooled_test_loader, device)
     print(f"\nFinal Test AUC={test_metrics['macro_auc']:.4f} | "
           f"Acc={test_metrics['accuracy']:.4f} | Best val AUC={best_auc:.4f}")
 

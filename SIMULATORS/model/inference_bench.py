@@ -38,8 +38,14 @@ def simulate_preprocessing(ecg_shape=(1, 12, 1000), cxr_shape=(1, 3, 224, 224)):
 
 
 def conformal_prediction_set(logits: np.ndarray, q_global: float = 0.9, alpha: float = 0.1):
-    """Construct conformal prediction set from logits."""
-    probs = np.exp(logits) / np.exp(logits).sum(axis=1, keepdims=True)  # softmax
+    """Construct conformal prediction set from logits.
+
+    Numerically stable softmax: subtract per-row max before exp, otherwise
+    large logits overflow to inf.
+    """
+    shifted = logits - logits.max(axis=1, keepdims=True)
+    exp_l = np.exp(shifted)
+    probs = exp_l / exp_l.sum(axis=1, keepdims=True)
     # Prediction set: all classes y where 1 - p[y] <= q_global
     nonconformity = 1.0 - probs
     pred_set = [list(np.where(nonconformity[i] <= q_global)[0]) for i in range(len(logits))]

@@ -60,9 +60,13 @@ class LocalConformCalibrator:
         all_scores = []
         with torch.no_grad():
             for batch in cal_loader:
-                ecg, cxr, labels = batch
-                ecg   = ecg.to(device, non_blocking=True)
-                cxr   = cxr.to(device, non_blocking=True)
+                # HealthcareDataset returns (ecg, cxr, tab, label); tab unused here.
+                if len(batch) == 4:
+                    ecg, cxr, _tab, labels = batch
+                else:
+                    ecg, cxr, labels = batch
+                ecg    = ecg.to(device, non_blocking=True)
+                cxr    = cxr.to(device, non_blocking=True)
                 labels = labels.to(device, non_blocking=True)
                 logits = model(ecg, cxr)
                 scores = self.scorer.compute(logits, labels)
