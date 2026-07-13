@@ -1,0 +1,832 @@
+
+=======================================================================
+ PHANTOM-FL — A NOVEL MODEL BEYOND HFL-MM
+ Privacy-Hierarchical Adaptive Multimodal Transformer Optimized Network
+ for Federated Learning
+ Hierarchical Federated Learning — IoT Systems Project
+ Student : Samartha H V | MIT Bengaluru | Regd. 251580130019
+ File    : OVERALL PROJECT OUTPUT/01_PHANTOM_FL_Novel_Model.txt
+=======================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 1: WHY A NEW MODEL — LIMITATIONS OF HFL-MM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HFL-MM (Phase 5 model) was designed to be practical, deployable, and
+correct. It succeeds at all QoS targets. But it has 5 fundamental
+architectural weaknesses that limit its novelty ceiling:
+
+  Weakness 1: Late fusion is BLIND across modalities
+    The 1D-CNN+GRU and MobileNetV3 encoders train independently.
+    Features are concatenated AFTER both encoders finish.
+    Problem: a vibration anomaly CANNOT influence how the spectrogram
+    is processed — they never "talk" to each other. This misses
+    cross-modal interaction that humans naturally use (e.g., a crack
+    in a bearing produces both a frequency signature AND a visual
+    mark on the spectrogram — they are correlated, but HFL-MM treats
+    them as independent).
+
+  Weakness 2: Static privacy budget for all layers and all rounds
+    HFL-MM applies the same σ=1.1 noise to every parameter in every
+    layer in every round. This is provably suboptimal:
+    — Early layers (feature extractors) have LOW sensitivity
+      (they detect edges, frequencies — not personal information)
+    — Later layers (classifier head) have HIGH sensitivity
+      (they directly map features to personal health/behavior labels)
+    — Result: HFL-MM over-noises early layers (hurting accuracy)
+      and under-noises in the context of the overall gradient norm.
+
+  Weakness 3: Synchronous aggregation kills efficiency
+    All 20 devices must complete local training before edge aggregates.
+    In real IoT deployments, Device 7 (older hardware, larger dataset)
+    may take 3× longer than Device 1. Every round is bottlenecked
+    by the SLOWEST device — the straggler problem.
+    HFL-MM has no solution for this.
+
+  Weakness 4: Gradient FedAvg is fragile under extreme non-IID
+    FedAvg works by averaging gradients weighted by dataset size.
+    With α=0.5 Dirichlet, devices have very different class
+    distributions. Averaging gradients from a device that saw only
+    "ball fault" with one that saw only "normal" can DIVERGE the
+    model — gradient conflict (opposite directions in gradient space).
+    HFL-MM uses weighted averaging but no conflict resolution.
+
+  Weakness 5: No personalization — one model for all 20 devices
+    An IoT device in a steel mill (mostly ball faults) trains the
+    same model as one in a food processing plant (mostly normal).
+    A shared global model has to generalize across all environments,
+    sacrificing per-device optimal performance.
+    HFL-MM has no per-device adaptation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 2: PHANTOM-FL — DESIGN PHILOSOPHY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHANTOM-FL is built on 5 innovations, each directly solving one of
+the 5 weaknesses above. Every design choice is research-publishable
+independently, but together they form a unified system.
+
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║              PHANTOM-FL: 5 CORE INNOVATIONS                      ║
+  ╠══════════════════════════════════════════════════════════════════╣
+  ║  I1: Cross-Modal Gated Attention (CMGA)                          ║
+  ║      Modalities attend to each other during encoding —           ║
+  ║      not just at fusion time. Bidirectional cross-attention.     ║
+  ╠══════════════════════════════════════════════════════════════════╣
+  ║  I2: Sensitivity-Adaptive Differential Privacy (SADP)            ║
+  ║      Different σ per layer per round, driven by                  ║
+  ║      per-parameter gradient sensitivity scores.                  ║
+  ╠══════════════════════════════════════════════════════════════════╣
+  ║  I3: Asynchronous Staleness-Weighted Aggregation (ASWA)          ║
+  ║      Edge aggregates when τ_min devices have responded —         ║
+  ║      not waiting for all. Staleness discount factor applied.     ║
+  ╠══════════════════════════════════════════════════════════════════╣
+  ║  I4: Federated Knowledge Distillation at Edge (FedKD-E)          ║
+  ║      Edge aggregates via knowledge distillation on a small       ║
+  ║      proxy dataset — not raw gradient averaging. Avoids          ║
+  ║      gradient conflict under non-IID conditions.                 ║
+  ╠══════════════════════════════════════════════════════════════════╣
+  ║  I5: Personalized Federated Adapter Layers (pFAL)                ║
+  ║      Each device has a small personal adapter (64KB) on top of   ║
+  ║      the shared global backbone. Only the backbone is federated; ║
+  ║      the adapter is device-local and never shared.               ║
+  ╚══════════════════════════════════════════════════════════════════╝
+
+PHANTOM-FL Full Name:
+  Privacy-Hierarchical Adaptive Multimodal Transformer
+  Optimized Network for Federated Learning
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 3: ARCHITECTURE DESIGN — COMPLETE SPECIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║                PHANTOM-FL ARCHITECTURE DIAGRAM                       ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+
+  INPUT (per IoT device):
+  ┌──────────────────────────┐    ┌──────────────────────────────────┐
+  │  MODALITY A              │    │  MODALITY B                      │
+  │  Signal / Wearable       │    │  Image / Spectrogram / X-ray     │
+  │  (B, C_a, L)             │    │  (B, 3, 224, 224)                │
+  └──────────┬───────────────┘    └────────────────┬─────────────────┘
+             │                                      │
+  ┌──────────▼───────────────────────────────────── ▼─────────────────┐
+  │         UNIFIED PATCH TOKENIZER (shared weights)                   │
+  │                                                                    │
+  │  Signal → Patch1D: stride 64 → N_a=16 patches of dim D=128        │
+  │  Image  → Patch2D: 14×14 patches (ViT-style) → N_b=196×proj→D=128 │
+  │                                                                    │
+  │  Output: token sequences [z_a: (B, N_a, D)] [z_b: (B, N_b, D)]   │
+  │  + prepend domain-type embedding (learnable, signals vs images)    │
+  └─────────────────────────────────────────────────────────────────── ┘
+             │                                       │
+  ┌──────────▼───────────────────────────────────────▼────────────────┐
+  │         CROSS-MODAL GATED ATTENTION (CMGA) — INNOVATION I1         │
+  │                                                                    │
+  │  Layer 1 — Self-Attention per modality (within-modal context):     │
+  │    z_a' = SelfAttn(z_a)  → (B, N_a, D)                           │
+  │    z_b' = SelfAttn(z_b)  → (B, N_b, D)                           │
+  │                                                                    │
+  │  Layer 2 — Cross-Modal Attention (bidirectional):                  │
+  │    Signal attends to image:                                        │
+  │      z_a'' = CrossAttn(Q=z_a', K=z_b', V=z_b')  + z_a'          │
+  │    Image attends to signal:                                        │
+  │      z_b'' = CrossAttn(Q=z_b', K=z_a', V=z_a')  + z_b'          │
+  │    Gate: g_a = σ(W_g · z_a'') · z_a''  (learned relevance gate)  │
+  │           g_b = σ(W_g · z_b'') · z_b''                           │
+  │                                                                    │
+  │  Layer 3 — Fusion pooling:                                         │
+  │    feat = CLS_pool(g_a) || CLS_pool(g_b)  → (B, 2D=256)          │
+  │    → LayerNorm → FC(256→128) → GELU                               │
+  └────────────────────────────────────────────────────────────────────┘
+             │
+  ┌──────────▼────────────────────────────────────────────────────────┐
+  │    PERSONALIZED ADAPTER (pFAL) — INNOVATION I5                     │
+  │    (Device-local, NEVER federated, only 64KB per device)           │
+  │                                                                    │
+  │    Adapter: FC(128→64) → GELU → FC(64→128)  (bottleneck)         │
+  │    Residual: output = backbone_feat + adapter(backbone_feat)      │
+  │    This adapts global features to device-specific data dist.      │
+  └────────────────────────────────────────────────────────────────────┘
+             │
+  ┌──────────▼────────────────────────────────────────────────────────┐
+  │    CLASSIFICATION HEAD (shared, federated)                         │
+  │    FC(128→64) → ReLU → FC(64→num_classes)                         │
+  └────────────────────────────────────────────────────────────────────┘
+
+3.1  I1: Cross-Modal Gated Attention (CMGA) — Detailed Design
+
+  Why cross-attention is superior to concatenation (late fusion):
+
+    In late fusion (HFL-MM), Encoder A and Encoder B are completely
+    independent. A vibration spike in the signal has NO influence on
+    how the spectrogram image tokens are processed — and vice versa.
+
+    In CMGA, signal tokens become the QUERIES that attend over image
+    tokens as KEYS and VALUES. This means:
+    "Which parts of the spectrogram are most relevant given what
+     the raw signal is showing right now?"
+
+    For fault detection: the 340Hz harmonic in the signal directly
+    attends to the 340Hz band in the spectrogram. The model learns
+    that these two representations are correlated — and uses that
+    correlation to strengthen or suppress the feature accordingly.
+
+  Implementation:
+
+    class CrossModalGatedAttention(nn.Module):
+        def __init__(self, dim=128, n_heads=8, dropout=0.1):
+            super().__init__()
+            self.self_attn_a  = nn.MultiheadAttention(dim, n_heads, dropout=dropout)
+            self.self_attn_b  = nn.MultiheadAttention(dim, n_heads, dropout=dropout)
+            self.cross_attn_a = nn.MultiheadAttention(dim, n_heads, dropout=dropout)  # A→B
+            self.cross_attn_b = nn.MultiheadAttention(dim, n_heads, dropout=dropout)  # B→A
+            self.gate_a = nn.Linear(dim, dim)
+            self.gate_b = nn.Linear(dim, dim)
+            self.norm1a = nn.LayerNorm(dim)
+            self.norm1b = nn.LayerNorm(dim)
+            self.norm2a = nn.LayerNorm(dim)
+            self.norm2b = nn.LayerNorm(dim)
+            self.ffn_a  = nn.Sequential(nn.Linear(dim,dim*4), nn.GELU(), nn.Linear(dim*4,dim))
+            self.ffn_b  = nn.Sequential(nn.Linear(dim,dim*4), nn.GELU(), nn.Linear(dim*4,dim))
+
+        def forward(self, z_a, z_b, mask_a=None, mask_b=None):
+            # z_a: (N_a, B, D) — seq-first for nn.MultiheadAttention
+            # z_b: (N_b, B, D)
+
+            # Self-attention within each modality
+            z_a_self, _ = self.self_attn_a(z_a, z_a, z_a, key_padding_mask=mask_a)
+            z_a = self.norm1a(z_a + z_a_self)
+            z_b_self, _ = self.self_attn_b(z_b, z_b, z_b, key_padding_mask=mask_b)
+            z_b = self.norm1b(z_b + z_b_self)
+
+            # Cross-attention: A queries B (signal attends to image)
+            z_a_cross, _ = self.cross_attn_a(z_a, z_b, z_b, key_padding_mask=mask_b)
+            g_a = torch.sigmoid(self.gate_a(z_a_cross))
+            z_a = self.norm2a(z_a + g_a * z_a_cross)
+            z_a = z_a + self.ffn_a(z_a)
+
+            # Cross-attention: B queries A (image attends to signal)
+            z_b_cross, _ = self.cross_attn_b(z_b, z_a, z_a, key_padding_mask=mask_a)
+            g_b = torch.sigmoid(self.gate_b(z_b_cross))
+            z_b = self.norm2b(z_b + g_b * z_b_cross)
+            z_b = z_b + self.ffn_b(z_b)
+
+            return z_a, z_b
+
+    NOTE ON MISSING MODALITY:
+    If modality A is absent (sensor failure): z_a = zero tensor,
+    mask_a = all-True (fully masked). The cross-attention returns
+    zero attention weights from A → B, so z_b is processed only via
+    self-attention. Output degrades gracefully — model still works.
+
+3.2  I1: Unified Patch Tokenizer — Making Both Modalities Speak the Same Language
+
+  The key insight: if we project both signal patches and image patches
+  into the SAME embedding space (D=128), cross-attention becomes natural.
+  We don't need separate architectures for each modality.
+
+    Signal patch tokenization:
+      Input: (B, 1, 1024) — raw vibration at 12kHz
+      → Conv1D(kernel=64, stride=64) → (B, 128, 16)  [N_a=16 patches]
+      → Transpose → (B, 16, 128)
+      → + positional embedding (learnable, 16 positions)
+      → (B, 16, 128) ready for cross-modal attention
+
+    Image patch tokenization:
+      Input: (B, 3, 224, 224) — spectrogram or X-ray
+      → Conv2D(kernel=16, stride=16) → (B, 768, 14, 14)  [ViT-style]
+      → Reshape → (B, 196, 768)
+      → Linear(768→128) projection → (B, 196, 128)
+      → + positional embedding (learnable, 196 positions)
+      → (B, 196, 128) ready for cross-modal attention
+
+  This is inspired by the ImageBind and ViLT architectures, adapted
+  for the FL + DP + edge deployment constraint set.
+
+3.3  I2: Sensitivity-Adaptive Differential Privacy (SADP)
+
+  HFL-MM problem: same σ=1.1 noise for every gradient parameter.
+  SADP solution: compute per-layer gradient sensitivity → allocate
+  more noise to sensitive layers, less to insensitive ones.
+
+  Sensitivity score computation (no privacy cost — operates on norms):
+
+    For each layer l after backward pass:
+      s_l = ||∇_l||₂  (gradient L2 norm for layer l, before clipping)
+
+    Sensitivity rank:
+      rank_l = argsort(s_l)  [lower = less sensitive]
+
+    Adaptive noise allocation:
+      σ_l = σ_base × (s_l / max(s)) ^α      [α=0.5 default]
+
+    Interpretation:
+      - Feature extractor layers (Conv1D layer 1): s_l is very small
+        → σ_l = σ_base × 0.3  (30% of base noise)
+      - Fusion FC layers: moderate sensitivity
+        → σ_l = σ_base × 0.7
+      - Classification head (most sensitive): s_l ≈ max
+        → σ_l = σ_base × 1.0  (full noise)
+
+  Privacy accounting under SADP:
+    Using Gaussian mechanism composition:
+    Total ε = Σ_l ε_l  where ε_l = SADP RDP composition per layer
+    RDP accountant handles the non-uniform noise → Opacus PrivacyEngine
+    must be extended (custom per-parameter noise multiplier hook).
+
+  Expected benefit over HFL-MM:
+    HFL-MM accuracy loss: ~1.5% at ε=1.0
+    SADP accuracy loss:   ~0.8% at ε=1.0
+    (Reason: Early feature extractor layers get less noise → better
+     feature learning, with same total ε budget spent more efficiently)
+
+  Implementation:
+
+    class SADPEngine:
+        def __init__(self, model, base_sigma=1.1, alpha=0.5):
+            self.base_sigma = base_sigma
+            self.alpha = alpha
+            self.layer_sigmas = {}
+
+        def compute_layer_sensitivities(self, model):
+            sensitivities = {}
+            for name, param in model.named_parameters():
+                if param.grad is not None:
+                    sensitivities[name] = param.grad.norm().item()
+            max_s = max(sensitivities.values()) + 1e-8
+            for name, s in sensitivities.items():
+                ratio = (s / max_s) ** self.alpha
+                self.layer_sigmas[name] = self.base_sigma * max(0.1, ratio)
+            return self.layer_sigmas
+
+        def add_adaptive_noise(self, model, clip_norm=1.0):
+            for name, param in model.named_parameters():
+                if param.grad is not None:
+                    # Per-sample clipping (Opacus already does this)
+                    sigma = self.layer_sigmas.get(name, self.base_sigma)
+                    noise = torch.randn_like(param.grad) * sigma * clip_norm
+                    param.grad += noise
+
+3.4  I3: Asynchronous Staleness-Weighted Aggregation (ASWA)
+
+  HFL-MM problem: all devices must finish before edge aggregates.
+  ASWA solution: edge aggregates when min(τ_min) devices have responded.
+  Late-arriving updates are accepted with staleness discount.
+
+  Algorithm:
+
+    EDGE ASWA AGGREGATION:
+      τ_min = floor(0.7 × N_cluster)  [wait for 70% of cluster, not 100%]
+
+      WHILE round not complete:
+        WHEN device i sends update (W_i, t_i, n_i):
+          arrival_queue.push(i, W_i, t_i, n_i)
+
+        IF len(arrival_queue) >= τ_min:
+          FOR each (i, W_i, t_i, n_i) in queue:
+            staleness_i = current_time - t_i  [seconds late]
+            s_i = 1 / (1 + staleness_i)       [staleness factor]
+          W_edge = Σ_i (n_i × s_i × W_i) / Σ_i (n_i × s_i)
+          BREAK (don't wait for remaining 30%)
+
+  Staleness factor s_i:
+    Device arrives on time (staleness=0): s_i = 1.0 (full weight)
+    Device is 10s late (staleness=10):   s_i = 0.09 (barely weighted)
+    Device never arrives (timeout):       excluded from round
+
+  Expected benefit:
+    HFL-MM: FL round blocked until slowest device (say, 50s)
+    ASWA: FL round completes when 70% arrive (say, 30s at median)
+    Round time reduction: up to 40% improvement in per-round latency
+    → Especially important for heterogeneous IoT (Raspberry Pi vs ESP32)
+
+3.5  I4: Federated Knowledge Distillation at Edge (FedKD-E)
+
+  HFL-MM problem: FedAvg gradient averaging diverges under non-IID data.
+  FedKD-E solution: edge distills local models into an edge model using
+  a small public proxy dataset — not gradient averaging.
+
+  Concept (based on FedDF / Data-Free KD literature):
+
+    Each device i sends: its LOCAL MODEL WEIGHTS (not gradients)
+    Edge server has: a small proxy dataset D_proxy (~500 samples,
+                     unlabeled, no private data — can be synthetic
+                     or public domain samples)
+
+    Edge distillation:
+      Teacher ensemble: E(x) = (1/|S|) Σ_{i∈S} softmax(W_i(x) / T)
+                        [average softmax predictions from all local models]
+      Student (edge model): minimize KL( E(x) || softmax(W_edge(x)/T) )
+      → Train edge model for K=50 steps on D_proxy using ensemble teacher
+
+    Benefit of distillation vs. averaging:
+      Gradient averaging: conflicts when Device 1 gradient points toward
+      "ball fault" and Device 2 gradient points toward "normal" → cancel
+      Distillation: both models AGREE that their respective classes have
+      HIGH probability → edge model learns to handle both classes well
+
+  Proxy dataset options (no privacy concern — not from devices):
+    • Public domain vibration signals (different machine, irrelevant)
+    • Synthetic signals (random frequency compositions)
+    • Gaussian noise samples (works for calibration distillation)
+
+  Communication cost:
+    HFL-MM: sends compressed gradient (2.5 MB per device)
+    FedKD-E: sends model weights (8.4 MB per device for full model)
+    → BUT: FedKD-E sends LESS OFTEN (only at edge aggregation, not every inner round)
+    → Net effect: similar or lower total bytes per global round
+
+    Optimization: send only the CLASSIFICATION HEAD weights for distillation
+    (2.1 MB) — backbone is frozen during FedKD-E distillation.
+    Only 25% of HFL-MM's communication needed.
+
+3.6  I5: Personalized Federated Adapter Layers (pFAL)
+
+  HFL-MM problem: single global model for all 20 heterogeneous devices.
+  pFAL solution: device-specific adapter layer on top of shared backbone.
+
+  Architecture:
+
+    Shared backbone (federated, 3M params):
+      All FL rounds train and share this — same as PHANTOM backbone above
+
+    Personal adapter per device (local, 16K params = 64KB):
+      FC(128→64) → GELU → FC(64→128)  [bottleneck adapter]
+      Only 0.5% of total parameters — negligible communication cost
+      NEVER transmitted to edge or cloud
+
+    During inference at device i:
+      output = backbone(signal, image) + adapter_i(backbone(signal, image))
+
+  Training:
+    Shared backbone: federated via ASWA + FedKD-E (described above)
+    Personal adapter: trained purely locally on device i's own data
+      Standard SGD (no DP needed — adapter is never shared, never leaves)
+
+  Effect:
+    Global model: generalizes across all devices, all domains
+    Adapter: fine-tunes the global representation to device i's specific
+             local distribution (e.g., "in this factory, bearing noise
+             is dominated by gear mesh frequency at 480Hz — emphasize that")
+
+  Expected benefit over HFL-MM:
+    HFL-MM accuracy (global model only): ~93% IIoT
+    pFAL accuracy (backbone + adapter):  ~95–97% IIoT
+    Reason: adapter adds 2-4% local accuracy at near-zero cost
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 4: PHANTOM-FL vs HFL-MM — HEAD-TO-HEAD COMPARISON
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌─────────────────────────┬──────────────────────┬────────────────────┐
+  │   DIMENSION             │  HFL-MM              │  PHANTOM-FL        │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Fusion strategy         │ Late fusion          │ Cross-modal gated  │
+  │                         │ (concatenation)      │ attention (CMGA)   │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Cross-modal interaction │ None (encoders blind)│ Bidirectional      │
+  │                         │                      │ cross-attention    │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Privacy mechanism       │ Uniform σ=1.1        │ Per-layer adaptive │
+  │                         │ all params same      │ σ_l (SADP)         │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ FL aggregation method   │ Gradient FedAvg      │ Knowledge Distill. │
+  │                         │ (synchronous)        │ at edge (FedKD-E)  │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Straggler handling      │ None (waits for all) │ ASWA: 70% threshold│
+  │                         │                      │ + staleness weight │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Personalization         │ None (global only)   │ pFAL: 64KB private │
+  │                         │                      │ adapter per device │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Missing modality        │ Zero-vector mask      │ Zero-vector mask + │
+  │ handling                │                      │ self-attn fallback │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Model params (total)    │ ~3.0M                │ ~4.2M (CMGA heads) │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Model params (federated)│ ~3.0M                │ ~4.2M backbone     │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Model params (local)    │ 0                    │ 16K adapter        │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ ONNX INT8 model size    │ ~2.1 MB              │ ~2.8 MB            │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Expected accuracy       │ ~93% IIoT            │ ~95–97% IIoT       │
+  │                         │ ~74% Smart City      │ ~76–78% Smart City │
+  │                         │ ~84% Healthcare      │ ~86–88% Healthcare │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Accuracy loss at ε=1    │ ~1.5%                │ ~0.8% (SADP)       │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Communication/round     │ 2.5 MB/device        │ ~2.0 MB/device     │
+  │                         │ (gradient)           │ (head weights only │
+  │                         │                      │  for distillation) │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Inference latency P95   │ ~68ms                │ ~72ms (slightly    │
+  │ (ONNX INT8)             │                      │  more attn layers) │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Energy saving           │ ~79%                 │ ~82% (fewer rounds │
+  │                         │                      │  to convergence)   │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Convergence rounds      │ ~14–18               │ ~10–13 (distill +  │
+  │                         │                      │  cross-attn learns │
+  │                         │                      │  faster)           │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Non-IID robustness      │ Moderate             │ HIGH (FedKD-E      │
+  │                         │ (gradient conflict)  │ avoids conflict)   │
+  ├─────────────────────────┼──────────────────────┼────────────────────┤
+  │ Novelty level           │ MEDIUM               │ VERY HIGH          │
+  │                         │ (each component      │ (SADP + CMGA +     │
+  │                         │  exists in prior     │  FedKD-E together  │
+  │                         │  work separately)    │  is truly novel)   │
+  └─────────────────────────┴──────────────────────┴────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 5: PHANTOM-FL TRAINING ALGORITHM (COMPLETE PSEUDOCODE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PHANTOM-FL Training Algorithm
+  ══════════════════════════════
+
+  INITIALIZE:
+    Global backbone W_g ← Xavier init (4.2M params)
+    For each device i: local adapter A_i ← zeros (16K params)
+    For each edge e: edge student model W_e ← W_g
+    Proxy dataset D_proxy ← 500 public domain samples (no labels needed)
+
+  FOR global round r = 1..R (R=15, fewer rounds than HFL-MM due to distillation):
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 1: DISTRIBUTE current global model to all devices
+    // ─────────────────────────────────────────────────────────────
+    Broadcast W_g → all edges → all devices
+    Each device i: W_local_i ← W_g (backbone only; keep A_i unchanged)
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 2: DEVICE LOCAL TRAINING (parallel, asynchronous)
+    // ─────────────────────────────────────────────────────────────
+    FOR each device i (PARALLEL, asynchronous start):
+      // 2a: Train shared backbone with SADP
+      FOR local epoch e_l = 1..E_local (E_local=1):
+        FOR batch B_i in local_data_i:
+          loss = CrossEntropy(W_local_i(batch, A_i), labels)
+          backward()
+          // SADP: compute per-layer sensitivities, adaptive σ_l
+          sadp.compute_layer_sensitivities(W_local_i)
+          CLIP each per-sample gradient g_i to norm C=1.0
+          sadp.add_adaptive_noise(W_local_i, C)  // σ_l varies by layer
+          optimizer.step()
+
+      // 2b: Train personal adapter (no DP — local only)
+      FOR local epoch e_a = 1..3:
+        loss_a = CrossEntropy(W_g(batch, A_i), labels)
+        backward() → only A_i gradients
+        optimizer_adapter.step()  // standard SGD, no noise
+
+      // 2c: Send to edge when ready (asynchronous)
+      SEND (W_local_i, t_send=now, n_i=local_size) → Edge(cluster(i))
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 3: EDGE ASYNCHRONOUS AGGREGATION (ASWA + FedKD-E)
+    // ─────────────────────────────────────────────────────────────
+    FOR each edge e (independently):
+      WAIT until |arrival_queue_e| ≥ τ_min = floor(0.7 × |cluster_e|)
+
+      // ASWA: compute staleness weights
+      FOR each (i, W_i, t_i, n_i) in arrival_queue_e:
+        staleness_i = max(0, now - t_i)
+        w_i = n_i / (1 + staleness_i)
+
+      // FedKD-E: ENSEMBLE TEACHER from received local models
+      FOR each x in D_proxy:
+        teacher_logits(x) = Σ_i (w_i × softmax(W_i(x) / T)) / Σ w_i
+                            [temperature T=3.0 for soft labels]
+
+      // DISTILL into edge student model
+      FOR k=1..50 steps on D_proxy:
+        student_logits = softmax(W_e(x) / T)
+        loss_kd = T² × KLDivLoss(student_logits, teacher_logits)
+        W_e ← W_e - lr_distill × ∇ loss_kd
+
+      // Privacy-safe: distillation on proxy data adds no DP cost
+      // (D_proxy is not private data from any device)
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 4: CLOUD AGGREGATION
+    // ─────────────────────────────────────────────────────────────
+    All edges send W_e → Cloud
+    W_g ← (1/E) Σ_e (n_e/N) × W_e  [standard FedAvg at cloud level]
+    [FedKD-E only at edge level; cloud level uses FedAvg for speed]
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 5: PRIVACY ACCOUNTING
+    // ─────────────────────────────────────────────────────────────
+    ε_spent = SADP_RDP_Accountant.compute(rounds=r, delta=1e-5)
+    IF ε_spent > 1.0: STOP
+
+    // ─────────────────────────────────────────────────────────────
+    // STEP 6: LOG
+    // ─────────────────────────────────────────────────────────────
+    Log: backbone_accuracy, adapter_accuracy_per_device,
+         ε_spent, uplink_bytes, round_time, staleness_distribution
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 6: PHANTOM-FL MODEL — PyTorch IMPLEMENTATION SKELETON
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: SIMULATORS/model/phantom_fl_model.py
+
+  class PatchTokenizer(nn.Module):
+      """Unified tokenizer: signal patches OR image patches → (B, N, D)"""
+      def __init__(self, mode="signal", patch_size=64, embed_dim=128):
+          super().__init__()
+          self.mode = mode
+          if mode == "signal":
+              self.proj = nn.Conv1d(1, embed_dim, kernel_size=patch_size,
+                                   stride=patch_size)  # non-overlapping patches
+              self.pos_embed = nn.Parameter(torch.zeros(1, 16, embed_dim))
+          elif mode == "image":
+              self.proj = nn.Conv2d(3, 768, kernel_size=16, stride=16)  # ViT patches
+              self.compress = nn.Linear(768, embed_dim)
+              self.pos_embed = nn.Parameter(torch.zeros(1, 196, embed_dim))
+          nn.init.trunc_normal_(self.pos_embed, std=0.02)
+
+      def forward(self, x):
+          if self.mode == "signal":
+              x = self.proj(x)              # (B, D, N_a)
+              x = x.transpose(1, 2)         # (B, N_a, D)
+              return x + self.pos_embed
+          else:
+              x = self.proj(x)              # (B, 768, 14, 14)
+              x = x.flatten(2).transpose(1,2)  # (B, 196, 768)
+              x = self.compress(x)          # (B, 196, D)
+              return x + self.pos_embed
+
+  class CMGA_Block(nn.Module):
+      """One cross-modal gated attention block."""
+      def __init__(self, dim=128, n_heads=8, dropout=0.1):
+          super().__init__()
+          self.self_a   = nn.MultiheadAttention(dim, n_heads, dropout=dropout, batch_first=True)
+          self.self_b   = nn.MultiheadAttention(dim, n_heads, dropout=dropout, batch_first=True)
+          self.cross_ab = nn.MultiheadAttention(dim, n_heads, dropout=dropout, batch_first=True)
+          self.cross_ba = nn.MultiheadAttention(dim, n_heads, dropout=dropout, batch_first=True)
+          self.gate_a   = nn.Linear(dim, dim)
+          self.gate_b   = nn.Linear(dim, dim)
+          self.norm     = nn.ModuleList([nn.LayerNorm(dim) for _ in range(4)])
+          self.ffn_a    = nn.Sequential(nn.Linear(dim,dim*4),nn.GELU(),nn.Linear(dim*4,dim))
+          self.ffn_b    = nn.Sequential(nn.Linear(dim,dim*4),nn.GELU(),nn.Linear(dim*4,dim))
+          self.drop     = nn.Dropout(dropout)
+
+      def forward(self, z_a, z_b):
+          # z_a: (B, N_a, D), z_b: (B, N_b, D)
+          # Self-attention
+          sa, _ = self.self_a(z_a, z_a, z_a)
+          z_a = self.norm[0](z_a + self.drop(sa))
+          sb, _ = self.self_b(z_b, z_b, z_b)
+          z_b = self.norm[1](z_b + self.drop(sb))
+          # Cross-attention with gate
+          ca, _ = self.cross_ab(z_a, z_b, z_b)
+          g_a = torch.sigmoid(self.gate_a(ca))
+          z_a = self.norm[2](z_a + self.drop(g_a * ca)) + self.ffn_a(z_a)
+          cb, _ = self.cross_ba(z_b, z_a, z_a)
+          g_b = torch.sigmoid(self.gate_b(cb))
+          z_b = self.norm[3](z_b + self.drop(g_b * cb)) + self.ffn_b(z_b)
+          return z_a, z_b
+
+  class PersonalAdapter(nn.Module):
+      """64KB per-device personalization adapter. Never shared."""
+      def __init__(self, dim=128):
+          super().__init__()
+          self.down = nn.Linear(dim, 64)
+          self.up   = nn.Linear(64, dim)
+          self.act  = nn.GELU()
+      def forward(self, x):
+          return x + self.up(self.act(self.down(x)))  # residual
+
+  class PHANTOM_FL(nn.Module):
+      def __init__(self, num_classes=4, n_cmga_blocks=3, dim=128):
+          super().__init__()
+          # Patch tokenizers
+          self.tok_a = PatchTokenizer(mode="signal", patch_size=64, embed_dim=dim)
+          self.tok_b = PatchTokenizer(mode="image",  patch_size=16, embed_dim=dim)
+          # CLS tokens for each modality
+          self.cls_a = nn.Parameter(torch.zeros(1, 1, dim))
+          self.cls_b = nn.Parameter(torch.zeros(1, 1, dim))
+          # CMGA blocks (n_cmga_blocks = 3 by default)
+          self.cmga  = nn.ModuleList([CMGA_Block(dim) for _ in range(n_cmga_blocks)])
+          # Fusion: CLS tokens from both modalities → head
+          self.fusion_norm = nn.LayerNorm(dim * 2)
+          self.fusion_fc   = nn.Sequential(
+              nn.Linear(dim * 2, dim), nn.GELU()
+          )
+          # Personal adapter (per-device, initialized to identity)
+          self.adapter = PersonalAdapter(dim)
+          # Classification head
+          self.head = nn.Linear(dim, num_classes)
+
+      def forward(self, signal, image):
+          # Tokenize
+          z_a = self.tok_a(signal)     # (B, 16, D)
+          z_b = self.tok_b(image)      # (B, 196, D)
+          # Prepend CLS tokens
+          cls_a = self.cls_a.expand(z_a.size(0), -1, -1)
+          cls_b = self.cls_b.expand(z_b.size(0), -1, -1)
+          z_a = torch.cat([cls_a, z_a], dim=1)   # (B, 17, D)
+          z_b = torch.cat([cls_b, z_b], dim=1)   # (B, 197, D)
+          # CMGA blocks
+          for block in self.cmga:
+              z_a, z_b = block(z_a, z_b)
+          # Extract CLS tokens as summary representation
+          feat_a = z_a[:, 0, :]    # (B, D)
+          feat_b = z_b[:, 0, :]    # (B, D)
+          # Fusion
+          fused = self.fusion_norm(torch.cat([feat_a, feat_b], dim=1))
+          fused = self.fusion_fc(fused)              # (B, D)
+          # Personal adapter
+          fused = self.adapter(fused)                # (B, D)
+          return self.head(fused)                    # (B, num_classes)
+
+      def get_backbone_params(self):
+          """Parameters to federate (exclude adapter)."""
+          exclude = set(id(p) for p in self.adapter.parameters())
+          return [p for p in self.parameters() if id(p) not in exclude]
+
+      def get_adapter_params(self):
+          """Local-only parameters (never shared)."""
+          return list(self.adapter.parameters())
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 7: ONNX DEPLOYMENT FOR PHANTOM-FL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PHANTOM-FL is fully ONNX-exportable — attention layers are supported
+  in ONNX opset 17 (PyTorch 2.x).
+
+  Attention-specific ONNX notes:
+    nn.MultiheadAttention → ONNX operator: Attention (opset 17)
+    Requires: sdpa_kernel=torch.nn.attention.SDPBackend.MATH before export
+    (disables FlashAttention which is not ONNX-compatible)
+
+  Export command:
+    with torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
+        torch.onnx.export(model, (signal, image), "phantom_fl.onnx",
+                          opset_version=17, ...)
+
+  Expected ONNX model sizes:
+    FP32: ~16.8 MB (4.2M params × 4 bytes)
+    INT8: ~4.2 MB  (4× quantization)
+
+  Expected inference latency (ONNX Runtime, RTX A2000):
+    CMGA with 3 blocks + 8 heads:
+      FP32: ~55–75ms P95
+      INT8: ~65–82ms P95  (attention kernels benefit less from INT8)
+    Still within <100ms target ✓
+
+  Latency optimization if INT8 exceeds 100ms:
+    Option A: Reduce CMGA blocks from 3 → 2 (save ~15ms)
+    Option B: Reduce N_heads from 8 → 4 (save ~10ms, minor accuracy loss)
+    Option C: Use ONNX Runtime TensorRT EP on edge GPU (fastest)
+    Target: P95 < 85ms with any option
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 8: PHANTOM-FL — PUBLICATION CLAIMS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PHANTOM-FL introduces 5 novel contributions, each individually
+  publishable, and jointly forming a stronger claim than HFL-MM:
+
+  C1: Cross-Modal Gated Attention for Federated IoT (CMGA)
+      Prior art: cross-modal attention exists in NLP/vision (ViLBERT,
+      FLAVA, ImageBind) — but NEVER in federated learning context
+      with DP-SGD compatibility and edge deployment.
+      Claim: first cross-modal attention FL model with formal DP.
+
+  C2: Sensitivity-Adaptive Differential Privacy (SADP)
+      Prior art: DP-SGD uses uniform noise (Gaussian mechanism).
+      Per-layer adaptive ε allocation is theoretically studied
+      (Mironov et al., 2019) but never applied in multimodal FL.
+      Claim: first per-layer adaptive DP in multimodal hierarchical FL.
+
+  C3: Federated Knowledge Distillation at Edge (FedKD-E)
+      Prior art: FedDF (Lin et al., 2020) proposes global distillation.
+      FedKD-E: distillation at the EDGE level (not global) + combined
+      with ASWA for asynchronous IoT — this combination is novel.
+      Claim: edge-level KD aggregation for hierarchical async FL.
+
+  C4: ASWA — Asynchronous Staleness-Weighted Aggregation
+      Prior art: FedProx handles heterogeneity; async FL studied.
+      ASWA in hierarchical FL (per-edge, τ_min threshold) for
+      IoT-specific straggler tolerance — not in prior HFL papers.
+      Claim: asynchronous hierarchical FL with staleness weighting.
+
+  C5: pFAL — Personalized Federated Adapter with DP separation
+      Prior art: pFedMe, MAML, adapter-based personalized FL exist.
+      pFAL separates adapter (private, no DP) from backbone (federated,
+      DP) — the adapter trains without DP since it never leaves device.
+      Claim: DP-aware personalization separation in multimodal HFL.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 9: RECOMMENDATION — HFL-MM or PHANTOM-FL?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌────────────────┬────────────────────────┬──────────────────────────┐
+  │  SCENARIO      │  HFL-MM                │  PHANTOM-FL              │
+  ├────────────────┼────────────────────────┼──────────────────────────┤
+  │ Timeline tight │ RECOMMENDED            │ More complex to impl.    │
+  │ (May 2026)     │ Simpler code, known    │ +3–4 weeks extra         │
+  │                │ convergence, faster    │ development time         │
+  ├────────────────┼────────────────────────┼──────────────────────────┤
+  │ Maximum        │ Good — 4 contributions │ RECOMMENDED              │
+  │ novelty for    │                        │ 5 distinct contributions  │
+  │ journal paper  │                        │ CMGA+SADP+FedKD-E unique │
+  ├────────────────┼────────────────────────┼──────────────────────────┤
+  │ Best accuracy  │ ~93–95% (w/adapter)   │ RECOMMENDED              │
+  │ results        │                        │ ~95–97% (cross-attn)     │
+  ├────────────────┼────────────────────────┼──────────────────────────┤
+  │ Compute        │ ~2.7 hours training    │ ~4.5 hours training      │
+  │ resources      │ RTX A2000 adequate     │ RTX A2000 adequate       │
+  ├────────────────┼────────────────────────┼──────────────────────────┤
+  │ ONNX latency   │ ~68ms P95 ✓           │ ~72–82ms P95 ✓           │
+  │ risk           │ Comfortably under 100ms│ Still under 100ms        │
+  └────────────────┴────────────────────────┴──────────────────────────┘
+
+  STRATEGIC RECOMMENDATION:
+    Option A (Safer): Implement HFL-MM fully for Phase 5/6.
+    After results are collected, add PHANTOM-FL as a "Section VII:
+    Advanced Architecture" comparison for extra novelty in paper.
+    Both can exist — HFL-MM as the main evaluated system, PHANTOM-FL
+    as the proposed next-step or concurrent contribution.
+
+    Option B (Maximum Impact): Implement PHANTOM-FL directly, using
+    HFL-MM results from Phase 4 simulator baseline as the comparison.
+    Requires 3–4 extra weeks but produces a substantially stronger
+    journal paper with 5 contributions instead of 4.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 10: PHANTOM-FL PARAMETER SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Component               Params      Federated?   DP Applied?
+  ─────────────────────────────────────────────────────────────────────
+  Signal PatchTokenizer   ~170K       YES          YES (SADP)
+  Image PatchTokenizer    ~790K       YES          YES (SADP)
+  CMGA Blocks (×3)        ~1,600K     YES          YES (SADP,lower σ)
+  Fusion FC               ~33K        YES          YES (SADP, high σ)
+  Classification Head     ~516        YES          YES (SADP, max σ)
+  Personal Adapter        ~16K        NO (local)   NO (never shared)
+  CLS tokens              ~256        YES          YES
+  ─────────────────────────────────────────────────────────────────────
+  TOTAL                   ~2,610K     4.2M(±0.5M)
+  (backbone only: ~4.2M federated)
+  (adapter: 16K local per device)
+  ─────────────────────────────────────────────────────────────────────
+
+  Training config:
+    Global rounds:     15 (less than HFL-MM's 20 — faster convergence)
+    Edge distill steps:50 per round (FedKD-E on D_proxy)
+    ASWA threshold:    70% of cluster (τ_min = 5 of 7 devices)
+    Temperature (KD):  T = 3.0
+    SADP base σ:       1.1, α=0.5
+    Adapter lr:        1e-2 (faster adapter convergence)
+    Backbone lr:       1e-3 (standard)
+    Target ε:          1.0, δ=1e-5
