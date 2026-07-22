@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-07-13T17:22:20",
+  "seed": 42,
+  "git": {
+    "commit": "9d7b4c6",
+    "dirty": true
+  },
+  "device": {
+    "cuda_available": true,
+    "torch_version": "2.5.1+cu121",
+    "device_name": "NVIDIA RTX A2000 12GB",
+    "cuda_version": "12.1",
+    "vram_gb": 12.62
+  },
+  "packages": {
+    "torch": "2.5.1+cu121",
+    "numpy": "2.4.3",
+    "pandas": "3.0.2",
+    "scipy": "1.17.1",
+    "opacus": "1.5.4",
+    "scikit-learn": "1.8.0",
+    "torchvision": "0.20.1+cu121"
+  },
+  "python": "3.11.15",
+  "argv": [
+    "model/hfl_trainer.py",
+    "--rounds",
+    "20",
+    "--dp_mode",
+    "sadp",
+    "--output",
+    "results/phase5/hfl_mm_hc_sadp_results.csv",
+    "--save_checkpoint",
+    "checkpoints/best_model_hc_sadp.pt",
+    "--no_monitor"
+  ],
+  "config": {
+    "data_dir": "data/processed/healthcare",
+    "partition_dir": "data/processed/partitions/healthcare",
+    "rounds": 20,
+    "tau_e": 5,
+    "n_devices": 6,
+    "n_edges": 2,
+    "n_classes": 5,
+    "epsilon": 1.0,
+    "delta": 1e-05,
+    "max_grad_norm": 1.0,
+    "noise_multiplier": null,
+    "dp_mode": "sadp",
+    "alpha_conf": 0.1,
+    "lr": 0.01,
+    "batch_size": 32,
+    "sparsity": 0.2,
+    "quant_bits": 8,
+    "save_checkpoint": "checkpoints/best_model_hc_sadp.pt",
+    "output": "results/phase5/hfl_mm_hc_sadp_results.csv",
+    "seed": 42,
+    "deterministic": false,
+    "no_preflight": false,
+    "no_monitor": true
+  }
+}

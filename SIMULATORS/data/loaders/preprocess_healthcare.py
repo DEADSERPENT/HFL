@@ -302,9 +302,13 @@ class HealthcareDataset(Dataset):
                  cxr_labels:    np.ndarray,
                  tabular_feats: np.ndarray,
                  seed: int = 42):
-        self.ecg = torch.FloatTensor(np.array(ecg_signals))
-        self.cxr = torch.FloatTensor(np.array(cxr_images))
-        self.tab = torch.FloatTensor(np.array(tabular_feats))
+        # torch.from_numpy(np.array(..., float32)) makes ONE owned, writable
+        # copy — versus torch.FloatTensor(np.array(...)) which copies twice
+        # (np.array, then again into the tensor), doubling the peak transient
+        # RAM to ~4 GB for the 1.8 GB CXR array. Values are byte-identical.
+        self.ecg = torch.from_numpy(np.array(ecg_signals,   dtype=np.float32))
+        self.cxr = torch.from_numpy(np.array(cxr_images,    dtype=np.float32))
+        self.tab = torch.from_numpy(np.array(tabular_feats, dtype=np.float32))
         self.ecg_labels = ecg_labels
         self.label      = torch.LongTensor(ecg_labels)
 

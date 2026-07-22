@@ -1,2 +1,2 @@
 baseline,test_accuracy,test_macro_auc,epochs
-B0_Centralized,0.6546666666666666,0.8787725612260049,10
+B0_Centralized,0.5786666666666667,0.8210712090399299,5

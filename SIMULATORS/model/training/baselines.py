@@ -18,10 +18,14 @@ import time
 import csv
 from typing import Dict, List, Tuple, Optional
 
-# Allow running from any working directory
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "..", "data", "loaders"))
+# Allow running from any working directory. model/ is split into subfolders
+# by concern (privacy/architecture/training/deploy/utils) — add them all so
+# existing flat imports ("from device_utils import ...") keep resolving
+# regardless of which subfolder a module lives in.
+_MODEL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # model/
+for _sub in ("privacy", "architecture", "training", "deploy", "utils"):
+    sys.path.insert(0, os.path.join(_MODEL_ROOT, _sub))
+sys.path.insert(0, os.path.join(os.path.dirname(_MODEL_ROOT), "data", "loaders"))
 
 import torch
 import torch.nn as nn
@@ -331,78 +335,86 @@ def run_dp_fedavg(model_fn, device_loaders: List[Dict],
                   delta: float = 1e-5, max_grad_norm: float = 1.0,
                   device: torch.device = None,
                   output_path: str = None) -> dict:
-    """B4: DP-FedAvg — flat topology + DP-SGD (no 2-tier hierarchy).
+    """
+    B4: DP-FedAvg — flat topology + DP-SGD (no 2-tier hierarchy).
 
-    Persistent PrivacyEngine per device across all FL rounds, so cumulative
-    ε is tracked correctly under DP composition. σ is calibrated once for
-    ``rounds * local_epochs`` total epochs of training.
+    Fixed 2026-07-13: this previously had no `for r in range(rounds)` loop —
+    it ran exactly ONE communication round (every device trains once, one
+    FedAvg aggregation) while still calibrating sigma via
+    make_dp_model(..., epochs=local_epochs*rounds) as if `rounds` rounds of
+    composed training were about to happen. The live accountant then
+    correctly reported the true epsilon spent by the single epoch that
+    actually ran, which is far less than the target — that mismatch is why
+    baseline_b4.csv recorded epsilon_spent=0.209 against a target of 1.0.
+    Now runs `rounds` real communication rounds with ONE sigma precomputed
+    for the whole budget and ONE persistent PrivacyEngine per device reused
+    every round — same pattern as hfl_trainer.py's local_dp_train, for the
+    same reason: a fresh engine/target_epsilon call each round silently
+    drops cross-round privacy composition (see that function's docstring).
+
+    (A parallel fix — reusing one wrapped dp_model per device via manual
+    state_dict resync instead of a fresh model each round — was also
+    committed independently; this version was kept because it matches
+    hfl_trainer.py's already-verified pattern and is what produced the
+    currently-published baseline_b4.csv numbers.)
     """
     if device is None:
         device = get_device(verbose=False)
         optimize_gpu()
 
-    from dp_engine import make_dp_model, get_epsilon_spent
+    from dp_engine import (make_dp_model, get_epsilon_spent,
+                           compute_fl_noise_multiplier, new_device_privacy_engines)
 
     global_model = model_fn().to(device)
+    n_devices = len(device_loaders)
+    min_n_train = min(len(dl["train"].dataset) for dl in device_loaders)
+    batch_size = device_loaders[0]["train"].batch_size
+    noise_multiplier = compute_fl_noise_multiplier(
+        target_epsilon=epsilon, target_delta=delta,
+        n_fl_calls=rounds, n_samples=min_n_train,
+        batch_size=batch_size, local_epochs=local_epochs,
+    )
+    device_privacy_engines = new_device_privacy_engines(n_devices)
     loss_fn = nn.CrossEntropyLoss()
-    total_dp_epochs = max(1, rounds * local_epochs)
-
-    # Persistent DP engines (one per device)
-    print(f"  [B4] Initializing persistent DP engines for "
-          f"{len(device_loaders)} devices "
-          f"(σ calibrated for {total_dp_epochs} total epochs)...")
-    dp_state = []
-    for loaders in device_loaders:
-        base = model_fn().to(device)
-        opt = torch.optim.Adam(base.parameters(), lr=lr)
-        dp_m, dp_o, dp_l, pe = make_dp_model(
-            base, opt, loaders["train"],
-            target_epsilon=epsilon, target_delta=delta,
-            max_grad_norm=max_grad_norm, epochs=total_dp_epochs,
-        )
-        dp_state.append({"dp_model": dp_m, "dp_opt": dp_o,
-                         "dp_loader": dp_l, "pe": pe})
-
     total_eps = 0.0
+
     for r in range(rounds):
         global_state = copy.deepcopy(global_model.state_dict())
         client_states, client_sizes = [], []
 
-        for dev_idx, state in enumerate(dp_state):
-            # Sync local model to current global weights
-            state["dp_model"]._module.load_state_dict(global_state, strict=False)
-            state["dp_opt"].original_optimizer.state = {}  # reset Adam moments
-
-            state["dp_model"].train()
-            n_samples = 0
-            for _ in range(local_epochs):
-                for batch in state["dp_loader"]:
-                    if len(batch) == 4:
+        for dev_idx, loaders in enumerate(device_loaders):
+            local_model = model_fn().to(device)
+            local_model.load_state_dict(global_state)
+            optimizer = torch.optim.Adam(local_model.parameters(), lr=lr)
+            try:
+                dp_model, dp_opt, dp_loader, pe = make_dp_model(
+                    local_model, optimizer, loaders["train"],
+                    noise_multiplier=noise_multiplier,
+                    max_grad_norm=max_grad_norm,
+                    privacy_engine=device_privacy_engines[dev_idx],
+                )
+                dp_model.train()
+                n_samples = 0
+                for _ in range(local_epochs):
+                    for batch in dp_loader:
                         ecg, cxr, _tab, labels = batch
-                    else:
-                        ecg, cxr, labels = batch
-                    state["dp_opt"].zero_grad()
-                    logits = state["dp_model"](
-                        ecg.to(device, non_blocking=True),
-                        cxr.to(device, non_blocking=True))
-                    loss = loss_fn(logits,
-                                   labels.to(device, non_blocking=True))
-                    loss.backward()
-                    state["dp_opt"].step()
-                    n_samples += len(labels)
-            total_eps = max(total_eps, get_epsilon_spent(state["pe"], delta))
-            trained = {k: v.detach().clone()
-                       for k, v in state["dp_model"]._module.state_dict().items()}
-            client_states.append(trained)
-            client_sizes.append(n_samples)
+                        dp_opt.zero_grad()
+                        loss = loss_fn(dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
+                                       labels.to(device, non_blocking=True))
+                        loss.backward()
+                        dp_opt.step()
+                        n_samples += len(labels)
+                total_eps = max(total_eps, get_epsilon_spent(pe, delta))
+                client_states.append(copy.deepcopy(local_model.state_dict()))
+                client_sizes.append(n_samples)
+            except Exception as e:
+                raise RuntimeError(f"[B4] DP-SGD setup failed: {e}") from e
 
-        global_model.load_state_dict(
-            weighted_fedavg(global_state, client_states, client_sizes))
-        if (r + 1) % 5 == 0 or (r + 1) == rounds:
-            print(f"  [B4 DP-FedAvg] Round {r+1}/{rounds} | "
-                  f"ε_spent={total_eps:.4f}")
+        global_model.load_state_dict(weighted_fedavg(global_state, client_states, client_sizes))
+        print(f"  [B4 DP-FedAvg] Round {r+1}/{rounds} done | ε_spent={total_eps:.4f}")
+
         if total_eps >= epsilon:
-            print(f"  [B4] Privacy budget exhausted at round {r+1}. Stopping.")
+            print(f"  [B4 DP-FedAvg] Privacy budget exhausted at round {r+1}. Stopping.")
             break
 
     global_test_ds = ConcatDataset([dl["test"].dataset for dl in device_loaders])
@@ -414,8 +426,7 @@ def run_dp_fedavg(model_fn, device_loaders: List[Dict],
               "epsilon_target": epsilon,
               "epsilon_spent": total_eps,
               "rounds": rounds}
-    print(f"[B4] DP-FedAvg AUC={final_m['macro_auc']:.4f} | "
-          f"ε_spent={total_eps:.4f}")
+    print(f"[B4] DP-FedAvg AUC={final_m['macro_auc']:.4f} | ε_spent={total_eps:.4f}")
     if output_path:
         _save_csv(result, output_path)
     return result
@@ -520,13 +531,14 @@ def _save_csv(result: dict, path: str):
 
 if __name__ == "__main__":
     # ─── Paths ────────────────────────────────────────────────────────
-    _model_dir = os.path.dirname(os.path.abspath(__file__))
-    _sim_dir   = os.path.dirname(_model_dir)
+    _model_dir = os.path.dirname(os.path.abspath(__file__))       # model/training/
+    _sim_dir   = os.path.dirname(os.path.dirname(_model_dir))     # SIMULATORS/
 
     parser = argparse.ArgumentParser(description="Run all FL baselines B0–B5")
     parser.add_argument("--data_dir",      default=os.path.join(_sim_dir, "data", "processed", "healthcare"))
     parser.add_argument("--partition_dir", default=os.path.join(_sim_dir, "data", "processed", "partitions", "healthcare"))
-    parser.add_argument("--output_dir",    default=os.path.join(_sim_dir, "results", "phase5"))
+    parser.add_argument("--output_dir",    default=os.path.join(_sim_dir, "results", "phase5", "baselines"),
+                        help="B0-B5 results only — kept separate from the proposed model's own results.")
     parser.add_argument("--b0_epochs",     type=int,   default=5,   help="B0 centralized training epochs")
     parser.add_argument("--b1_epochs",     type=int,   default=10,  help="B1 local-only epochs per device")
     parser.add_argument("--rounds",        type=int,   default=10,  help="FL rounds for B2–B5")

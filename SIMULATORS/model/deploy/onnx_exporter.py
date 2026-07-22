@@ -9,9 +9,58 @@ import sys
 import argparse
 import torch
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hfl_mm_model import HFLMMHC
+# model/ is split into subfolders by concern — add them all so flat imports
+# ("from hfl_mm_model import ...") keep resolving regardless of which
+# subfolder a module lives in.
+_MODEL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # model/
+for _sub in ("privacy", "architecture", "training", "deploy", "utils"):
+    sys.path.insert(0, os.path.join(_MODEL_ROOT, _sub))
+from hfl_mm_model import build_hfl_mm_hc
 from device_utils import get_device, optimize_gpu
+
+
+def load_model_from_checkpoint(checkpoint: str, n_classes: int = 5) -> torch.nn.Module:
+    """
+    Build an HFL-MM-HC model via build_hfl_mm_hc (GroupNorm + Opacus-safe
+    patches, matching the trained architecture) and load a checkpoint.
+
+    Handles both the trainer's save format ({"model_state": ...}) and a
+    raw state_dict. Missing checkpoint → random weights (with a warning).
+    """
+    model = build_hfl_mm_hc(n_classes=n_classes)
+    if checkpoint and os.path.exists(checkpoint):
+        dev = get_device(verbose=False)
+        state = torch.load(checkpoint, map_location=dev)
+        if isinstance(state, dict):
+            sd = state.get("model_state",
+                           state.get("model_state_dict", state))
+        else:
+            sd = state
+        missing, unexpected = model.load_state_dict(sd, strict=False)
+        print(f"[LOAD] Checkpoint loaded from {checkpoint} "
+              f"(missing={len(missing)}, unexpected={len(unexpected)})")
+    else:
+        print(f"[WARN] Checkpoint not found at {checkpoint}. Using random weights.")
+    model.eval()
+    return model
+
+
+def export_onnx(args) -> dict:
+    """
+    Programmatic entry point used by run_phase5.step8.
+    Expects args with: checkpoint, n_classes, output_fp32, output_int8.
+    Returns {"fp32": path, "int8": path}.
+    """
+    model = load_model_from_checkpoint(getattr(args, "checkpoint", None),
+                                       getattr(args, "n_classes", 5))
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"[INFO] Total parameters: {n_params:,}  (~{n_params * 4 / 1e6:.1f} MB FP32)")
+
+    export_fp32(model, args.output_fp32)
+    optimize_and_quantize_int8(args.output_fp32, args.output_int8)
+    if os.path.exists(args.output_fp32) and os.path.exists(args.output_int8):
+        verify_onnx_outputs(args.output_fp32, args.output_int8)
+    return {"fp32": args.output_fp32, "int8": args.output_int8}
 
 
 def export_fp32(model: torch.nn.Module, output_path: str) -> None:
@@ -105,25 +154,15 @@ def main():
                         help="Output path for FP32 ONNX model")
     parser.add_argument("--output_int8", default="onnx/hfl_mm_hc_int8.onnx",
                         help="Output path for INT8 quantized ONNX model")
-    parser.add_argument("--n_classes",      type=int, default=5)
+    parser.add_argument("--n_classes", type=int, default=5)
     parser.add_argument("--n_mamba_blocks", type=int, default=4)
     args = parser.parse_args()
 
-    # Load model — constructor uses n_mamba_blocks (not n_mamba_layers)
-    model = HFLMMHC(n_classes=args.n_classes, n_mamba_blocks=args.n_mamba_blocks)
-    if os.path.exists(args.checkpoint):
-        _dev  = get_device(verbose=False)
-        state = torch.load(args.checkpoint, map_location=_dev)
-        # hfl_trainer saves {"model_state": ..., "args": ..., ...}
-        sd = state.get("model_state",
-             state.get("model_state_dict",
-             state))   # fallback: raw state_dict
-        model.load_state_dict(sd, strict=False)
-        print(f"[LOAD] Checkpoint loaded from {args.checkpoint}")
-    else:
-        print(f"[WARN] Checkpoint not found at {args.checkpoint}. Using random weights.")
-
-    model.eval()
+    # Load model via load_model_from_checkpoint (build_hfl_mm_hc), NOT the
+    # raw HFLMMHC() constructor: build_hfl_mm_hc applies the GroupNorm/
+    # inplace-activation patches the model was actually trained under, so
+    # the checkpoint's state_dict keys/architecture line up.
+    model = load_model_from_checkpoint(args.checkpoint, args.n_classes)
 
     # Count parameters
     n_params = sum(p.numel() for p in model.parameters())

@@ -34,14 +34,12 @@ def optimize_gpu(memory_fraction: float = 0.95) -> None:
 
 
 def get_dataloader_kwargs(device: torch.device) -> dict:
+    # Limit workers to 2 per loader: 6 devices × 3 loaders × 2 workers = 36 max.
+    # persistent_workers removed — 18 always-alive worker processes waste ~1-2 GB RAM.
     if device.type == "cuda":
-        n_cpu   = os.cpu_count() or 2
-        workers = min(4, max(2, n_cpu // 2))
         return {
-            "num_workers":        workers,
-            "pin_memory":         True,
-            "persistent_workers": True,
-            "prefetch_factor":    2,
+            "num_workers": 2,
+            "pin_memory":  True,
         }
     return {"num_workers": 0, "pin_memory": False}
 

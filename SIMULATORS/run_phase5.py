@@ -27,6 +27,8 @@ import baselines
 DATA_DIR      = "data/processed/healthcare"
 PART_DIR      = "data/processed/partitions/healthcare"
 RESULTS_DIR   = "results/phase5"
+BASELINES_DIR = f"{RESULTS_DIR}/baselines"   # B0-B5 only — kept separate from
+                                              # the proposed model's own results
 CKPT_DIR      = "checkpoints"
 ONNX_DIR      = "onnx"
 
@@ -42,9 +44,10 @@ BATCH_SIZE    = 64   # larger batch = faster
 EPOCHS_B0     = 10
 EPOCHS_B1     = 5
 
-os.makedirs(RESULTS_DIR, exist_ok=True)
-os.makedirs(CKPT_DIR,    exist_ok=True)
-os.makedirs(ONNX_DIR,    exist_ok=True)
+os.makedirs(RESULTS_DIR,   exist_ok=True)
+os.makedirs(BASELINES_DIR, exist_ok=True)
+os.makedirs(CKPT_DIR,      exist_ok=True)
+os.makedirs(ONNX_DIR,      exist_ok=True)
 
 
 def log(msg):
@@ -62,10 +65,14 @@ def load_full_dataset():
 
 
 def load_device_loaders(batch_size=BATCH_SIZE):
-    from hfl_trainer import load_partitioned_data
+    # Share a single in-RAM dataset across all devices — building one full
+    # HealthcareDataset per device (~2 GB each) would OOM a 16 GB machine.
+    from hfl_trainer import load_partitioned_data, build_full_healthcare_dataset
+    full_ds = build_full_healthcare_dataset(DATA_DIR)
     loaders = []
     for dev_id in range(N_DEVICES):
-        loaders.append(load_partitioned_data(PART_DIR, DATA_DIR, dev_id, batch_size))
+        loaders.append(load_partitioned_data(PART_DIR, DATA_DIR, dev_id,
+                                             batch_size, full_ds=full_ds))
     return loaders
 
 
@@ -82,7 +89,7 @@ def step4_b0():
     result = baselines.run_centralized(
         model_fn, ds, n_classes=N_CLASSES,
         epochs=EPOCHS_B0, lr=LR, device=device,
-        output_path=f"{RESULTS_DIR}/baseline_b0.csv"
+        output_path=f"{BASELINES_DIR}/baseline_b0.csv"
     )
     log(f"B0 done: AUC={result['test_macro_auc']:.4f}, Acc={result['test_accuracy']:.4f}")
     return result
@@ -96,7 +103,7 @@ def step5_b1(device_loaders):
     result = baselines.run_local_only(
         model_fn, device_loaders, n_classes=N_CLASSES,
         epochs=EPOCHS_B1, lr=LR, device=device,
-        output_path=f"{RESULTS_DIR}/baseline_b1.csv"
+        output_path=f"{BASELINES_DIR}/baseline_b1.csv"
     )
     log(f"B1 done: AUC={result['test_macro_auc']:.4f}±{result['std_auc']:.4f}")
     return result
@@ -108,7 +115,7 @@ def step5_b2(device_loaders):
     result = baselines.run_fedavg(
         model_fn, device_loaders, rounds=ROUNDS,
         local_epochs=1, lr=LR, device=device,
-        output_path=f"{RESULTS_DIR}/baseline_b2.csv"
+        output_path=f"{BASELINES_DIR}/baseline_b2.csv"
     )
     log(f"B2 done: AUC={result['test_macro_auc']:.4f}")
     return result
@@ -120,7 +127,7 @@ def step5_b3(device_loaders):
     result = baselines.run_fedprox(
         model_fn, device_loaders, rounds=ROUNDS,
         local_epochs=1, lr=LR, mu=0.01, device=device,
-        output_path=f"{RESULTS_DIR}/baseline_b3.csv"
+        output_path=f"{BASELINES_DIR}/baseline_b3.csv"
     )
     log(f"B3 done: AUC={result['test_macro_auc']:.4f}")
     return result
@@ -134,7 +141,7 @@ def step5_b4(device_loaders):
         local_epochs=1, lr=LR,
         epsilon=EPSILON, delta=DELTA, max_grad_norm=1.0,
         device=device,
-        output_path=f"{RESULTS_DIR}/baseline_b4.csv"
+        output_path=f"{BASELINES_DIR}/baseline_b4.csv"
     )
     log(f"B4 done: AUC={result['test_macro_auc']:.4f}, ε={result['epsilon_spent']:.4f}")
     return result
@@ -147,7 +154,7 @@ def step5_b5(device_loaders):
         model_fn, device_loaders, rounds=ROUNDS,
         local_epochs=1, lr=LR, mu=5.0, temperature=0.5,
         device=device,
-        output_path=f"{RESULTS_DIR}/baseline_b5.csv"
+        output_path=f"{BASELINES_DIR}/baseline_b5.csv"
     )
     log(f"B5 done: AUC={result['test_macro_auc']:.4f}")
     return result
@@ -253,7 +260,7 @@ def step11_collect():
     import csv, glob
 
     summary = []
-    for csv_file in sorted(glob.glob(f"{RESULTS_DIR}/baseline_b*.csv")):
+    for csv_file in sorted(glob.glob(f"{BASELINES_DIR}/baseline_b*.csv")):
         with open(csv_file) as f:
             reader = csv.DictReader(f)
             for row in reader:

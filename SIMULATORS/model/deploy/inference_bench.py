@@ -174,6 +174,29 @@ def benchmark_onnx(model_path: str, n_runs: int, warmup: int, provider: str,
 
 
 
+def run_benchmark(args) -> dict:
+    """
+    Programmatic entry point used by run_phase5.step9.
+    Expects args with: model, n_runs, warmup, provider, output
+    (optional: q_global). Returns a flat dict of total-latency percentiles.
+    """
+    if not os.path.exists(args.model):
+        print(f"[Benchmark] ONNX model not found at {args.model} — skipping.")
+        return {"error": "model_not_found", "model": args.model}
+
+    q_global = getattr(args, "q_global", 0.9)
+    results = benchmark_onnx(args.model, args.n_runs, args.warmup,
+                             args.provider, q_global, args.output)
+    total = results["total_ms"]
+    return {
+        "mean_ms": round(total["mean"], 3),
+        "p50_ms":  round(total["p50"], 3),
+        "p95_ms":  round(total["p95"], 3),
+        "p99_ms":  round(total["p99"], 3),
+        "components": results,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Inference latency benchmark")
     parser.add_argument("--model", default="onnx/hfl_mm_hc_int8.onnx",

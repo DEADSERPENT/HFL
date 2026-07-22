@@ -18,57 +18,95 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader, Subset
 
-from device_utils import get_device, optimize_gpu, get_dataloader_kwargs
+# model/ is split into subfolders by concern (privacy/architecture/training/
+# deploy/utils) — add them all so flat imports ("from device_utils import
+# ...") keep resolving regardless of which subfolder a module lives in. Must
+# run BEFORE the device_utils import below: this file used to rely on
+# Python auto-adding its own script directory (model/) to sys.path, which
+# also contained device_utils.py as a sibling — that's no longer true now
+# that they live in different subfolders.
+_MODEL_ROOT = Path(__file__).parent.parent   # model/
+for _sub in ("privacy", "architecture", "training", "deploy", "utils"):
+    sys.path.insert(0, str(_MODEL_ROOT / _sub))
+sys.path.insert(0, str(_MODEL_ROOT.parent / "data" / "loaders"))
 
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent / "data" / "loaders"))
+from device_utils import get_device, optimize_gpu, get_dataloader_kwargs
 
 
 def fedavg_round(global_model, device_loaders, n_rounds, device,
                  use_dp=False, epsilon=1.0, delta=1e-5,
-                 max_grad_norm=1.0, lr=1e-3, n_epochs=1):
-    """Run simplified FL for epsilon sweep (no edge hierarchy for speed)."""
+                 max_grad_norm=1.0, lr=1e-3, n_epochs=1, batch_size=32):
+    """
+    Run simplified FL for epsilon sweep (no edge hierarchy for speed).
+
+    DP path uses the SAME methodology as hfl_trainer.py: a single fixed σ
+    precomputed once for the full n_rounds budget, applied through one
+    PrivacyEngine per device that persists (and composes ε) across every
+    round. Recomputing target_epsilon fresh each round — the previous
+    version of this function — silently drops composition and reports an
+    ε far lower than what's actually spent (the same bug the "M7" fix
+    corrected in hfl_trainer.py). Do not revert to that pattern.
+    """
     from hfl_mm_model import build_hfl_mm_hc
     loss_fn = nn.CrossEntropyLoss()
 
+    noise_multiplier = None
+    privacy_engines = None
+    if use_dp:
+        from dp_engine import compute_fl_noise_multiplier, new_device_privacy_engines
+        min_n_samples = min(len(loaders["train"].dataset) for loaders in device_loaders)
+        noise_multiplier = compute_fl_noise_multiplier(
+            target_epsilon=epsilon, target_delta=delta,
+            n_fl_calls=n_rounds, n_samples=min_n_samples,
+            batch_size=batch_size, local_epochs=n_epochs,
+        )
+        privacy_engines = new_device_privacy_engines(len(device_loaders))
+
+    eps_spent = 0.0
     for r in range(n_rounds):
         global_state = {k: v.clone() for k, v in global_model.state_dict().items()}
         client_states, client_sizes = [], []
 
-        for loaders in device_loaders:
+        for dev_idx, loaders in enumerate(device_loaders):
             local = build_hfl_mm_hc().to(device)
             local.load_state_dict(global_state)
             opt = torch.optim.Adam(local.parameters(), lr=lr)
 
             if use_dp:
-                try:
-                    from dp_engine import make_dp_model, get_epsilon_spent
-                    local, opt, train_loader, pe = make_dp_model(
-                        local, opt, loaders["train"],
-                        target_epsilon=epsilon, target_delta=delta,
-                        max_grad_norm=max_grad_norm, epochs=n_epochs * n_rounds
-                    )
-                except Exception:
-                    train_loader = loaders["train"]
-                    pe = None
+                from dp_engine import make_dp_model, get_epsilon_spent
+                # Keep `local` pointing at the ORIGINAL module. Opacus's
+                # GradSampleModule wraps it in a new object whose state_dict()
+                # keys are prefixed with "_module." (verified: wrapping is a
+                # container, not an in-place rename) — overwriting `local`
+                # with that wrapper, as this used to do, makes the later
+                # state_dict() used for FedAvg return "_module.*"-prefixed
+                # keys that don't match global_state's keys and KeyErrors
+                # during aggregation. Train through the wrapper, but read
+                # parameters back from the untouched `local` reference.
+                dp_model, opt, train_loader, pe = make_dp_model(
+                    local, opt, loaders["train"],
+                    noise_multiplier=noise_multiplier,
+                    max_grad_norm=max_grad_norm,
+                    privacy_engine=privacy_engines[dev_idx],
+                )
             else:
+                dp_model = local
                 train_loader = loaders["train"]
                 pe = None
 
-            local.train()
+            dp_model.train()
             n_samples = 0
             for _ in range(n_epochs):
-                for batch in train_loader:
-                    if len(batch) == 4:
-                        ecg, cxr, _tab, labels = batch
-                    else:
-                        ecg, cxr, labels = batch
+                for ecg, cxr, _tab, labels in train_loader:
                     opt.zero_grad()
-                    loss = loss_fn(local(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
+                    loss = loss_fn(dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
                                    labels.to(device, non_blocking=True))
                     loss.backward()
                     opt.step()
                     n_samples += len(labels)
+
+            if use_dp:
+                eps_spent = max(eps_spent, get_epsilon_spent(pe, delta))
 
             client_states.append(copy.deepcopy(local.state_dict()))
             client_sizes.append(n_samples)
@@ -81,6 +119,8 @@ def fedavg_round(global_model, device_loaders, n_rounds, device,
                     sum((n / total) * s[key].float()
                         for n, s in zip(client_sizes, client_states))
                 )
+
+    return {"noise_multiplier": noise_multiplier, "epsilon_spent": eps_spent}
 
 
 def run_epsilon_sweep(args):
@@ -102,6 +142,9 @@ def run_epsilon_sweep(args):
     ecg_labels = np.load(os.path.join(args.data_dir, "ecg", "ecg_labels.npy"))
     cxr_images = np.load(os.path.join(args.data_dir, "cxr", "cxr_images.npy"),
                          mmap_mode="r")
+    # Prefer cxr_primary_labels.npy (single-label primary diagnosis) if a
+    # future data pipeline run produces it; fall back to the current
+    # cxr_labels.npy otherwise (that's all that exists as of this fix).
     cxr_labels_path = os.path.join(args.data_dir, "cxr", "cxr_primary_labels.npy")
     if not os.path.exists(cxr_labels_path):
         cxr_labels_path = os.path.join(args.data_dir, "cxr", "cxr_labels.npy")
@@ -109,8 +152,7 @@ def run_epsilon_sweep(args):
     tabular_feats = np.load(os.path.join(args.data_dir, "tabular",
                                          "tabular_features.npy"))
 
-    full_ds = HealthcareDataset(ecg_signals, ecg_labels,
-                                cxr_images, cxr_labels,
+    full_ds = HealthcareDataset(ecg_signals, ecg_labels, cxr_images, cxr_labels,
                                 tabular_feats)
     n = len(full_ds)
     n_train = int(0.70 * n)
@@ -142,20 +184,17 @@ def run_epsilon_sweep(args):
         model = build_hfl_mm_hc().to(device)
         t0 = time.time()
 
-        fedavg_round(model, device_loaders, n_rounds=args.rounds, device=device,
+        dp_info = fedavg_round(model, device_loaders, n_rounds=args.rounds, device=device,
                      use_dp=use_dp, epsilon=eps if use_dp else 1.0,
-                     delta=args.delta, max_grad_norm=args.max_grad_norm,
-                     lr=args.lr)
+                     delta=args.delta,
+                     max_grad_norm=getattr(args, "max_grad_norm", 1.0),
+                     lr=getattr(args, "lr", 1e-3), batch_size=32)
 
         # Evaluate
         model.eval()
         all_logits, all_labels = [], []
         with torch.no_grad():
-            for batch in test_loader:
-                if len(batch) == 4:
-                    ecg, cxr, _tab, labels = batch
-                else:
-                    ecg, cxr, labels = batch
+            for ecg, cxr, _tab, labels in test_loader:
                 logits = model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
                 all_logits.append(logits.cpu())
                 all_labels.append(labels)
@@ -177,10 +216,13 @@ def run_epsilon_sweep(args):
             "macro_auc": round(auc, 4),
             "use_dp": str(use_dp),
             "rounds": args.rounds,
+            "noise_multiplier": round(dp_info["noise_multiplier"], 4) if dp_info["noise_multiplier"] else "",
+            "epsilon_spent": round(dp_info["epsilon_spent"], 4) if use_dp else "",
             "time_s": round(elapsed, 1),
         }
         all_results.append(row)
-        print(f"ε={eps_label}: AUC={auc:.4f}, Acc={acc:.4f} ({elapsed:.1f}s)")
+        print(f"ε={eps_label}: AUC={auc:.4f}, Acc={acc:.4f}, "
+              f"σ={row['noise_multiplier']}, ε_spent={row['epsilon_spent']} ({elapsed:.1f}s)")
 
         # Save per-epsilon CSV
         per_eps_path = os.path.join(args.output_dir, f"eps_{eps_label}.csv")

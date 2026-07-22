@@ -16,6 +16,27 @@ from torchvision.models.mobilenetv3 import InvertedResidual
 from fedmamba_hc import build_fedmamba_hc
 
 
+class GroupNormND(nn.GroupNorm):
+    """
+    GroupNorm that also accepts 2-D [B, C] input by momentarily adding a
+    singleton spatial dimension.
+
+    Output is numerically identical to nn.GroupNorm on the same input, and
+    because this subclasses nn.GroupNorm the parameters (weight, bias) keep
+    the exact same state_dict keys — existing checkpoints load unchanged.
+
+    Reason: torch's ONNX exporter decomposes GroupNorm via a symbolic that
+    unsqueezes over spatial axes; with a 2-D input those axes are empty and
+    export crashes (IndexError). The late-fusion head normalises flattened
+    [B, C] features, so it needs this shim to be ONNX-exportable.
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 2:
+            return super().forward(x.unsqueeze(-1)).squeeze(-1)
+        return super().forward(x)
+
+
 def replace_bn_with_gn(module: nn.Module, num_groups: int = 8) -> nn.Module:
     """Replace all BatchNorm layers with GroupNorm for Opacus DP-SGD compatibility."""
     for name, child in module.named_children():
@@ -108,13 +129,16 @@ class LateFusionHead(nn.Module):
                  dropout: float = 0.3):
         super().__init__()
         d_in = d_a + d_b
+        # GroupNormND (not nn.GroupNorm): fusion features are 2-D [B, C] after
+        # concatenation; the ND shim keeps identical params/outputs while making
+        # the layer ONNX-exportable. See GroupNormND docstring.
         self.fc = nn.Sequential(
             nn.Linear(d_in, hidden),
-            nn.GroupNorm(16, hidden),
+            GroupNormND(16, hidden),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(hidden, 256),
-            nn.GroupNorm(8, 256),
+            GroupNormND(8, 256),
             nn.GELU(),
             nn.Linear(256, n_classes),
         )

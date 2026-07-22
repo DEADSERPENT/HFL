@@ -1,2 +1,2 @@
-baseline,test_accuracy,test_macro_auc,epsilon_target,epsilon_spent
-B4_DP_FedAvg,0.15364238410596026,0.47916500000681594,1.0,0.209451749546327
+baseline,test_accuracy,test_macro_auc,epsilon_target,epsilon_spent,rounds
+B4_DP_FedAvg,0.21589403973509932,0.6443013549124382,1.0,0.9568193816853424,15

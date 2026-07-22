@@ -100,10 +100,19 @@ def elapsed(t0: float) -> str:
 
 
 def run_subprocess(cmd: list, cwd: str = None, label: str = "") -> tuple:
-    """Run cmd, stream output live, return (returncode, last_line)."""
+    """Run cmd, stream stdout/stderr live, return (returncode, last_line).
+
+    On Ctrl+C the child is terminated gracefully (SIGTERM, then SIGKILL after
+    a grace period) so no orphaned training/simulation process is left behind.
+    The child runs in its own process group so the signal reaches its
+    descendants (e.g. DataLoader workers) too — this requires
+    start_new_session=True below; without it os.killpg() in
+    _terminate_process_group() targets the wrong group.
+    """
     log(f"Running: {' '.join(str(c) for c in cmd)}" +
         (f"  [cwd={cwd}]" if cwd else ""))
     last_line = ""
+    proc = None
     try:
         proc = subprocess.Popen(
             [str(c) for c in cmd],
@@ -111,6 +120,7 @@ def run_subprocess(cmd: list, cwd: str = None, label: str = "") -> tuple:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True, bufsize=1,
+            start_new_session=True,   # own process group for clean signalling
         )
         for line in proc.stdout:
             line = line.rstrip()
@@ -122,6 +132,34 @@ def run_subprocess(cmd: list, cwd: str = None, label: str = "") -> tuple:
     except FileNotFoundError as e:
         log(f"{label} binary not found: {e}", "ERR")
         return 1, str(e)
+    except KeyboardInterrupt:
+        log(f"Interrupted — terminating {label or 'child'} and its workers...", "WARN")
+        _terminate_process_group(proc)
+        raise
+    finally:
+        # Guard against leaking the pipe / a still-running child on any exit path
+        if proc is not None and proc.poll() is None:
+            _terminate_process_group(proc)
+        if proc is not None and proc.stdout is not None:
+            proc.stdout.close()
+
+
+def _terminate_process_group(proc) -> None:
+    """SIGTERM the child's process group, escalate to SIGKILL after 10 s."""
+    if proc is None or proc.poll() is not None:
+        return
+    import signal
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        return
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
 
 
 # ── Step 0: Data readiness ────────────────────────────────────────────────────
@@ -229,7 +267,7 @@ def run_baselines(args, step: int, total: int) -> bool:
 
     cmd = [
         PYTHON, "-u",
-        str(MODEL_DIR / "baselines.py"),
+        str(MODEL_DIR / "training" / "baselines.py"),
         "--data_dir",      args.data_dir,
         "--partition_dir", args.part_dir,
         "--output_dir",    args.results_dir,
@@ -262,7 +300,7 @@ def run_hfl(args, step: int, total: int) -> bool:
 
     cmd = [
         PYTHON, "-u",
-        str(MODEL_DIR / "hfl_trainer.py"),
+        str(MODEL_DIR / "training" / "hfl_trainer.py"),
         "--data_dir",        args.data_dir,
         "--partition_dir",   args.part_dir,
         "--rounds",          str(args.rounds),
@@ -304,7 +342,7 @@ def run_onnx_bench(args, step: int, total: int) -> bool:
     log("Step 3a: Exporting model to ONNX FP32 → INT8...")
     rc, _ = run_subprocess([
         PYTHON, "-u",
-        str(MODEL_DIR / "onnx_exporter.py"),
+        str(MODEL_DIR / "deploy" / "onnx_exporter.py"),
         "--checkpoint",   ckpt_path,
         "--output_fp32",  onnx_fp32,
         "--output_int8",  onnx_int8,
@@ -318,7 +356,7 @@ def run_onnx_bench(args, step: int, total: int) -> bool:
     log("Step 3b: Benchmarking inference latency (1000 runs, 100 warmup)...")
     rc, _ = run_subprocess([
         PYTHON, "-u",
-        str(MODEL_DIR / "inference_bench.py"),
+        str(MODEL_DIR / "deploy" / "inference_bench.py"),
         "--model",  onnx_int8,
         "--output", bench_csv,
     ], cwd=SCRIPT_DIR, label="inference_bench.py")
