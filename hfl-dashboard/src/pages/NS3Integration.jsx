@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import {
-  Network, ArrowLeftRight, Zap, Settings, ListOrdered, Wifi, Cloud,
-  FileSearch, AlertTriangle, BarChart3
+  Radio, Zap, Cpu, Settings, AlertTriangle,
+  Server, Network, Timer, Shield
 } from 'lucide-react'
 
 const stagger = { animate: { transition: { staggerChildren: 0.06 } } }
@@ -17,8 +17,8 @@ export default function NS3Integration() {
   return (
     <>
       <div className="page-header">
-        <h2>NS-3 & CloudSim Integration Guide</h2>
-        <p>Connecting the HFL-MM model to NS-3 and CloudSim Plus simulators</p>
+        <h2>Simulator & Deployment Integration</h2>
+        <p>NS-3 · CloudSim Plus · ONNX Runtime — what each owns, how they connect</p>
       </div>
       <div className="page-body">
         <motion.div variants={stagger} initial="initial" animate="animate">
@@ -26,15 +26,12 @@ export default function NS3Integration() {
           <motion.div variants={fadeUp}>
             <div className="tabs" style={{ flexWrap: 'wrap' }}>
               {[
-                { key: 'overview', icon: <Network size={14} />, label: 'Architecture' },
-                { key: 'ns3', icon: <Wifi size={14} />, label: 'Model → NS-3' },
-                { key: 'cloudsim', icon: <Cloud size={14} />, label: 'Model → CloudSim' },
-                { key: 'config', icon: <Settings size={14} />, label: 'Shared Config' },
-                { key: 'pipeline', icon: <ListOrdered size={14} />, label: 'Execution Flow' },
-                { key: 'inference', icon: <Zap size={14} />, label: 'Inference Latency' },
-                { key: 'compute', icon: <BarChart3 size={14} />, label: 'CloudSim Compute' },
-                { key: 'deps', icon: <FileSearch size={14} />, label: 'File Dependencies' },
-                { key: 'troubleshoot', icon: <AlertTriangle size={14} />, label: 'Troubleshooting' }
+                { key: 'overview', icon: <Settings size={14} />, label: 'Architecture' },
+                { key: 'handoff', icon: <Network size={14} />, label: 'The Handoff' },
+                { key: 'ns3', icon: <Radio size={14} />, label: 'NS-3' },
+                { key: 'cloudsim', icon: <Server size={14} />, label: 'CloudSim Plus' },
+                { key: 'onnx', icon: <Cpu size={14} />, label: 'ONNX Runtime' },
+                { key: 'repro', icon: <Shield size={14} />, label: 'Reproducibility' }
               ].map(tab => (
                 <button key={tab.key} className={`tab ${activeTab === tab.key ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.key)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -44,335 +41,227 @@ export default function NS3Integration() {
             </div>
           </motion.div>
 
-          {/* OVERVIEW */}
+          {/* ARCHITECTURE */}
           {activeTab === 'overview' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">1</div><h3>Integration Architecture Overview</h3></div>
-              <p className="section-description">Neither simulator runs the Python model directly — instead, the model produces measured parameters that update the simulators' analytical inputs through a shared config file.</p>
-
-              <div className="arch-diagram">
-                <div className="arch-layer device">
-                  <div className="arch-layer-label">Phase 5: HFL-MM Training (Python/PyTorch)</div>
-                  <div className="arch-layer-content">
-                    Real FL training → measures actual per-round statistics:<br/>
-                    • actual_uplink_bytes (per device, per round)<br/>
-                    • local_training_time_ms (per device, per round)<br/>
-                    • edge_aggregation_time_ms (per edge, per round)<br/>
-                    • inference_latency_ms (ONNX benchmark, 1000 runs)<br/>
-                    • accuracy_per_round + epsilon_spent_per_round
-                  </div>
-                </div>
-                <div className="arch-arrow">↓ writes to</div>
-                <div className="arch-layer cloud">
-                  <div className="arch-layer-label">SIMULATORS/config/hfl_config.json (Shared Config)</div>
-                  <div className="arch-layer-content">
-                    Updated fields: compression_ratio: 20 (was 5), actual_uplink_mb: 2.5 (was 10),<br/>
-                    iot_train_time_ms: X (measured), onnx_infer_latency_ms: Y (measured)
-                  </div>
-                </div>
-                <div className="arch-arrow" style={{ display: 'flex', justifyContent: 'space-around' }}>
-                  <span>↓ reads</span><span>↓ reads</span>
-                </div>
-                <div style={{ display: 'flex', gap: 16 }}>
-                  <div className="arch-layer edge" style={{ flex: 1 }}>
-                    <div className="arch-layer-label">NS-3 Simulation</div>
-                    <div className="arch-layer-content">
-                      Re-runs with actual uplink bytes<br/>
-                      (2.5MB vs Phase 4's 10MB)<br/>
-                      → Updated: L_comm reduced, uplink = 47 MB
-                    </div>
-                  </div>
-                  <div className="arch-layer edge" style={{ flex: 1 }}>
-                    <div className="arch-layer-label">CloudSim Plus Simulation</div>
-                    <div className="arch-layer-content">
-                      Re-runs with actual training times<br/>
-                      back-calculated to effective MI<br/>
-                      → Updated: IoT MI recalculated
-                    </div>
-                  </div>
-                </div>
-                <div className="arch-arrow">↓</div>
-                <div className="arch-layer device">
-                  <div className="arch-layer-label">Phase 6: Joint Evaluation Results</div>
-                  <div className="arch-layer-content">Combines Phase 5 ML + Phase 4/5 simulator results → All 4 QoS metrics validated simultaneously</div>
-                </div>
+              <div className="section-header"><div className="section-number">1</div><h3>Why Three Tools, and What Each One Owns</h3></div>
+              <div className="info-box note" style={{ marginBottom: 16 }}>
+                The four objectives are not answerable by the same kind of evidence. Training measures utility; it cannot measure a wireless channel, a datacentre power draw, or a portable runtime's latency.
               </div>
-            </motion.div>
-          )}
-
-          {/* MODEL → NS-3 */}
-          {activeTab === 'ns3' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">2</div><h3>What Flows from Model → NS-3</h3></div>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`# ns3_phase5_integration.py
-log = pd.read_csv("results/phase5/training_log.csv")
-hfl_uplink_mb = log[log.scenario=="HFL_Proposed"]["uplink_bytes"].mean() / 1e6
-train_time_ms = log[log.scenario=="HFL_Proposed"]["local_train_ms"].mean()
-
-config["actual_uplink_mb_per_device"]  = float(hfl_uplink_mb)
-config["actual_iot_train_time_ms"]     = float(train_time_ms)
-config["compression_ratio_actual"]     = 20
-
-# Trigger NS-3 re-run
-subprocess.run(["python", "ns3/hfl-scenarios/hfl_network_sim.py",
-    "--config", "config/hfl_config.json",
-    "--output", "results/phase5/ns3_phase5_results.csv"])`}
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Impact on NS-3 Latency</h4>
               <div className="table-container" style={{ marginBottom: 20 }}>
                 <table className="data-table">
-                  <thead><tr><th>Metric</th><th>Phase 4</th><th>Phase 5</th><th>Change</th></tr></thead>
+                  <thead><tr><th>Objective</th><th>Question</th><th>Owned By</th></tr></thead>
                   <tbody>
-                    <tr><td>Uplink per device</td><td>10 MB</td><td>2.5 MB</td><td>-75%</td></tr>
-                    <tr><td>L_comm (device→edge)</td><td>1.48s</td><td>0.37s</td><td>-75%</td></tr>
-                    <tr><td>FL round latency</td><td>1,830 ms</td><td>~720 ms</td><td>-61%</td></tr>
-                    <tr><td>Total uplink (20 devices)</td><td>200 MB</td><td>50 MB</td><td>-75%</td></tr>
-                    <tr className="highlight-row"><td>Communication reduction</td><td>76.4%</td><td><strong>~95%</strong></td><td>+18.6pp</td></tr>
+                    <tr><td><strong>O1</strong></td><td>Uplink traffic reduction</td><td>NS-3</td></tr>
+                    <tr><td><strong>O2</strong></td><td>ε ≤ 1, accuracy loss ≤ 2pp</td><td>Training (PyTorch)</td></tr>
+                    <tr><td><strong>O3a</strong></td><td>Inference latency &lt;100ms</td><td>ONNX Runtime</td></tr>
+                    <tr><td><strong>O3b</strong></td><td>Update reliability &gt;99%</td><td>NS-3</td></tr>
+                    <tr><td><strong>O4</strong></td><td>Energy saving per round</td><td>CloudSim Plus</td></tr>
                   </tbody>
                 </table>
               </div>
               <div className="info-box success">
-                Formula: L_comm = (uplink_MB × 8) / bandwidth_Mbps<br/>
-                Old: (10 × 8) / 54 = 1.48s | New: (2.5 × 8) / 54 = 0.37s
+                <strong>NEITHER SIMULATOR RUNS THE MODEL.</strong> Training produces measured per-round quantities; the simulators consume those quantities as inputs. This keeps the division honest: a network simulator that also "trained" the model would report its own assumptions back as results.
               </div>
             </motion.div>
           )}
 
-          {/* MODEL → CLOUDSIM */}
-          {activeTab === 'cloudsim' && (
+          {/* THE HANDOFF */}
+          {activeTab === 'handoff' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">3</div><h3>What Flows from Model → CloudSim</h3></div>
-              <div className="info-box note" style={{ marginBottom: 16 }}>
-                Phase 5 measures real training wall-clock times per device. These are back-calculated to effective MI (Million Instructions) to feed into CloudSim's cloudlet model.
-              </div>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`effective_MI = training_time_seconds × device_MIPS
-IoT devices run at 300 MIPS (Raspberry Pi class)
-
-Phase 4 assumed:  IoT train MI = 3,000 MI
-Phase 5 measures: actual ~8.5s → 8.5 × 300 = 2,550 MI
-(Consistent with Phase 4 estimate — validates Phase 4)`}
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>CloudSim Validation Check</h4>
-              <div className="table-container">
-                <table className="data-table">
-                  <thead><tr><th>Metric</th><th>Phase 4 Estimate</th><th>Phase 5 Measured</th><th>Delta</th></tr></thead>
-                  <tbody>
-                    <tr><td>IoT train time (s/round)</td><td>10.0s</td><td>~8.5s</td><td>-15%</td></tr>
-                    <tr><td>Edge agg time (s/round)</td><td>0.25s</td><td>~0.2s</td><td>-20%</td></tr>
-                    <tr><td>Cloud agg time (s/round)</td><td>0.005s</td><td>~0.005s</td><td>~0%</td></tr>
-                    <tr><td>HFL_Proposed energy (J)</td><td>705 J</td><td>~600 J</td><td>-15%</td></tr>
-                    <tr className="highlight-row"><td>Energy saving vs S0</td><td>74.9%</td><td><strong>~78.6%</strong></td><td>+3.7%</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </motion.div>
-          )}
-
-          {/* SHARED CONFIG */}
-          {activeTab === 'config' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">4</div><h3>Shared Config File (Phase 5 Version)</h3></div>
-              <div className="code-block">
-{`// hfl_config.json — new fields added in Phase 5
-{
-  ... (all Phase 4 fields preserved) ...,
-
-  "phase5_actuals": {
-    "compression_ratio":        20,
-    "uplink_mb_per_device":     2.5,
-    "iot_train_time_ms":        8500,
-    "edge_agg_time_ms":         200,
-    "cloud_agg_time_ms":        5,
-    "onnx_infer_p95_ms":        68.3,
-    "onnx_model_size_mb_int8":  2.1,
-    "accuracy_iiot_pct":        93.1,
-    "accuracy_smartcity_pct":   74.2,
-    "accuracy_healthcare_pct":  83.8,
-    "epsilon_spent_20rounds":   0.82,
-    "convergence_round":        14
-  },
-
-  "phase5_derived": {
-    "effective_iot_mi":         2550,
-    "uplink_reduction_pct":     95.0,
-    "energy_saving_pct":        78.6,
-    "end_to_end_latency_ms":    73.1,
-    "all_qos_targets_met":      true
-  }
-}`}
-              </div>
-            </motion.div>
-          )}
-
-          {/* EXECUTION FLOW */}
-          {activeTab === 'pipeline' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">5</div><h3>End-to-End Execution Flow (All Phases)</h3></div>
-              <div className="code-block">
-{`═══ PHASE 4 (DONE): Simulator baseline ═══
-python ns3/hfl-scenarios/hfl_network_sim.py
-  → results/ns3/ns3_results.csv (500 rows)
-mvn -f cloudsim-plus/hfl-simulation/pom.xml compile exec:java
-  → results/cloudsim/cloudsim_results.csv (500 rows)
-
-═══ PHASE 5: Real model training → ONNX ═══
-STEP 1: python data/loaders/download_datasets.py
-STEP 2: python data/loaders/preprocess_{iiot,smartcity,healthcare}.py
-STEP 3: python data/loaders/partition_noniid.py --alpha 0.5
-STEP 4: python model/centralized_baseline.py --domain all --epochs 50
-STEP 5: python model/hfl_trainer.py \\
-          --rounds 20 --tau_e 5 --n_devices 20 --n_edges 3 \\
-          --epsilon 1.0 --delta 1e-5 --sparsity 0.2 --quant_bits 8
-STEP 6: python model/epsilon_sweep.py --epsilons 0.1 0.5 1.0 2.0 5.0
-STEP 7: python model/onnx_exporter.py + inference_bench.py
-STEP 8: python scripts/ns3_phase5_integration.py
-STEP 9: python scripts/cloudsim_phase5_integration.py
-
-═══ PHASE 6: Full evaluation ═══
-STEP 10: python model/joint_evaluation.py --systems S0..S4 --seeds 5
-STEP 11: python model/ablation_study.py --configs A0..A5 --seeds 5
-STEP 12: python scripts/statistical_analysis.py
-STEP 13: python scripts/generate_all_figures.py`}
-              </div>
-            </motion.div>
-          )}
-
-          {/* INFERENCE LATENCY */}
-          {activeTab === 'inference' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">6</div><h3>How NS-3 Models Inference Latency</h3></div>
+              <div className="section-header"><div className="section-number">2</div><h3>The Handoff — Data Flow Between Tools</h3></div>
               <div className="arch-diagram">
-                <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-                  <div className="arch-layer device" style={{ flex: 1 }}>
-                    <div className="arch-layer-label">IoT Device</div>
-                    <div className="arch-layer-content">sensor data → 2–5ms capture</div>
+                <div className="arch-layer device">
+                  <div className="arch-layer-label">Training (Python / PyTorch)</div>
+                  <div className="arch-layer-content">
+                    Measures per client per round: actual compressed uplink bytes, participating clients, rounds completed, ε spent<br/>
+                    Writes: <code>results/phase5/proposed_&lt;dataset&gt;.csv</code>
                   </div>
-                  <div className="arch-arrow" style={{ alignSelf: 'center', margin: 0 }}>→</div>
-                  <div className="arch-layer edge" style={{ flex: 1 }}>
-                    <div className="arch-layer-label">WiFi 802.11ax</div>
-                    <div className="arch-layer-content">comm: 3–8ms (NS-3 modeled)</div>
+                </div>
+                <div className="arch-arrow">↓ measured bytes and topology</div>
+                <div className="arch-layer edge">
+                  <div className="arch-layer-label">NS-3 (Network Layer)</div>
+                  <div className="arch-layer-content">
+                    Models: device→edge wireless, edge→cloud backhaul, queuing, loss<br/>
+                    Writes: <code>results/phase5/ns3_&lt;dataset&gt;.csv</code>
                   </div>
-                  <div className="arch-arrow" style={{ alignSelf: 'center', margin: 0 }}>→</div>
-                  <div className="arch-layer cloud" style={{ flex: 1 }}>
-                    <div className="arch-layer-label">Edge Server</div>
-                    <div className="arch-layer-content">preprocess + ONNX infer: 25–45ms</div>
+                </div>
+                <div className="arch-arrow">↓ topology and round counts</div>
+                <div className="arch-layer cloud">
+                  <div className="arch-layer-label">CloudSim Plus (Compute/Energy Layer)</div>
+                  <div className="arch-layer-content">
+                    Models: edge/cloud VMs, FL task scheduling, host power<br/>
+                    Writes: <code>results/phase5/cloudsim_&lt;dataset&gt;.csv</code>
                   </div>
                 </div>
               </div>
+              <div style={{ textAlign: 'center', padding: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>↓ exported model graph</div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="kv-grid">
+                  <div className="kv-item"><div className="kv-label">ONNX Runtime</div><div className="kv-value">End-to-end inference latency distribution → <code>results/phase5/latency_&lt;dataset&gt;.json</code></div></div>
+                </div>
+              </div>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
+                <strong>Ordering constraint:</strong> NS-3 and CloudSim consume the proposed run's CSV. Run them against a stale CSV and they report a previous run's uplink figure without complaint. <code>run_pipeline.py</code> encodes this dependency and REFUSES to run a stage whose inputs are missing.
+              </div>
+            </motion.div>
+          )}
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginTop: 24, marginBottom: 12 }}>End-to-End Latency Budget</h4>
-              <div className="table-container">
+          {/* NS-3 */}
+          {activeTab === 'ns3' && (
+            <motion.div variants={fadeUp} className="section">
+              <div className="section-header"><div className="section-number">3</div><h3>NS-3 — Network Layer</h3></div>
+              <div className="kv-grid" style={{ marginBottom: 20 }}>
+                <div className="kv-item"><div className="kv-label">Version</div><div className="kv-value">v3.46.1</div></div>
+                <div className="kv-item"><div className="kv-label">Path</div><div className="kv-value"><code>SIMULATORS/ns3/ns-3-dev/</code></div></div>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Two Programs — Do Not Confuse</h4>
+              <div className="table-container" style={{ marginBottom: 20 }}>
                 <table className="data-table">
-                  <thead><tr><th>Component</th><th>Min</th><th>Max</th><th>Source</th></tr></thead>
+                  <thead><tr><th>Script</th><th>What It Is</th></tr></thead>
                   <tbody>
-                    <tr><td>L_sensor (sampling)</td><td>2ms</td><td>5ms</td><td>IoT device</td></tr>
-                    <tr><td>L_comm (network)</td><td>3ms</td><td>8ms</td><td>NS-3 measured</td></tr>
-                    <tr><td>L_preproc (STFT/mel)</td><td>8ms</td><td>15ms</td><td>Edge CPU</td></tr>
-                    <tr><td>L_infer (ONNX INT8)</td><td>25ms</td><td>45ms</td><td>ONNX benchmark</td></tr>
-                    <tr><td>L_response (edge→device)</td><td>&lt;1ms</td><td>&lt;1ms</td><td>4-byte response</td></tr>
-                    <tr className="highlight-row"><td><strong>TOTAL</strong></td><td><strong>38ms</strong></td><td><strong>74ms</strong></td><td><strong>P95 ≈ 68ms &lt; 100ms ✓</strong></td></tr>
+                    <tr><td><code>ns3/hfl-scenarios/hfl_network_sim.py</code></td><td><strong>PACKET-LEVEL simulation.</strong> Builds real 3-tier topology (802.11ax device→edge, P2P edge→cloud), TCP bulk transfers of actual compressed payload, FlowMonitor readback.</td></tr>
+                    <tr><td><code>scripts/ns3_phase5_integration.py</code></td><td><strong>ANALYTICAL post-processor.</strong> No NS-3 calls. Rescales figures from measured payloads. NOT a network simulation — must never be reported as one.</td></tr>
                   </tbody>
                 </table>
               </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Build Requirement — Read Before Trusting Any Number</h4>
+              <div className="info-box" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.03)', marginBottom: 16 }}>
+                NS-3 source tree being present is NOT sufficient. Without a built tree the packet-level script falls back to an analytical path and still prints results under an NS-3 heading — <strong>an unbuilt environment produces plausible numbers that were never simulated.</strong>
+              </div>
+              <div className="code-block" style={{ marginBottom: 16 }}>
+{`cd ns3/ns-3-dev
+./ns3 configure --enable-python-bindings
+./ns3 build -j28
+pip install cppyy    # required by the bindings
+
+# v3.36+ API is FLAT: from ns import ns, then ns.NodeContainer
+# The old ns.core / ns.network / ns.wifi namespaces no longer exist
+# Check startup for: [OK] NS-3 packet-level bindings loaded from ...`}
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Reliability Is Per Update, Not Per Run</h4>
+              <div className="info-box note">
+                <code>per_update_reliability = P(one model update delivered)</code><br/>
+                <code>whole_run_reliability = per_update ^ n_rounds</code><br/><br/>
+                The objective (&gt;99% successful model updates) is about a single UPDATE. Reporting whole-run compound makes a healthy per-update rate look like a failure. The reported metric is per-update; field is named so it cannot be confused.
+              </div>
             </motion.div>
           )}
 
-          {/* CLOUDSIM COMPUTE */}
-          {activeTab === 'compute' && (
+          {/* CLOUDSIM */}
+          {activeTab === 'cloudsim' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">7</div><h3>How CloudSim Models HFL-MM Compute</h3></div>
-              <div className="table-container" style={{ marginBottom: 24 }}>
-                <table className="data-table">
-                  <thead><tr><th>Phase</th><th>MI</th><th>VM Spec</th><th>Time</th><th>Energy</th></tr></thead>
-                  <tbody>
-                    <tr><td><strong>IoT Local Training</strong></td><td>2,550 MI</td><td>300 MIPS, 2 PEs</td><td>8.5s</td><td>493 J (× 20 devices)</td></tr>
-                    <tr><td><strong>Edge Aggregation</strong></td><td>2,000 MI</td><td>8,000 MIPS, 4 PEs + GPU</td><td>0.20s</td><td>75 J (× 3 edges)</td></tr>
-                    <tr><td><strong>Cloud Aggregation</strong></td><td>500 MI</td><td>100,000 MIPS, 8 PEs</td><td>0.005s</td><td>6.25 J</td></tr>
-                    <tr className="highlight-row"><td><strong>Total per round</strong></td><td>—</td><td>—</td><td>—</td><td><strong>574 J</strong></td></tr>
-                    <tr className="highlight-row"><td><strong>vs CentralizedFL</strong></td><td>—</td><td>—</td><td>—</td><td><strong>2,806 J → 79.5% saving ✓</strong></td></tr>
-                  </tbody>
-                </table>
+              <div className="section-header"><div className="section-number">4</div><h3>CloudSim Plus — Compute & Energy Layer</h3></div>
+              <div className="kv-grid" style={{ marginBottom: 20 }}>
+                <div className="kv-item"><div className="kv-label">Version</div><div className="kv-value">v8.5.6</div></div>
+                <div className="kv-item"><div className="kv-label">Path</div><div className="kv-value"><code>SIMULATORS/cloudsim-plus/hfl-simulation/</code></div></div>
+                <div className="kv-item"><div className="kv-label">Entry</div><div className="kv-value"><code>hfl.HFLCloudSimulation</code></div></div>
+                <div className="kv-item"><div className="kv-label">Maven</div><div className="kv-value"><code>org.cloudsimplus:cloudsimplus</code></div></div>
               </div>
-              <div className="info-box success">
-                Energy saving IMPROVES with Phase 5 update: actual IoT training time (8.5s) &lt; Phase 4 estimate (10s), 20× compression reduces IoT workload further.
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>What It Models</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">Cloudlets are FL training tasks; VMs are edge and cloud servers. Host power models convert utilisation into energy, attributed to device, edge and cloud layers separately.</p>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Where the GPU Belongs</h4>
+              <div className="info-box note" style={{ marginBottom: 16 }}>
+                GPU energy overhead applied to <strong>EDGE servers only</strong>. End devices are embedded-class monitors and wearables — no GPU. Charging GPU power to them inflates the baseline and therefore inflates the saving.
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>API Notes (v8.5.6)</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="code-block">
+{`PowerModelHostSimple requires staticPower >= 1.0 W
+Cloudlet exposes getStartTime(), getFinishTime(), getLifeTime()
+No getActualCpuTime() in this version`}
+                </div>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Current Integration Status</h4>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
+                <strong>OPTIONAL stage.</strong> Not yet confirmed that the Java entry point accepts dataset name and round count in the form the driver passes them. Until verified, the stage may fail harmlessly and O4 will correctly report <strong>NOT MEASURED</strong>. Wiring the argument interface is a known outstanding item.
               </div>
             </motion.div>
           )}
 
-          {/* FILE DEPENDENCIES */}
-          {activeTab === 'deps' && (
+          {/* ONNX RUNTIME */}
+          {activeTab === 'onnx' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">8</div><h3>File Dependency Map</h3></div>
-              <div className="code-block">
-{`hfl_config.json ←─── phase5_integration scripts (write)
-      │
-      ├──► hfl_network_sim.py (NS-3)        → ns3_phase5_results.csv
-      └──► HFLCloudSimulation.java            → cloudsim_phase5_results.csv
+              <div className="section-header"><div className="section-number">5</div><h3>ONNX Runtime — Deployment Layer</h3></div>
+              <div className="kv-grid" style={{ marginBottom: 20 }}>
+                <div className="kv-item"><div className="kv-label">Exporter</div><div className="kv-value"><code>model/deploy/onnx_exporter.py</code></div></div>
+                <div className="kv-item"><div className="kv-label">Benchmark</div><div className="kv-value"><code>model/deploy/inference_bench.py</code></div></div>
+                <div className="kv-item"><div className="kv-label">Artifact</div><div className="kv-value"><code>deploy/hfl_mm_&lt;dataset&gt;_fp32.onnx</code></div></div>
+              </div>
 
-data/partitioned/ ──► hfl_trainer.py ──► training_log.csv
-                                         convergence_curves/
-                                         epsilon_log.csv
-                      │
-                      ▼
-                  best_model.pt ──► onnx_exporter.py ──► hfl_mm_int8.onnx
-                                                              │
-                                                              ▼
-                                                    inference_bench.py ──► latency.csv
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Why ONNX Is Part of the Research</h4>
+              <div className="info-box success" style={{ marginBottom: 16 }}>
+                Objective 3 is about <strong>DEPLOYED</strong> inference. Latency inside the training framework, on the training machine, with training batch size and graph still attached, does not support that claim. ONNX is the third simulator — it owns an objective neither of the other two can answer.
+              </div>
 
-training_log.csv + latency.csv ──► ns3_phase5_integration.py
-                                    cloudsim_phase5_integration.py
-                                       (updates hfl_config.json)
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Export Pipeline</h4>
+              <div className="code-block" style={{ marginBottom: 16 }}>
+{`checkpoint (best_<dataset>.pt)
+  → build model from REGISTRY (shapes, class count)
+  → load state_dict strict
+  → torch.onnx.export, opset 17, dynamic batch axis
+  → verify the exported graph actually runs
+  → [optional] INT8 dynamic quantization`}
+              </div>
 
-ns3_phase5_results.csv       ┐
-cloudsim_phase5_results.csv  ├──► collect_phase5_results.py → phase5_results.csv
-convergence_curves/          │
-epsilon_log.csv + latency.csv┘
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>GroupNorm Shim — Numerical Check</h4>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)', marginBottom: 16 }}>
+                A wrong shim exports successfully and yields a graph that computes something subtly different. Nothing raises — the deployed model simply predicts differently, permanently.<br/><br/>
+                Regression test R3: PyTorch vs ONNX Runtime, identical inputs, max |diff| &lt; 1e-3 AND identical argmax.<br/>
+                <strong>Measured:</strong> 4.5e-07 (VitalDB), 8.9e-07 (WEAR).
+              </div>
 
-phase5_results.csv ──► joint_evaluation.py  ──► joint_eval.csv
-                   ──► ablation_study.py    ──► ablation.csv
-                   ──► generate_all_figures.py ──► figures/ (PDF + PNG)`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>What Is Actually Timed</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description"><strong>End-to-end:</strong> preprocessing, inference, and conformal prediction-set construction + serialisation. Timing only the matrix multiply understates deployed latency.</p>
+                <div className="kv-grid" style={{ marginTop: 12 }}>
+                  <div className="kv-item"><div className="kv-label">Protocol</div><div className="kv-value">Warmup discarded → measured runs → P50, P95, P99</div></div>
+                  <div className="kv-item"><div className="kv-label">Objective Metric</div><div className="kv-value">P95 (real-time guarantee is about the tail)</div></div>
+                  <div className="kv-item"><div className="kv-label">Provider Rule</div><div className="kv-value">IoT claim = CPU provider. CUDA measures edge server (different question).</div></div>
+                </div>
               </div>
             </motion.div>
           )}
 
-          {/* TROUBLESHOOTING */}
-          {activeTab === 'troubleshoot' && (
+          {/* REPRODUCIBILITY */}
+          {activeTab === 'repro' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">9</div><h3>Troubleshooting Integration Issues</h3></div>
-              <div className="insight-grid">
-                {[
-                  { id: '1', title: 'NS-3 different packet loss', desc: 'Lower uplink (2.5 MB) → fewer packets → lower queuing. Expected: Phase 5 reliability ≥ Phase 4\'s 99.05%.' },
-                  { id: '2', title: 'CloudSim energy differs', desc: 'Actual training time differs from MI estimate. If >20% deviation, report both in thesis (validates CloudSim accuracy). Expected: <15%.' },
-                  { id: '3', title: 'Opacus "BatchNorm detected"', desc: 'MobileNetV3 has BatchNorm. Fix: call replace_bn_with_gn(model) BEFORE make_private(). Verify: ModuleValidator.validate().' },
-                  { id: '4', title: 'ONNX export fails on GRU', desc: 'Use opset_version=17 (PyTorch 2.x supports GRU). Alternative: replace GRU with LSTM (opacus>=1.4).' },
-                  { id: '5', title: 'ONNX INT8 slower than FP32', desc: 'CUDAExecutionProvider doesn\'t always benefit from INT8. Fix: compare both, use FP32 ONNX if faster (still ~8.4MB, <100ms).' },
-                  { id: '6', title: 'Opacus ε diverges early', desc: 'Batch size too small. Fix: increase to 64, reduce lr to 5e-4, or use BatchMemoryManager with physical=8, virtual=32.' }
-                ].map(item => (
-                  <div key={item.id} className="insight-card">
-                    <div className="insight-number">#{item.id}</div>
-                    <div className="insight-content"><h4>{item.title}</h4><p>{item.desc}</p></div>
-                  </div>
-                ))}
+              <div className="section-header"><div className="section-number">6</div><h3>Shared Configuration & Reproducibility</h3></div>
+              <div className="kv-grid" style={{ marginBottom: 20 }}>
+                <div className="kv-item"><div className="kv-label">Shared Config</div><div className="kv-value"><code>SIMULATORS/config/hfl_config.json</code></div></div>
+                <div className="kv-item"><div className="kv-label">Registry</div><div className="kv-value"><code>SIMULATORS/data/loaders/datasets.py</code></div></div>
+              </div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">Every run captures via <code>engineering/runctx.py</code>: git commit + dirty flag, seed, device + CUDA/cuDNN versions, package versions, full argv, and a DATASET FINGERPRINT (MD5 of label array + partition_meta.json).</p>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Running It</h4>
+              <div className="code-block" style={{ marginBottom: 16 }}>
+{`# Everything, one command per dataset:
+python scripts/run_pipeline.py --dataset vitaldb
+
+# Inspect without running:     --dry-run
+# List stages:                 --list
+# Re-run one stage:            --force-stage ns3_network
+
+# The driver is RESUMABLE: completed stages are skipped.
+# Per-stage logs and manifest.json under results/pipeline/<dataset>/
+
+# Score objectives:
+python scripts/check_objectives.py --dataset vitaldb
+# Reports NOT MEASURED for unrun experiments, never FAIL or PASS from defaults`}
               </div>
             </motion.div>
           )}
-
-          {/* Quick Reference */}
-          <motion.div variants={fadeUp} className="section" style={{ marginTop: 40 }}>
-            <div className="section-header"><div className="section-number">10</div><h3>Quick Reference — Key Numbers</h3></div>
-            <div className="stats-grid">
-              <div className="stat-card"><div className="stat-label">Energy Saving</div><div className="stat-value green">74.9%→79.5%</div><div className="stat-change positive">Target ≥20%</div></div>
-              <div className="stat-card"><div className="stat-label">Comm. Reduction</div><div className="stat-value green">76.4%→95%</div><div className="stat-change positive">Target ≥50%</div></div>
-              <div className="stat-card"><div className="stat-label">Reliability</div><div className="stat-value green">99.05%</div><div className="stat-change positive">Target &gt;99%</div></div>
-              <div className="stat-card"><div className="stat-label">Inference P95</div><div className="stat-value green">~68ms</div><div className="stat-change positive">Target &lt;100ms</div></div>
-              <div className="stat-card"><div className="stat-label">Accuracy Loss</div><div className="stat-value green">~1.5%</div><div className="stat-change positive">Target ≤2%</div></div>
-              <div className="stat-card"><div className="stat-label">Uplink/Device</div><div className="stat-value">2.5 MB</div><div className="stat-change positive">was 10 MB</div></div>
-            </div>
-          </motion.div>
 
         </motion.div>
       </div>

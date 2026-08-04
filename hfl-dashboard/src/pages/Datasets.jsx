@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import {
-  Database, Download, HardDrive,
-  FolderTree, Cpu
+  Database, HardDrive,
+  FolderTree, Cpu, Beaker, BarChart3, Shield
 } from 'lucide-react'
 
 const stagger = { animate: { transition: { staggerChildren: 0.06 } } }
@@ -17,8 +17,8 @@ export default function Datasets() {
   return (
     <>
       <div className="page-header">
-        <h2>Dataset Access, Selection & Integration Guide</h2>
-        <p>Healthcare domain — PTB-XL (ECG) + CheXpert (CXR) · 6 devices · 2 edges · Dirichlet α=5.0</p>
+        <h2>Dataset Selection, Access & Integration Guide</h2>
+        <p>VitalDB (PRIMARY, clinical IoMT) + WEAR (fast iteration, wearable IoT)</p>
       </div>
       <div className="page-body">
         <motion.div variants={stagger} initial="initial" animate="animate">
@@ -26,11 +26,12 @@ export default function Datasets() {
           <motion.div variants={fadeUp}>
             <div className="tabs">
               {[
-                { key: 'overview', icon: <Database size={14} />, label: 'Overview' },
-                { key: 'ptbxl', icon: <Cpu size={14} />, label: 'PTB-XL (ECG)' },
-                { key: 'chexpert', icon: <HardDrive size={14} />, label: 'CheXpert (CXR)' },
-                { key: 'partition', icon: <FolderTree size={14} />, label: 'Non-IID Partition' },
-                { key: 'storage', icon: <Download size={14} />, label: 'Storage & Compute' }
+                { key: 'overview', icon: <Database size={14} />, label: 'Selection Criteria' },
+                { key: 'vitaldb', icon: <Cpu size={14} />, label: 'VitalDB (PRIMARY)' },
+                { key: 'wear', icon: <HardDrive size={14} />, label: 'WEAR (Iteration)' },
+                { key: 'fusion', icon: <Beaker size={14} />, label: 'Fusion Test' },
+                { key: 'partition', icon: <FolderTree size={14} />, label: 'Non-IID & Splits' },
+                { key: 'provenance', icon: <Shield size={14} />, label: 'Provenance' }
               ].map(tab => (
                 <button key={tab.key} className={`tab ${activeTab === tab.key ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.key)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -40,290 +41,261 @@ export default function Datasets() {
             </div>
           </motion.div>
 
-          {/* OVERVIEW */}
+          {/* SELECTION CRITERIA */}
           {activeTab === 'overview' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">1</div><h3>Healthcare Dataset Selection</h3></div>
+              <div className="section-header"><div className="section-number">1</div><h3>The Selection Criterion That Decides Everything</h3></div>
               <div className="info-box success" style={{ marginBottom: 16 }}>
-                <strong>Scope (Healthcare-Only, 2026-04-22):</strong> PTB-XL (21,837 12-lead ECG records) + CheXpert (224,316 chest X-rays). FedMamba-HC encoder (IP-1) requires [B, 12, 1000] input — PTB-XL is the only large-scale dataset providing this format. 6 devices, 2 edge clusters, Dirichlet α=5.0.
+                <strong>Research Gap #1:</strong> "No multimodal fusion in existing FL." To DEMONSTRATE that gap rather than assert it, a dataset must satisfy two conditions:
+              </div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Condition A — Genuine Pairing</h4>
+                <p className="section-description">The two modalities must describe the SAME entity at the SAME time, and must have been RECORDED that way by the instrument. Pairing two independent sources by a rule manufactures a correlation that does not exist in the world.</p>
+                <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, marginTop: 16 }}>Condition B — A Shared Target</h4>
+                <p className="section-description" style={{ marginBottom: 0 }}>Both modalities must independently carry information about the label. Genuine pairing with a target only one modality can predict is still a fake fusion task.</p>
               </div>
               <div className="info-box note" style={{ marginBottom: 20 }}>
-                Selection criteria: publicly available, multi-class (≥3), fits 12 GB VRAM, used in recent FL literature, compatible with FedMamba-HC 12-lead input.
-              </div>
-              <div className="table-container" style={{ marginBottom: 24 }}>
-                <table className="data-table">
-                  <thead><tr><th>Dataset</th><th>Modality</th><th>Source</th><th>Size</th><th>Samples</th><th>Access</th></tr></thead>
-                  <tbody>
-                    <tr className="highlight-row"><td><strong>PTB-XL</strong></td><td>12-lead ECG (Primary)</td><td>PhysioNet / Wagner et al.</td><td>~1.7 GB</td><td>21,837 records</td><td>Public (CC-BY 4.0)</td></tr>
-                    <tr className="highlight-row"><td><strong>CheXpert</strong></td><td>Chest X-ray (Secondary)</td><td>Stanford ML Group</td><td>~11 GB</td><td>224,316 images</td><td>Registration req.</td></tr>
-                  </tbody>
-                </table>
+                <strong>The Test That Settles It:</strong> Train three models on identical splits — modality A alone, modality B alone, and fused. Fusion must beat BOTH unimodal arms by more than the seed-to-seed standard deviation. Implemented in <code>scripts/modality_ablation.py</code>.
               </div>
               <div className="table-container">
                 <table className="data-table">
-                  <thead><tr><th>Configuration</th><th>Value</th></tr></thead>
+                  <thead><tr><th></th><th>VitalDB</th><th>WEAR</th></tr></thead>
                   <tbody>
-                    <tr><td>IoT Devices</td><td>6 (HC-A1, HC-A2, HC-A3, HC-B1, HC-B2, HC-B3)</td></tr>
-                    <tr><td>Edge Servers</td><td>2 (Edge-A: devices 0–2 · Edge-B: devices 3–5)</td></tr>
-                    <tr><td>Cloud Server</td><td>1 (hospital aggregator)</td></tr>
-                    <tr><td>Total Samples</td><td>5,000 (PTB-XL subset, Dirichlet α=5.0, seed=42)</td></tr>
-                    <tr><td>Task</td><td>5-class cardiac health: NORM / MI / STTC / CD / HYP</td></tr>
-                    <tr><td>Train / Val / Test</td><td>~70% / ~15% / ~15% per device</td></tr>
+                    <tr><td><strong>Role</strong></td><td>PRIMARY (clinical)</td><td>Fast iteration</td></tr>
+                    <tr><td><strong>Windows</strong></td><td>48,712</td><td>38,578</td></tr>
+                    <tr><td><strong>Clients</strong></td><td>9 (surgical type)</td><td>22 (subject)</td></tr>
+                    <tr><td><strong>Classes</strong></td><td>2</td><td>18</td></tr>
+                    <tr><td><strong>Modality A</strong></td><td>(18, 300) @ 0.5 Hz</td><td>(12, 100) @ 50 Hz</td></tr>
+                    <tr><td><strong>Modality B</strong></td><td>(34,) clinical vector</td><td>(2048,) I3D video</td></tr>
+                    <tr><td><strong>Pairing</strong></td><td>Same patient, same second</td><td>Hardware-synchronised</td></tr>
+                    <tr><td><strong>Split unit</strong></td><td>Case (operation)</td><td>Time within (subject, activity)</td></tr>
+                    <tr><td><strong>Non-IID source</strong></td><td>Surgical specialty</td><td>Per-subject style</td></tr>
+                    <tr><td><strong>Imbalance</strong></td><td>19.7% positive</td><td>Near-uniform</td></tr>
+                    <tr><td><strong>Selection metric</strong></td><td>AUPRC</td><td>AUROC</td></tr>
+                    <tr><td><strong>Edge servers</strong></td><td>2</td><td>2</td></tr>
                   </tbody>
                 </table>
               </div>
             </motion.div>
           )}
 
-          {/* PTB-XL */}
-          {activeTab === 'ptbxl' && (
+          {/* VITALDB */}
+          {activeTab === 'vitaldb' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">2</div><h3>PTB-XL — 12-Lead ECG Waveform Dataset (Primary)</h3></div>
+              <div className="section-header"><div className="section-number">2</div><h3>VitalDB — Clinical IoMT (PRIMARY)</h3></div>
               <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">5-class cardiac health classification</div></div>
-                <div className="kv-item"><div className="kv-label">Records</div><div className="kv-value">21,837 ECGs / 18,885 patients</div></div>
-                <div className="kv-item"><div className="kv-label">Sampling Rate</div><div className="kv-value">100 Hz (resampled from 500 Hz)</div></div>
-                <div className="kv-item"><div className="kv-label">Tensor Shape</div><div className="kv-value">[B, 12, 1000]</div></div>
-                <div className="kv-item"><div className="kv-label">Size</div><div className="kv-value">~1.7 GB</div></div>
-                <div className="kv-item"><div className="kv-label">License</div><div className="kv-value">CC-BY 4.0 (PhysioNet)</div></div>
+                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">Lee et al., Scientific Data 9:279, 2022</div></div>
+                <div className="kv-item"><div className="kv-label">Access</div><div className="kv-value">https://vitaldb.net — open, no credentialing</div></div>
+                <div className="kv-item"><div className="kv-label">Domain</div><div className="kv-value">Intraoperative patient monitoring</div></div>
+                <div className="kv-item"><div className="kv-label">Licence</div><div className="kv-value">CC BY 3.0</div></div>
+                <div className="kv-item"><div className="kv-label">Windows</div><div className="kv-value">48,712 from 6,257 surgeries</div></div>
+                <div className="kv-item"><div className="kv-label">Clients</div><div className="kv-value">9 (surgical operation type)</div></div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>5-Class Labels (SNOMED codes)</h4>
-              <div className="table-container" style={{ marginBottom: 20 }}>
-                <table className="data-table">
-                  <thead><tr><th>Class</th><th>Label</th><th>SNOMED Code</th><th># Records</th></tr></thead>
-                  <tbody>
-                    <tr><td>0</td><td>Normal (NORM)</td><td>426783006</td><td>9,514</td></tr>
-                    <tr><td>1</td><td>Myocardial Infarction (MI)</td><td>164865005</td><td>5,469</td></tr>
-                    <tr><td>2</td><td>ST/T Change (STTC)</td><td>428750005</td><td>5,250</td></tr>
-                    <tr><td>3</td><td>Conduction Disturbance (CD)</td><td>233917008</td><td>4,907</td></tr>
-                    <tr><td>4</td><td>Hypertrophy (HYP)</td><td>164873001</td><td>2,649</td></tr>
-                  </tbody>
-                </table>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Modality A — Intraoperative Vital-Sign Trends</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="kv-grid">
+                  <div className="kv-item"><div className="kv-label">Shape</div><div className="kv-value">(18, 300)</div></div>
+                  <div className="kv-item"><div className="kv-label">Content</div><div className="kv-value">9 numeric trend channels + 9 observed-masks</div></div>
+                  <div className="kv-item"><div className="kv-label">Sampling</div><div className="kv-value">0.5 Hz over 10-min window</div></div>
+                </div>
+                <div className="info-box note" style={{ marginTop: 12 }}>
+                  <strong>Why 18 channels for 9 signals?</strong> Missingness-as-signal (GRU-D style). Operating-theatre monitoring is intermittently observed — which signals are being watched is itself clinically meaningful. Each signal carries a parallel binary mask channel marking observed vs imputed.
+                </div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Download</h4>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`# Option A — wfdb Python library (recommended)
-pip install wfdb
-import wfdb
-wfdb.dl_database('ptb-xl', dl_dir='SIMULATORS/data/raw/ptbxl/')
-
-# Option B — wget (PhysioNet, CC-BY 4.0, no registration)
-wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.3/
-
-# Option C — Kaggle
-kaggle datasets download -d khyeh0719/ptb-xl-dataset`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Modality B — Preoperative Clinical Vector</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="kv-grid">
+                  <div className="kv-item"><div className="kv-label">Shape</div><div className="kv-value">(34,)</div></div>
+                  <div className="kv-item"><div className="kv-label">Content</div><div className="kv-value">Demographics, comorbidities, preoperative labs, surgical context</div></div>
+                </div>
+                <div className="info-box note" style={{ marginTop: 12 }}>
+                  Fields that encode the outcome (ICU stay length, in-hospital death, timestamps, identifiers) are excluded by an explicit forbidden-field list.
+                </div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Preprocessing Pipeline</h4>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`Step 1: Load via wfdb
-  record = wfdb.rdrecord("records100/{filename}")
-  signal = record.p_signal  # (1000, 12) @ 100 Hz
-
-Step 2: Transpose → [12, 1000]
-
-Step 3: Bandpass filter 0.5–40 Hz (removes baseline wander + EMG)
-  from scipy.signal import butter, filtfilt
-  b, a = butter(4, [0.5, 40], btype='bandpass', fs=100)
-  signal_filt = filtfilt(b, a, signal_t, axis=1)
-
-Step 4: Per-lead z-score normalization
-  (signal - mean) / (std + 1e-8)  per lead
-
-Step 5: Handle missing leads → zero-pad + lead-failure flag
-
-Step 6: Load labels from ptbxl_database.csv
-  label_map = {'NORM':0, 'MI':1, 'STTC':2, 'CD':3, 'HYP':4}
-
-Output: signals.npy (21837, 12, 1000) — ~2.0 GB float32`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Label & Splits</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="kv-grid">
+                  <div className="kv-item"><div className="kv-label">Label</div><div className="kv-value">Postoperative ICU admission (19.7% positive)</div></div>
+                  <div className="kv-item"><div className="kv-label">Split</div><div className="kv-value">By CASE, stratified within surgical type, 70/15/15</div></div>
+                  <div className="kv-item"><div className="kv-label">Train</div><div className="kv-value">34,044 windows</div></div>
+                  <div className="kv-item"><div className="kv-label">Val</div><div className="kv-value">7,308 windows</div></div>
+                  <div className="kv-item"><div className="kv-label">Test</div><div className="kv-value">7,360 windows / 947 operations</div></div>
+                </div>
+                <div className="info-box note" style={{ marginTop: 12 }}>
+                  <strong>Why split by case?</strong> Consecutive windows from one operation are near-duplicates. Random window split measures memorisation, not generalisation. No case appears in more than one split.
+                </div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Actual Partition (partition_meta.json, α=5.0, seed=42)</h4>
-              <div className="table-container">
-                <table className="data-table">
-                  <thead><tr><th>Device</th><th>Name</th><th>Edge</th><th>Total</th><th>NORM</th><th>MI</th><th>STTC</th><th>CD</th><th>HYP</th><th>Dominant</th></tr></thead>
-                  <tbody>
-                    <tr><td>device_00</td><td>HC-A1</td><td>A</td><td>573</td><td>58</td><td>151</td><td>75</td><td>127</td><td>162</td><td>HYP</td></tr>
-                    <tr><td>device_01</td><td>HC-A2</td><td>A</td><td>594</td><td>55</td><td>91</td><td>233</td><td>98</td><td>117</td><td>STTC</td></tr>
-                    <tr><td>device_02</td><td>HC-A3</td><td>A</td><td>896</td><td>212</td><td>149</td><td>111</td><td>207</td><td>217</td><td>HYP</td></tr>
-                    <tr><td>device_03</td><td>HC-B1</td><td>B</td><td>689</td><td>186</td><td>132</td><td>107</td><td>173</td><td>91</td><td>NORM</td></tr>
-                    <tr><td>device_04</td><td>HC-B2</td><td>B</td><td>919</td><td>213</td><td>199</td><td>245</td><td>124</td><td>138</td><td>STTC</td></tr>
-                    <tr className="highlight-row"><td>device_05</td><td>HC-B3</td><td>B</td><td>1329</td><td>276</td><td>278</td><td>229</td><td>271</td><td>275</td><td>MI</td></tr>
-                  </tbody>
-                </table>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Scoring — Windows Train, Cases Count</h4>
+              <div className="info-box success">
+                Every result carries BOTH window-level (optimised) and case-level (averaged per operation) metrics. Case-level is the statistically honest and clinically meaningful number. At 19.7% positive rate, accuracy is uninformative — <strong>AUPRC</strong> is the selection metric.
               </div>
             </motion.div>
           )}
 
-          {/* CHEXPERT */}
-          {activeTab === 'chexpert' && (
+          {/* WEAR */}
+          {activeTab === 'wear' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">3</div><h3>CheXpert — Stanford Chest Radiograph Dataset (Secondary)</h3></div>
+              <div className="section-header"><div className="section-number">3</div><h3>WEAR — Wearable IoT (Fast Iteration)</h3></div>
+              <div className="info-box note" style={{ marginBottom: 20 }}>
+                WEAR is the <strong>fast-iteration</strong> dataset. Its arms train in seconds — right for pipeline bugs and flag verification. It is <strong>NOT</strong> the dataset the multimodal claim rests on (at ceiling, see Fusion Test tab).
+              </div>
               <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Task</div><div className="kv-value">5-label multilabel CXR classification</div></div>
-                <div className="kv-item"><div className="kv-label">Images</div><div className="kv-value">224,316 frontal chest X-rays</div></div>
-                <div className="kv-item"><div className="kv-label">Patients</div><div className="kv-value">65,240</div></div>
-                <div className="kv-item"><div className="kv-label">Resolution</div><div className="kv-value">224×224 (small version, pre-resized)</div></div>
-                <div className="kv-item"><div className="kv-label">Size</div><div className="kv-value">~11 GB (small version)</div></div>
-                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">Irvin et al., AAAI 2019</div></div>
+                <div className="kv-item"><div className="kv-label">Source</div><div className="kv-value">Bock et al., Proc. ACM IMWUT, 2024</div></div>
+                <div className="kv-item"><div className="kv-label">Access</div><div className="kv-value">Open download, no credentialing</div></div>
+                <div className="kv-item"><div className="kv-label">Domain</div><div className="kv-value">Outdoor activity recognition</div></div>
+                <div className="kv-item"><div className="kv-label">Windows</div><div className="kv-value">38,578</div></div>
+                <div className="kv-item"><div className="kv-label">Clients</div><div className="kv-value">22 (one per subject)</div></div>
+                <div className="kv-item"><div className="kv-label">Classes</div><div className="kv-value">18 activities</div></div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>5-Label Classification (u-zeros uncertainty policy)</h4>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Modalities</h4>
               <div className="table-container" style={{ marginBottom: 20 }}>
                 <table className="data-table">
-                  <thead><tr><th>Label</th><th>Pathology</th><th># Positive</th><th>Uncertain →</th></tr></thead>
+                  <thead><tr><th>Modality</th><th>Shape</th><th>Content</th><th>Sampling</th></tr></thead>
                   <tbody>
-                    <tr><td>0</td><td>No Finding</td><td>16,627</td><td>N/A</td></tr>
-                    <tr><td>1</td><td>Pleural Effusion</td><td>75,696</td><td>→ 0</td></tr>
-                    <tr><td>2</td><td>Cardiomegaly</td><td>20,739</td><td>→ 0</td></tr>
-                    <tr><td>3</td><td>Atelectasis</td><td>29,420</td><td>→ 0</td></tr>
-                    <tr><td>4</td><td>Consolidation</td><td>12,730</td><td>→ 0</td></tr>
+                    <tr><td><strong>A — Inertial</strong></td><td>(12, 100)</td><td>4 body-worn accelerometers × 3 axes</td><td>50 Hz, 2-sec window</td></tr>
+                    <tr><td><strong>B — Video</strong></td><td>(2048,)</td><td>Two-stream I3D features, same 2 seconds</td><td>Hardware-synchronised</td></tr>
                   </tbody>
                 </table>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Download</h4>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`# Option A — Official Stanford (free registration required)
-# 1. Register: stanfordmlgroup.github.io/projects/chexpert/
-# 2. Download link sent by email — use small dataset (~11 GB)
-
-# Option B — Kaggle
-kaggle datasets download -d ashery/chexpert
-unzip chexpert.zip -d SIMULATORS/data/raw/chexpert/`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Splits & Leakage Control</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="kv-grid">
+                  <div className="kv-item"><div className="kv-label">Split</div><div className="kv-value">Temporal within (subject, activity), 70/15/15</div></div>
+                  <div className="kv-item"><div className="kv-label">Train</div><div className="kv-value">26,424 windows</div></div>
+                  <div className="kv-item"><div className="kv-label">Val</div><div className="kv-value">5,395 windows</div></div>
+                  <div className="kv-item"><div className="kv-label">Test</div><div className="kv-value">5,969 windows</div></div>
+                </div>
+                <div className="info-box note" style={{ marginTop: 12 }}>
+                  <strong>Why temporal within (subject, activity)?</strong> Windows overlap 50% — random split puts shared signal on both sides. Whole-recording temporal split is label-disjoint (activities in blocks). One-window gap dropped at each boundary removes shared seconds.
+                </div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Preprocessing</h4>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`import torchvision.transforms as T
-import pandas as pd
-
-transform = T.Compose([
-    T.Resize(256),
-    T.CenterCrop(224),
-    T.ToTensor(),
-    T.Normalize(mean=[0.485, 0.456, 0.406],  # ImageNet stats
-                std=[0.229, 0.224, 0.225])
-])
-# CheXpert small is already RGB — no Grayscale conversion needed
-
-# Label loading (u-zeros: uncertain -1 → 0)
-df = pd.read_csv("train.csv")
-label_cols = ['No Finding','Pleural Effusion','Cardiomegaly',
-              'Atelectasis','Consolidation']
-labels = df[label_cols].fillna(0).replace(-1, 0).values`}
-              </div>
-
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Handled Data Defect</h4>
               <div className="info-box note">
-                <strong>Pairing with PTB-XL:</strong> 70% direct patient pairs (same patient has both ECG + CXR). 30% within-class synthetic pairs (matching cardiac condition label). Combined loss: 0.7 × CrossEntropy(ECG_logits) + 0.3 × BCE(CXR_logits).
+                One subject has 25.8% missing inertial samples. NaN-aware normalisation (nanmean/nanstd on train only). Without this, a single NaN propagates across every window of that subject.
               </div>
             </motion.div>
           )}
 
-          {/* NON-IID PARTITION */}
+          {/* FUSION TEST */}
+          {activeTab === 'fusion' && (
+            <motion.div variants={fadeUp} className="section">
+              <div className="section-header"><div className="section-number"><BarChart3 size={16} /></div><h3>The Fusion Test — Measured Result</h3></div>
+              <div className="info-box success" style={{ marginBottom: 16 }}>
+                <strong>Protocol:</strong> Centralised and non-private, so the question is about the DATA. All three arms share encoder architecture, head depth, optimiser, schedule, epochs and seed. Each arm RETRAINED on its own inputs. 2 seeds.
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>VitalDB (7,360 test windows / 947 test cases)</h4>
+              <div className="table-container" style={{ marginBottom: 20 }}>
+                <table className="data-table">
+                  <thead><tr><th>Arm</th><th>AUROC</th><th>AUPRC</th><th>Case AUROC</th><th>Case AUPRC</th></tr></thead>
+                  <tbody>
+                    <tr><td>Signals only</td><td>0.8283</td><td>0.5281</td><td>0.8590</td><td>0.6446</td></tr>
+                    <tr><td>Clinical only</td><td>0.7700</td><td>0.5022</td><td>0.7713</td><td>0.4961</td></tr>
+                    <tr className="highlight-row"><td><strong>FUSED</strong></td><td><strong>0.8694</strong></td><td><strong>0.6343</strong></td><td><strong>0.8875</strong></td><td><strong>0.6740</strong></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="info-box success" style={{ marginBottom: 20 }}>
+                <strong>Gain over BEST unimodal:</strong> +0.0411 AUROC, +0.1062 AUPRC = 14.1× seed standard deviation. Fusion beats BOTH arms. → <strong>Research Gap #1 is DEMONSTRATED.</strong>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>WEAR (5,969 test windows)</h4>
+              <div className="table-container" style={{ marginBottom: 20 }}>
+                <table className="data-table">
+                  <thead><tr><th>Arm</th><th>AUROC</th><th>AUPRC</th></tr></thead>
+                  <tbody>
+                    <tr><td>Inertial only</td><td>0.9976</td><td>0.9761</td></tr>
+                    <tr><td>Video only</td><td>0.9957</td><td>0.9629</td></tr>
+                    <tr><td>FUSED</td><td>0.9980</td><td>0.9831</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
+                <strong>AT CEILING.</strong> Best single modality already 0.9976 AUROC. The +0.0004 gain is reported as a ceiling effect, NOT as supporting evidence. The multimodal claim rests on VitalDB alone.
+              </div>
+            </motion.div>
+          )}
+
+          {/* NON-IID & SPLITS */}
           {activeTab === 'partition' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">4</div><h3>Non-IID Partitioning — 6 Devices, Dirichlet α=5.0</h3></div>
-              <div className="info-box note" style={{ marginBottom: 20 }}>
-                α=5.0 produces mild non-IID — near-uniform class distribution per device. This reflects realistic hospital deployment where each ward or clinic sees a mix of cardiac conditions. Authoritative source: <code>partition_meta.json</code>.
+              <div className="section-header"><div className="section-number">5</div><h3>Non-IID Partitioning — Naturally Derived</h3></div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>VitalDB — Surgical Specialty (N-3)</h4>
+              <div className="info-box success" style={{ marginBottom: 16 }}>
+                <strong>Not synthesised, measured.</strong> Clients are surgical operation types. ICU base rate spans 3.2%–50.7% across 9 clients — a sixteen-fold spread. This is a property of clinical practice, not a Dirichlet parameter.
+              </div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description" style={{ marginBottom: 0 }}>
+                  Operation types with too few positive cases are merged into one combined client, so every client holds ≥10 positive cases. Without that merge, a single-class client has undefined AUROC and is silently dropped from any average.
+                </p>
               </div>
 
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`Algorithm (Dirichlet Non-IID, standard in FL literature):
-  For each class c in {NORM, MI, STTC, CD, HYP}:
-    proportions = np.random.dirichlet(α × ones(6), seed=42)
-    Assign proportions[i] fraction of class-c samples to device i.
-
-Run: python data/loaders/partition_noniid.py \\
-       --domain healthcare --n_devices 6 --alpha 5.0 --seed 42`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>WEAR — Per-Subject</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description" style={{ marginBottom: 0 }}>
+                  22 clients, one per subject. Temporal split within (subject, activity), 70/15/15 with a one-window gap at each boundary. Every split sees every class.
+                </p>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Partition Table (partition_meta.json — 5,000 total samples)</h4>
-              <div className="table-container" style={{ marginBottom: 24 }}>
-                <table className="data-table">
-                  <thead><tr><th>Device</th><th>Name</th><th>Edge</th><th>Total</th><th>Train</th><th>Val</th><th>Test</th><th>NORM</th><th>MI</th><th>STTC</th><th>CD</th><th>HYP</th><th>Dominant</th></tr></thead>
-                  <tbody>
-                    <tr><td>device_00</td><td>HC-A1</td><td>A</td><td>573</td><td>401</td><td>85</td><td>87</td><td>58</td><td>151</td><td>75</td><td>127</td><td>162</td><td>HYP</td></tr>
-                    <tr><td>device_01</td><td>HC-A2</td><td>A</td><td>594</td><td>415</td><td>89</td><td>90</td><td>55</td><td>91</td><td>233</td><td>98</td><td>117</td><td>STTC</td></tr>
-                    <tr><td>device_02</td><td>HC-A3</td><td>A</td><td>896</td><td>627</td><td>134</td><td>135</td><td>212</td><td>149</td><td>111</td><td>207</td><td>217</td><td>HYP</td></tr>
-                    <tr><td>device_03</td><td>HC-B1</td><td>B</td><td>689</td><td>482</td><td>103</td><td>104</td><td>186</td><td>132</td><td>107</td><td>173</td><td>91</td><td>NORM</td></tr>
-                    <tr><td>device_04</td><td>HC-B2</td><td>B</td><td>919</td><td>643</td><td>137</td><td>139</td><td>213</td><td>199</td><td>245</td><td>124</td><td>138</td><td>STTC</td></tr>
-                    <tr className="highlight-row"><td>device_05</td><td>HC-B3</td><td>B</td><td>1329</td><td>930</td><td>199</td><td>200</td><td>276</td><td>278</td><td>229</td><td>271</td><td>275</td><td>MI</td></tr>
-                  </tbody>
-                </table>
-              </div>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Dataset Verification</h4>
+              <div className="code-block" style={{ marginBottom: 16 }}>
+{`# Adversarial audit, not smoke test (8-category verifier)
+python tests/verify_datasets.py --dataset vitaldb
+python tests/verify_datasets.py --dataset wear
 
-              <div className="kv-grid">
-                <div className="kv-item"><div className="kv-label">Edge A (HC-A)</div><div className="kv-value">HC-A1 (573) + HC-A2 (594) + HC-A3 (896) = 2,063</div></div>
-                <div className="kv-item"><div className="kv-label">Edge B (HC-B)</div><div className="kv-value">HC-B1 (689) + HC-B2 (919) + HC-B3 (1329) = 2,937</div></div>
-                <div className="kv-item"><div className="kv-label">Dirichlet α</div><div className="kv-value">5.0 (mild non-IID, seed=42)</div></div>
-                <div className="kv-item"><div className="kv-label">Split</div><div className="kv-value">70% train / 15% val / 15% test</div></div>
+# Checks: split disjointness, case/subject leakage, NaN presence,
+#          label range, class coverage per split, index bounds,
+#          partition completeness, metadata agreement`}
               </div>
             </motion.div>
           )}
 
-          {/* STORAGE & COMPUTE */}
-          {activeTab === 'storage' && (
+          {/* PROVENANCE */}
+          {activeTab === 'provenance' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">5</div><h3>Storage Structure & Compute Requirements</h3></div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Disk Space</h4>
-              <div className="table-container" style={{ marginBottom: 24 }}>
-                <table className="data-table">
-                  <thead><tr><th>Dataset</th><th>Raw Size</th><th>Processed</th><th>Download Time</th></tr></thead>
-                  <tbody>
-                    <tr><td>PTB-XL</td><td>~1.7 GB</td><td>~2 GB</td><td>~10 min</td></tr>
-                    <tr><td>CheXpert (small)</td><td>~11 GB</td><td>~8 GB</td><td>~45 min</td></tr>
-                    <tr className="highlight-row"><td><strong>TOTAL</strong></td><td><strong>~12.7 GB</strong></td><td><strong>~10 GB</strong></td><td><strong>~55 min</strong></td></tr>
-                  </tbody>
-                </table>
+              <div className="section-header"><div className="section-number"><Shield size={16} /></div><h3>Provenance & Fingerprinting</h3></div>
+              <div className="info-box note" style={{ marginBottom: 20 }}>
+                <strong>Paths do not identify data.</strong> Rebuilding a dataset with different window settings leaves every stored path unchanged. A result file recording only the path cannot be traced to the arrays that produced it.
+              </div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">Every run records a dataset fingerprint (MD5 of label array + partition_meta.json) via <code>engineering/runctx.py</code>.</p>
+                <div className="table-container" style={{ marginTop: 12 }}>
+                  <table className="data-table">
+                    <thead><tr><th>Dataset</th><th>Labels Hash</th><th>Partition Meta Hash</th></tr></thead>
+                    <tbody>
+                      <tr><td>vitaldb</td><td><code>d3fa814dd4396efd</code></td><td><code>69feba3f786f9e64</code></td></tr>
+                      <tr><td>wear</td><td><code>8aeb2aeeb2bba951</code></td><td><code>38c58aadc2a84eee</code></td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Storage Structure</h4>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`SIMULATORS/data/
-├── raw/
-│   ├── ptbxl/              # .hea/.dat waveforms + ptbxl_database.csv
-│   └── chexpert/           # .jpg images + train.csv / valid.csv
-├── processed/
-│   └── healthcare/         # ecg_signals.npy  (21837, 12, 1000)
-│                           # cxr_images.npy   (224316, 3, 224, 224)
-│                           # labels_ecg.npy, labels_cxr.npy
-└── partitions/
-    └── healthcare/
-        ├── partition_meta.json      # Ground-truth partition (α=5.0)
-        ├── device_00/ (HC-A1)       # train.pt, val.pt, test.pt — 573 samples
-        ├── device_01/ (HC-A2)       # 594 samples
-        ├── device_02/ (HC-A3)       # 896 samples
-        ├── device_03/ (HC-B1)       # 689 samples
-        ├── device_04/ (HC-B2)       # 919 samples
-        └── device_05/ (HC-B3)       # 1329 samples`}
-              </div>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>How to Build</h4>
+              <div className="code-block" style={{ marginBottom: 16 }}>
+{`# VitalDB
+python data/loaders/fetch_vitaldb.py          # resumable API fetch
+python data/loaders/preprocess_vitaldb.py     # window + split + partition
 
-              <div className="kv-grid">
-                <div className="kv-item"><div className="kv-label">GPU</div><div className="kv-value">RTX A2000 12GB VRAM</div></div>
-                <div className="kv-item"><div className="kv-label">Batch Size</div><div className="kv-value">32 per device (virtual, federated)</div></div>
-                <div className="kv-item"><div className="kv-label">GPU Memory/Step</div><div className="kv-value">~4–6 GB (FedMamba-HC + MobileNetV3)</div></div>
-                <div className="kv-item"><div className="kv-label">Training Time</div><div className="kv-value">20 global rounds × τ_e=5 ≈ 2.7h</div></div>
+# WEAR
+python data/loaders/preprocess_wear.py
+
+# Both write under data/processed/<name>/:
+#   modality arrays, labels, meta/case_ids.npy,
+#   per-client partition indices with partition_meta.json
+
+# Registry (single source of truth):
+#   SIMULATORS/data/loaders/datasets.py`}
               </div>
             </motion.div>
           )}
-
-          {/* Backup Datasets */}
-          <motion.div variants={fadeUp} className="section" style={{ marginTop: 40 }}>
-            <div className="section-header"><div className="section-number">6</div><h3>Backup Datasets (Healthcare)</h3></div>
-            <div className="table-container">
-              <table className="data-table">
-                <thead><tr><th>Modality</th><th>Primary (Active)</th><th>Backup</th><th>Reason</th></tr></thead>
-                <tbody>
-                  <tr><td>ECG (Primary)</td><td>PTB-XL (PhysioNet)</td><td>MIT-BIH Arrhythmia (PhysioNet)</td><td>Smaller (105 MB), 2-class only</td></tr>
-                  <tr><td>CXR (Secondary)</td><td>CheXpert (Stanford)</td><td>ChestX-ray14 (NIH)</td><td>Larger (45 GB), 14 labels, slower download</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </motion.div>
 
         </motion.div>
       </div>

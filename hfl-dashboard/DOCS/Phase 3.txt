@@ -19,7 +19,7 @@ SYSTEM PROFILE (Verified)
   CMake     : 3.28.3 (pre-installed)
   Git       : 2.43.0 (pre-installed)
 
-  NS-3      : v3.46.1 (INSTALLED — see below)
+  NS-3      : v3.46.1 (SOURCE + BUILT with Python bindings — see PART 1)
   CloudSim+ : v8.5.6  (INSTALLED — see below)
 
 ====================================================================
@@ -60,7 +60,9 @@ NS-3 (Network Simulator 3) is the selected network simulation tool
 for modeling the wireless and wired communication layers of the HFL
 system. Version 3.46.1 is the latest stable long-term release as of
 January 2026 and includes:
-  - Full Python bindings via PyBind11 (native, no cppyy required)
+  - Python bindings via cppyy  (NOT PyBind11 — see Step 6; this
+    distinction matters and an earlier version of this report had it
+    the wrong way round)
   - WiFi 802.11ax, LTE-Advanced, 5G mmWave channel models
   - FlowMonitor module for per-flow latency/throughput/loss stats
   - BulkSend/PacketSink applications for TCP data transfer
@@ -128,6 +130,67 @@ January 2026 and includes:
 
   Expected build time: 10–20 minutes on this workstation.
   Output: build/lib/ containing .so libraries + Python bindings.
+
+  ACTUAL RESULT (2026-08-04): 996/996 targets, 37 shared libraries.
+  No sudo was required. The bison/flex/castxml dependency concern
+  recorded in Step 1 did not apply to this configuration.
+
+
+── Step 6: Make the Python bindings importable ──────────────────
+
+  Building is NOT sufficient. Two further things are required, and
+  missing either one leaves the bindings unimportable while the build
+  tree looks complete:
+
+    (a) cppyy must be installed into the project virtualenv:
+
+            pip install cppyy
+
+        NS-3 >= 3.36 uses cppyy, not PyBind11. Without it, `import ns`
+        raises "Cppyy is required by the ns-3 python bindings".
+
+    (b) The bindings are NOT installed into site-packages. They live
+        in the build tree at:
+
+            ns3/ns-3-dev/build/bindings/python
+
+        That directory must be on sys.path. The simulation script adds
+        it itself so no PYTHONPATH export is needed.
+
+  API STYLE — the change that breaks older code:
+
+    NS-3 >= 3.36 exposes a FLAT namespace:
+
+        from ns import ns
+        n = ns.NodeContainer()
+        ns.Simulator.Run()
+
+    The per-module namespaces (ns.core, ns.network, ns.wifi, ...) no
+    longer exist. Code written against the older convention raises
+    ImportError even on a perfectly good build.
+
+
+── Step 7: VERIFY the bindings actually work ────────────────────
+
+  This step is mandatory. The simulation script falls back to an
+  analytical path when the bindings are missing and still prints
+  results under an NS-3 heading — so an unverified environment yields
+  plausible numbers that were never simulated.
+
+    python3 -c "
+    from ns import ns
+    n = ns.NodeContainer(); n.Create(3)
+    ns.Simulator.Stop(ns.Seconds(1)); ns.Simulator.Run(); ns.Simulator.Destroy()
+    print('packet-level NS-3 is live')"
+
+  Status: [OK] verified 2026-08-04 — NodeContainer created, simulator
+          ran and destroyed cleanly.
+
+  At runtime the simulation prints one of:
+    [OK] NS-3 packet-level bindings loaded from <path>
+    [WARN] NS-3 bindings unavailable ... results are NOT packet-level
+
+  Check that line before quoting any NS-3 figure.
 
 ── Step 6: Verify NS-3 Installation ─────────────────────────────
 

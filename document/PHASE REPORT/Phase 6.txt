@@ -267,7 +267,8 @@ and PNG (300 DPI). Colorblind-safe palette (seaborn "colorblind" theme).
     4.4 Phase 4 Baseline Results
 
   Chapter 5: Dataset & Experimental Setup (Phase 5)
-    5.1 Dataset Description (CWRU, WESAD, UrbanSound8K, EPA, ChestX-ray14)
+    5.1 Dataset Description (VitalDB — primary clinical IoMT; WEAR —
+        wearable IoT, fast iteration)
     5.2 Non-IID Partitioning (Dirichlet α=0.5)
     5.3 Training Hyperparameters
     5.4 Evaluation Protocol (5 seeds, paired tests)

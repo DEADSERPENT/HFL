@@ -1,0 +1,337 @@
+=======================================================================
+ SIMULATOR & DEPLOYMENT INTEGRATION GUIDE
+ NS-3  ·  CloudSim Plus  ·  ONNX Runtime
+ HFL-MM: Hierarchical Federated Multimodal IoT Learning
+ Student : Samartha H V | MIT Bengaluru | Regd. 251580130019
+ Guide   : Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
+ Revised : 2026-08-04
+=======================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 1: WHY THREE TOOLS, AND WHAT EACH ONE OWNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  The four project objectives are not all answerable by the same kind
+  of evidence. Training measures utility; it cannot measure a wireless
+  channel, a datacentre power draw, or a portable runtime's latency.
+  Each objective is therefore owned by exactly one tool, and no
+  objective is answered by more than one.
+
+  ┌───────┬────────────────────────────────┬──────────────────────────┐
+  │ Obj.  │ Question                       │ Owned by                 │
+  ├───────┼────────────────────────────────┼──────────────────────────┤
+  │ O1    │ uplink traffic reduction       │ NS-3                     │
+  │ O2    │ epsilon <= 1, accuracy loss    │ training (PyTorch)       │
+  │ O3a   │ inference latency < 100 ms     │ ONNX Runtime             │
+  │ O3b   │ update reliability > 99 %      │ NS-3                     │
+  │ O4    │ energy saving per round        │ CloudSim Plus            │
+  └───────┴────────────────────────────────┴──────────────────────────┘
+
+  NEITHER SIMULATOR RUNS THE MODEL. Training produces measured
+  per-round quantities; the simulators consume those quantities as
+  inputs. This keeps the division honest: a network simulator that also
+  "trained" the model would be reporting its own assumptions back as
+  results.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 2: THE HANDOFF
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  TRAINING (Python / PyTorch)
+    measures, per client per round:
+      · actual compressed uplink bytes
+      · number of participating clients
+      · rounds completed, epsilon spent
+    writes: results/phase5/proposed_<dataset>.csv
+
+              │
+              │  measured bytes and topology
+              v
+  NS-3 (network layer)
+    models: device→edge wireless, edge→cloud backhaul, queuing, loss
+    produces: uplink volume, per-update delivery reliability,
+              communication latency
+    writes: results/phase5/ns3_<dataset>.csv
+
+  CloudSim Plus (compute/energy layer)
+    models: edge and cloud VMs, FL task scheduling, host power
+    produces: energy per training round by layer
+    writes: results/phase5/cloudsim_<dataset>.csv
+
+  ONNX Runtime (deployment layer)
+    consumes: the exported model graph
+    produces: end-to-end inference latency distribution
+    writes: results/phase5/latency_<dataset>.json
+
+  All four feed scripts/check_objectives.py, which scores O1-O4 against
+  the thresholds in the problem statement and names the artifact each
+  number came from.
+
+  THE ORDERING CONSTRAINT THAT MATTERS
+    NS-3 and CloudSim consume the proposed run's CSV. Run them against
+    a stale CSV and they will report a previous run's uplink figure
+    without complaint. scripts/run_pipeline.py encodes this dependency
+    and REFUSES to run a stage whose inputs are missing, rather than
+    producing a number from absent or stale inputs.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 3: NS-3 — NETWORK LAYER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Version : v3.46.1
+  Path    : SIMULATORS/ns3/ns-3-dev/
+
+  TWO PROGRAMS, DIFFERENT JOBS — do not confuse them:
+
+    ns3/hfl-scenarios/hfl_network_sim.py     (--dataset)
+      The PACKET-LEVEL simulation. Builds the real 3-tier topology in
+      NS-3 (802.11ax device→edge, point-to-point edge→cloud), runs TCP
+      bulk transfers of the actual compressed payload, and reads
+      delay / loss / throughput back out of FlowMonitor.
+
+    scripts/ns3_phase5_integration.py        (--dataset)
+      An ANALYTICAL post-processor. Contains no NS-3 calls at all. It
+      rescales communication figures from measured training payloads.
+      Useful and fast, but it is NOT a network simulation and must
+      never be reported as one.
+
+3.0  BUILD REQUIREMENT — READ BEFORE TRUSTING ANY NS-3 NUMBER
+
+  The NS-3 source tree being present is NOT sufficient. Without a built
+  tree the packet-level script falls back to an analytical path and
+  still prints results under an NS-3 heading, so an unbuilt environment
+  produces plausible numbers that were never simulated.
+
+    cd ns3/ns-3-dev
+    ./ns3 configure --enable-python-bindings
+    ./ns3 build -j28
+    pip install cppyy          # required by the bindings
+
+  Two properties of NS-3 >= 3.36 that the older calling convention gets
+  wrong, and which silently force the fallback:
+
+    · Bindings are NOT installed into site-packages. They live in
+      build/bindings/python, which the script adds to sys.path itself.
+    · The API is FLAT: `from ns import ns`, then ns.NodeContainer,
+      ns.WifiHelper, ns.Simulator. The per-module namespaces
+      (ns.core, ns.network, ns.wifi, ...) no longer exist, so the old
+      `import ns.core` raises ImportError even on a correct build.
+
+  On startup the script prints either
+    [OK] NS-3 packet-level bindings loaded from ...
+  or an explicit warning that results are NOT packet-level. Check that
+  line before quoting any figure it produces.
+
+3.1  WHAT IT MODELS
+    · device → edge wireless link (contention, loss, jitter)
+    · edge → cloud backhaul
+    · uplink volume per round, from MEASURED compressed byte counts
+    · per-update delivery success
+
+3.2  TOPOLOGY COMES FROM THE REGISTRY
+    Client count and edge count are read from the dataset registry, not
+    hardcoded. vitaldb runs 9 clients over 2 edges; wear runs 22
+    clients over 2 edges. A simulator hardcoded to one client count
+    silently models a different system than the one trained.
+
+3.3  RELIABILITY IS PER UPDATE, NOT PER RUN
+    This is a definition that must be stated precisely, because the two
+    readings differ enormously and only one answers the objective.
+
+      per-update reliability = P(one model update is delivered)
+      whole-run reliability  = per_update ^ (number of rounds)
+
+    The objective ("> 99 % successful model updates") is about a model
+    UPDATE. Reporting the whole-run compound instead makes a healthy
+    per-update rate look like a failure, because a value slightly below
+    1 raised to the power of many rounds decays fast. The reported
+    metric is per-update, and the field is named so it cannot be
+    confused with the compound figure.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 4: CLOUDSIM PLUS — COMPUTE AND ENERGY LAYER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Version : v8.5.6
+  Path    : SIMULATORS/cloudsim-plus/hfl-simulation/
+  Entry   : hfl.HFLCloudSimulation
+  Maven   : groupId org.cloudsimplus, artifactId cloudsimplus
+
+4.1  WHAT IT MODELS
+    Cloudlets are FL training tasks; VMs are edge and cloud servers.
+    Host power models convert utilisation into energy, which is then
+    attributed to the device, edge and cloud layers separately.
+
+4.2  WHERE THE GPU BELONGS
+    GPU energy overhead is applied to EDGE servers only. End devices in
+    this architecture are embedded-class monitors and wearables; they
+    have no GPU. Charging GPU power to them would inflate the baseline
+    that the energy saving is measured against, and therefore inflate
+    the saving itself.
+
+4.3  API NOTES FOR v8.5.6
+    · PowerModelHostSimple requires staticPower >= 1.0 W.
+    · Cloudlet exposes getStartTime(), getFinishTime(), getLifeTime().
+      There is no getActualCpuTime() in this version.
+
+4.4  CURRENT INTEGRATION STATUS
+    The pipeline invokes this stage as OPTIONAL. It is not yet
+    confirmed that the Java entry point accepts the dataset name and
+    round count as arguments in the form the driver passes them. Until
+    that is verified, the stage may fail harmlessly and Objective 4
+    will correctly report NOT MEASURED rather than a fabricated value.
+    Wiring the argument interface is a known outstanding item.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 5: ONNX RUNTIME — DEPLOYMENT LAYER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Exporter  : SIMULATORS/model/deploy/onnx_exporter.py    (--dataset)
+  Benchmark : SIMULATORS/model/deploy/inference_bench.py  (--provider)
+  Produces  : deploy/hfl_mm_<dataset>_fp32.onnx
+              results/phase5/latency_<dataset>.json
+
+5.1  WHY ONNX IS PART OF THE RESEARCH, NOT AN AFTERTHOUGHT
+
+    Objective 3 is a claim about DEPLOYED inference. A latency measured
+    inside the training framework, on the training machine, with the
+    training batch size and the training graph still attached, does not
+    support that claim — it measures the research environment.
+
+    Exporting to a standard graph and measuring through a portable
+    runtime is what makes the number transferable to a device that has
+    no PyTorch on it. That is why ONNX is the third simulator alongside
+    NS-3 and CloudSim Plus rather than a packaging step: it owns an
+    objective neither of the other two can answer.
+
+5.2  THE EXPORT PIPELINE
+
+      trained checkpoint (checkpoints/best_<dataset>.pt)
+        -> build the model from the REGISTRY (shapes, class count)
+        -> load state_dict strict
+        -> torch.onnx.export, opset 17, dynamic batch axis
+        -> verify the exported graph actually runs
+        -> [optional] INT8 dynamic quantization
+
+    Dynamic batch axis ONLY: batch is symbolic so one artifact serves
+    single-sample edge inference and batched evaluation, while the
+    modality shapes stay fixed by the dataset — pinning them lets the
+    runtime plan memory instead of re-deriving it on every call.
+
+5.3  THE GroupNorm SHIM, AND WHY IT NEEDS A NUMERICAL CHECK
+
+    The architecture uses GroupNorm throughout because DP-SGD requires
+    well-defined per-sample gradients. GroupNorm over a 1-D time series
+    needs a shim to export cleanly.
+
+    The failure mode is quiet: a wrong shim EXPORTS SUCCESSFULLY and
+    yields a graph that computes something subtly different. Nothing
+    raises at export, at load, or at inference — the deployed model
+    simply predicts differently from the trained one, permanently.
+
+    Regression test R3 therefore compares PyTorch against ONNX Runtime
+    numerically on identical inputs, requiring max |difference| < 1e-3
+    AND identical argmax. Measured: 4.5e-07 (vitaldb), 8.9e-07 (wear).
+    The shim applies at export only and never alters trained weights.
+
+5.4  SHAPES ARE READ FROM THE GRAPH, NOT ASSUMED
+
+    The benchmark reads input shapes and class count from the ONNX
+    graph itself. A benchmark with hardcoded shapes keeps running
+    happily after the model changes and reports timings for a model
+    that no longer exists — precisely what happens when the dataset
+    changes underneath a benchmark pinned to the old input size.
+
+5.5  THE EXECUTION PROVIDER MUST BE STATED WITH THE NUMBER
+
+    Reported latency depends entirely on the provider. The IoT
+    deployment claim is a CPU claim; running on CUDA measures the edge
+    server instead — a legitimate but DIFFERENT question, and one that
+    flatters the objective.
+
+    The provider is an explicit flag, the ACTIVE provider is read back
+    from the session (a requested provider can silently fall back to
+    CPU), and it is recorded with the result. A latency figure quoted
+    without its provider is not interpretable.
+
+5.6  WHAT IS ACTUALLY TIMED
+
+    End-to-end, not just the forward pass: preprocessing, inference,
+    and conformal prediction-set construction plus serialisation — the
+    work a deployed node genuinely performs per decision. Timing only
+    the matrix multiply would understate deployed latency and make the
+    < 100 ms target easier than reality.
+
+    Protocol: warmup runs discarded, then the measured runs; P50, P95
+    and P99 reported. P95 is the objective metric, because a real-time
+    clinical guarantee is about the tail, not the average.
+
+    The full per-run sample array is retained, not only the summary
+    percentiles — the latency CDF (Fig. 5) cannot be drawn from three
+    numbers.
+
+5.7  INT8 IS OPT-IN AND NON-FATAL
+
+    ONNX Runtime rewrites Gemm into MatMul before quantizing, so
+    excluding a node by its ORIGINAL layer name does not match the
+    rewritten node, and the resulting INT8 graph can fail to load.
+
+    Shape inference must also run on the CLEAN FP32 export
+    (quant_pre_process), not on a graph-optimized one: optimization can
+    leave tensors whose type is not inferrable, and quantize_dynamic
+    then raises.
+
+    Rather than ship a model that silently fails on some runtimes, INT8
+    is optional and its failure never blocks the FP32 path. FP32 is the
+    reported artifact.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 6: SHARED CONFIGURATION AND REPRODUCIBILITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Shared config : SIMULATORS/config/hfl_config.json
+  Registry      : SIMULATORS/data/loaders/datasets.py
+
+  Every run captures, via engineering/runctx.py:
+    git commit and dirty flag, seed, device and CUDA/cuDNN versions,
+    package versions, full argv, and a DATASET FINGERPRINT (md5 of the
+    label array and of partition_meta.json).
+
+  The fingerprint exists because paths do not identify data: rebuilding
+  a dataset with different settings leaves every stored path unchanged.
+  Without it, a result cannot be traced to the arrays that produced it.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 7: RUNNING IT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Everything, one command per dataset:
+
+    python scripts/run_pipeline.py --dataset vitaldb
+
+  Inspect the plan without running:      --dry-run
+  List the stages:                       --list
+  Re-run one stage:                      --force-stage ns3_network
+
+  The driver is resumable: a stage whose outputs already exist is
+  skipped, so recovering from a failure costs nothing already paid for.
+  Per-stage logs and a manifest.json recording the exact argv of every
+  stage are written under results/pipeline/<dataset>/.
+
+  Objectives are scored last:
+
+    python scripts/check_objectives.py --dataset vitaldb
+
+  An objective with no evidence reports NOT MEASURED and names the
+  stage that would settle it. It never reports FAIL for an experiment
+  that was not run, and never reports PASS from a default.
+
+=======================================================================
+ END — 03_NS3_CloudSim_Onnx_Integration.txt
+=======================================================================

@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import {
-  Box, Code2, Layers, Shield, Shrink, HardDrive, Settings, Package,
-  GitCompare, Cpu
+  Box, Layers, Shield, Shrink, HardDrive, Settings, Cpu,
+  AlertTriangle, CheckCircle2
 } from 'lucide-react'
 
 const stagger = { animate: { transition: { staggerChildren: 0.06 } } }
@@ -12,29 +12,34 @@ const fadeUp = {
 }
 
 export default function ModelDesign() {
-  const [activeTab, setActiveTab] = useState('selection')
+  const [activeTab, setActiveTab] = useState('constraints')
 
   return (
     <>
       <div className="page-header">
-        <h2>Model Design Guide</h2>
-        <p>HFL-MM & PHANTOM-FL — Architecture selection, PyTorch implementation, DP-SGD, compression, ONNX</p>
+        <h2>Model Design Guide — HFL-MM</h2>
+        <p>Architecture, privacy design, compression, conformal prediction, deployment</p>
       </div>
       <div className="page-body">
         <motion.div variants={stagger} initial="initial" animate="animate">
 
           <motion.div variants={fadeUp}>
+            <div className="info-box note" style={{ marginBottom: 16 }}>
+              This file documents the model that is <strong>IMPLEMENTED and TRAINED</strong>: HFL-MM, defined in <code>model/architecture/hfl_mm_model.py</code>. Component status is stated explicitly throughout.
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp}>
             <div className="tabs" style={{ flexWrap: 'wrap' }}>
               {[
-                { key: 'selection', icon: <Box size={14} />, label: 'Arch Selection' },
-                { key: 'hflmm', icon: <Layers size={14} />, label: 'HFL-MM Code' },
-                { key: 'dpsgd', icon: <Shield size={14} />, label: 'DP-SGD (Opacus)' },
-                { key: 'compression', icon: <Shrink size={14} />, label: 'Compression' },
-                { key: 'onnx', icon: <HardDrive size={14} />, label: 'ONNX Export' },
-                { key: 'hyperparams', icon: <Settings size={14} />, label: 'Hyperparameters' },
-                { key: 'params', icon: <Cpu size={14} />, label: 'Parameter Count' },
-                { key: 'domains', icon: <GitCompare size={14} />, label: 'Domain Configs' },
-                { key: 'deps', icon: <Package size={14} />, label: 'Dependencies' }
+                { key: 'constraints', icon: <Box size={14} />, label: 'Constraints' },
+                { key: 'architecture', icon: <Layers size={14} />, label: 'Architecture' },
+                { key: 'privacy', icon: <Shield size={14} />, label: 'Privacy Design' },
+                { key: 'compression', icon: <Shrink size={14} />, label: 'Uplink Compression' },
+                { key: 'conformal', icon: <CheckCircle2 size={14} />, label: 'FedConform-HC' },
+                { key: 'training', icon: <Settings size={14} />, label: 'Training Loop' },
+                { key: 'status', icon: <Cpu size={14} />, label: 'Component Status' },
+                { key: 'deployment', icon: <HardDrive size={14} />, label: 'Deployment Path' }
               ].map(tab => (
                 <button key={tab.key} className={`tab ${activeTab === tab.key ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab.key)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -44,152 +49,131 @@ export default function ModelDesign() {
             </div>
           </motion.div>
 
-          {/* SELECTION */}
-          {activeTab === 'selection' && (
+          {/* CONSTRAINTS */}
+          {activeTab === 'constraints' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">1–2</div><h3>Architecture Selection & Constraints</h3></div>
-              <div className="info-box note" style={{ marginBottom: 20 }}>
-                <strong>Constraints:</strong> Opacus DP-SGD compatible (no BatchNorm), fits 12GB VRAM (RTX A2000), ONNX-exportable, &lt;100ms P95 inference, handles signal + image dual-modality, supports non-IID FL.
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Architecture Candidates Evaluated</h4>
-              <div className="table-container" style={{ marginBottom: 24 }}>
-                <table className="data-table">
-                  <thead><tr><th>Architecture</th><th>Pros</th><th>Cons</th><th>Verdict</th></tr></thead>
-                  <tbody>
-                    <tr><td>Simple FC + ResNet18</td><td>Easy to implement</td><td>ResNet18 too heavy (11.7M), slow ONNX</td><td><span className="badge fail">REJECTED</span></td></tr>
-                    <tr><td>1D-CNN + EfficientNet-B0</td><td>Efficient net = ONNX edge friendly</td><td>EfficientNetB0 uses Swish+SE → Opacus partial support issues</td><td><span className="badge fail">REJECTED</span></td></tr>
-                    <tr><td>GRU + ViT-Tiny</td><td>Attention-based both</td><td>ViT-Tiny: 5.7M params → VRAM concern in FL × 20 batch</td><td><span className="badge fail">REJECTED</span></td></tr>
-                    <tr><td>LSTM + MobileNetV2</td><td>Well-tested combo</td><td>LSTM not supported by opacus &lt;1.4, MobileNetV2 lower accuracy</td><td><span className="badge fail">REJECTED</span></td></tr>
-                    <tr className="highlight-row"><td><strong>1D-CNN+GRU + MobileNetV3-Small</strong></td><td>All Opacus compat, 3M params, ~68ms P95</td><td>Late fusion limits cross-modal interaction</td><td><span className="badge pass">SELECTED ✓</span></td></tr>
-                    <tr><td><strong>PHANTOM-FL (Patch + CMGA + SADP)</strong></td><td>5 innovations, 95-97% accuracy</td><td>+3-4 weeks implementation</td><td><span className="badge pass">RECOMMENDED</span></td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="arch-diagram">
-                <div className="arch-layer device">
-                  <div className="arch-layer-label">HFL-MM Selected Architecture</div>
-                  <div className="arch-layer-content">
-                    <strong>Encoder A:</strong> 1D-CNN(3 layers, Conv→GroupNorm→ReLU→MaxPool) + 2-layer GRU(128) → (B, 128)<br/>
-                    <strong>Encoder B:</strong> MobileNetV3-Small (GroupNorm, frozen first 8 blocks) → (B, 576)<br/>
-                    <strong>Fusion:</strong> concat(128 + 576) = 704 → FC(512) → FC(256) → FC(num_classes)
-                  </div>
+              <div className="section-header"><div className="section-number">1</div><h3>The Four Hard Constraints</h3></div>
+              <p className="section-description">The architecture is not a free choice. Four constraints bind it simultaneously, and each eliminates otherwise-attractive options.</p>
+              <div className="objective-grid" style={{ marginTop: 16 }}>
+                <div className="objective-card">
+                  <div className="objective-id">C1</div>
+                  <div className="objective-title">Inference Under 100ms on Edge Hardware</div>
+                  <div className="objective-method">Eliminates ViT, ResNet-50, EfficientNet-B7, transformer language backbones. Admits small 1D conv stacks, GRUs, MobileNet-class image nets, MLP feature encoders.</div>
+                </div>
+                <div className="objective-card">
+                  <div className="objective-id">C2</div>
+                  <div className="objective-title">DP-SGD Compatibility</div>
+                  <div className="objective-method">Opacus requires per-sample gradients. BatchNorm makes each sample's output depend on other samples — per-sample gradient is undefined. Every normalisation is therefore <strong>GroupNorm</strong>. Enforced: build_hfl_mm_hc() walks the module tree and RAISES if any BatchNorm survives.</div>
+                </div>
+                <div className="objective-card">
+                  <div className="objective-id">C3</div>
+                  <div className="objective-title">Two Heterogeneous Modalities</div>
+                  <div className="objective-method">One branch consumes multi-channel time series; the other consumes either an image or a dense feature vector. The two cannot share an encoder.</div>
+                </div>
+                <div className="objective-card">
+                  <div className="objective-id">C4</div>
+                  <div className="objective-title">Small Enough to Transmit Every Round</div>
+                  <div className="objective-method">Uplink objective (≥50% reduction) is a property of what is SENT. This drives the freeze-and-compress design.</div>
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* HFL-MM CODE */}
-          {activeTab === 'hflmm' && (
+          {/* ARCHITECTURE */}
+          {activeTab === 'architecture' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">3</div><h3>Complete Model Implementation (PyTorch)</h3></div>
-              <div className="info-box warning" style={{ marginBottom: 16 }}>
-                <strong>NOTE:</strong> GroupNorm replaces ALL BatchNorm layers throughout. This is MANDATORY for Opacus DP-SGD compatibility. Opacus will raise an error if BatchNorm layers are present.
-              </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Encoder A — 1D-CNN + GRU</h4>
+              <div className="section-header"><div className="section-number">2</div><h3>HFL-MM Architecture</h3></div>
               <div className="code-block" style={{ marginBottom: 20 }}>
-{`class Encoder_A_1DCNN_GRU(nn.Module):
-    # Input: (B, C_in, L) where C_in=1 (vibration) or 5 (WESAD)
-    # Output: (B, 128) feature vector
-    def __init__(self, in_channels=1, gru_hidden=128):
-        self.conv1 = Conv1d(in_ch, 32, k=7, p=3) + GroupNorm(8, 32) + ReLU + MaxPool1d(4)
-        self.conv2 = Conv1d(32, 64, k=5, p=2)    + GroupNorm(8, 64) + ReLU + MaxPool1d(4)
-        self.conv3 = Conv1d(64, 128, k=3, p=1)   + GroupNorm(8, 128)+ ReLU + MaxPool1d(4)
-        self.gru   = GRU(128, hidden=128, layers=2, batch_first=True, dropout=0.2)
-
-    def forward(self, x):  # x: (B, C, 1024)
-        x = conv1(x)       # (B, 32, 256)
-        x = conv2(x)       # (B, 64, 64)
-        x = conv3(x)       # (B, 128, 16)
-        x = x.permute(0,2,1) # (B, 16, 128) for GRU
-        _, h_n = gru(x)      # h_n: (2, B, 128)
-        return h_n[-1]        # (B, 128)`}
+{`modality A ──> encoder_a (FedMamba-HC) ──> 256 ─┐
+                                                 ├─> LateFusionHead ──> n_classes
+modality B ──> encoder_b ──────────────> 576 ────┘`}
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Encoder B — MobileNetV3-Small</h4>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`class Encoder_B_MobileNetV3(nn.Module):
-    # Input: (B, 3, 224, 224)
-    # Output: (B, 576) feature vector
-    def __init__(self, pretrained=True, freeze_backbone=True):
-        backbone = mobilenet_v3_small(weights='IMAGENET1K_V1')
-        backbone = replace_bn_with_gn(backbone)  # Opacus compat
-        self.features = backbone.features
-        self.avgpool = backbone.avgpool
-        if freeze_backbone: freeze first 8 feature blocks
-
-    def forward(self, x):
-        x = self.features(x)   # (B, 576, 7, 7)
-        x = self.avgpool(x)    # (B, 576, 1, 1)
-        return x.flatten(1)    # (B, 576)`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>encoder_a — FedMamba-HC</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">Stacked 1D convolutional front end → bidirectional GRU over temporal axis, GroupNorm throughout. Input channel count is a CONSTRUCTOR ARGUMENT (<code>n_channels_a</code>), never a constant — same class serves 18-channel intraoperative tensor and 12-channel inertial tensor without modification.</p>
+                <div className="kv-grid" style={{ marginTop: 12 }}>
+                  <div className="kv-item"><div className="kv-label">Output</div><div className="kv-value">256-dimensional embedding</div></div>
+                </div>
               </div>
 
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>HFL-MM Full Model</h4>
-              <div className="code-block">
-{`class HFL_MM(nn.Module):
-    def __init__(self, in_channels_a=1, num_classes=4):
-        self.encoder_a = Encoder_A_1DCNN_GRU(in_channels_a, 128)
-        self.encoder_b = Encoder_B_MobileNetV3(pretrained=True)
-        self.fusion = nn.Sequential(
-            FC(704, 512) + LayerNorm(512) + ReLU + Dropout(0.3),
-            FC(512, 256) + LayerNorm(256) + ReLU,
-            FC(256, num_classes)
-        )
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>encoder_b — Modality-B Encoder</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead><tr><th>modality_b</th><th>Implementation</th><th>Current Use</th></tr></thead>
+                    <tbody>
+                      <tr><td><code>"features"</code></td><td>FeatureEncoder: in_dim → 1024 → 576 MLP, GroupNorm</td><td>VitalDB (34-d clinical), WEAR (2048-d video)</td></tr>
+                      <tr><td><code>"image"</code></td><td>MobileNetV3 backbone</td><td>Retained in code, not exercised by current datasets</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="kv-grid" style={{ marginTop: 12 }}>
+                  <div className="kv-item"><div className="kv-label">Output</div><div className="kv-value">576-dimensional embedding</div></div>
+                </div>
+              </div>
 
-    def forward(self, signal, image, mask_a=None, mask_b=None):
-        feat_a = encoder_a(signal)  # (B, 128)
-        feat_b = encoder_b(image)   # (B, 576)
-        # Graceful degradation: zero-vector for missing modality
-        if mask_a: feat_a = feat_a * mask_a.float().unsqueeze(1)
-        if mask_b: feat_b = feat_b * mask_b.float().unsqueeze(1)
-        fused = torch.cat([feat_a, feat_b], dim=1)  # (B, 704)
-        return self.fusion(fused)                    # (B, num_classes)
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>LateFusionHead</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="code-block" style={{ marginBottom: 12 }}>
+{`Concatenate(256, 576) = 832 → 512 → 256 → n_classes
+GELU activations, GroupNorm, dropout 0.3`}
+                </div>
+                <div className="info-box note">
+                  <strong>Why late fusion and NOT cross-attention:</strong> Late fusion keeps each encoder independent until the final head. That property is what makes the privacy design possible: the head is a small, self-contained block that can be trained separately. Cross-attention entangles the streams throughout — no small separable block left to DP-train.
+                </div>
+              </div>
 
-File: SIMULATORS/model/hfl_mm_model.py`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Measured Parameter Counts</h4>
+              <div className="table-container">
+                <table className="data-table">
+                  <thead><tr><th>Dataset</th><th>Total</th><th>encoder_a</th><th>encoder_b</th><th>Head (DP-trained)</th></tr></thead>
+                  <tbody>
+                    <tr><td>VitalDB</td><td>1,864,227</td><td>674,913</td><td>629,440</td><td>559,874 (30.0%)</td></tr>
+                    <tr><td>WEAR</td><td>3,925,875</td><td>670,113</td><td>2,691,776</td><td>563,986 (14.4%)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="info-box note" style={{ marginTop: 12 }}>
+                Head is roughly the same absolute size; percentage differs because WEAR's 2048-d input makes encoder_b large. Transmitted fraction is a property of the dataset, not a tunable claim.
               </div>
             </motion.div>
           )}
 
-          {/* DP-SGD */}
-          {activeTab === 'dpsgd' && (
+          {/* PRIVACY DESIGN */}
+          {activeTab === 'privacy' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">4</div><h3>DP-SGD Training with Opacus</h3></div>
-              <div className="kv-grid" style={{ marginBottom: 20 }}>
-                <div className="kv-item"><div className="kv-label">Library</div><div className="kv-value">Opacus (Meta AI, official PyTorch DP)</div></div>
-                <div className="kv-item"><div className="kv-label">Target ε</div><div className="kv-value">1.0</div></div>
-                <div className="kv-item"><div className="kv-label">Target δ</div><div className="kv-value">1e-5</div></div>
-                <div className="kv-item"><div className="kv-label">Gradient Clip C</div><div className="kv-value">1.0</div></div>
-                <div className="kv-item"><div className="kv-label">Noise σ</div><div className="kv-value">~1.1 (auto-calibrated)</div></div>
-                <div className="kv-item"><div className="kv-label">Accountant</div><div className="kv-value">RDP (Rényi DP)</div></div>
+              <div className="section-header"><div className="section-number">3</div><h3>Privacy Design — Head-Only DP Fine-Tuning</h3></div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>The Problem</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">A strict budget forces a large noise multiplier. Training the full network from scratch under that noise destroys encoder gradients before they form useful features — the system collapses toward chance.</p>
               </div>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`from opacus import PrivacyEngine
-from opacus.validators import ModuleValidator
 
-# Validate model (checks for BN, unsupported layers)
-model = ModuleValidator.fix(model)
-errors = ModuleValidator.validate(model, strict=False)
-assert len(errors) == 0
-
-# Privacy engine
-privacy_engine = PrivacyEngine()
-model, optimizer, train_loader = privacy_engine.make_private_with_epsilon(
-    module=model, optimizer=optimizer, data_loader=train_loader,
-    epochs=local_epochs,        # 1 epoch per FL round
-    target_epsilon=1.0, target_delta=1e-5,
-    max_grad_norm=1.0,          # gradient clip norm C
-)
-
-# After each FL round:
-epsilon = privacy_engine.get_epsilon(delta=1e-5)
-print(f"Privacy budget spent: ε = {epsilon:.3f}")`}
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>The Mechanism</h4>
+              <div className="code-block" style={{ marginBottom: 16 }}>
+{`1. Pretrain both encoders non-privately (pretrain_encoders.py)
+2. FREEZE both encoders
+3. DP-train ONLY the fusion head, federated across clients`}
               </div>
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Key Opacus Constraints</h4>
-              <div className="kv-grid">
-                <div className="kv-item"><div className="kv-label">✓ Supported</div><div className="kv-value">DataLoader with batch_size, GRU, BatchMemoryManager</div></div>
-                <div className="kv-item"><div className="kv-label">✗ Not Supported</div><div className="kv-value">BatchNorm (use GroupNorm), weight-tied layers</div></div>
+
+              <div className="info-box" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.03)', marginBottom: 16 }}>
+                <strong>THE POINT MOST LIKELY TO BE MISREAD:</strong> Freezing does NOT reduce the noise. Sigma is a function of the budget, the number of steps, and the sampling rate. It does not depend on how many parameters are trained. Freezing changes the OPTIMISATION GEOMETRY so the same sigma becomes survivable. Stating "we froze most of the model so we needed less noise" would be false.
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Implementation Hazard</h4>
+              <div className="info-box note" style={{ marginBottom: 16 }}>
+                <code>requires_grad</code> is NOT part of <code>state_dict</code>. Every rebuild or reload in the federated loop must RE-APPLY the freeze, or encoders silently become trainable again. <code>freeze_encoders()</code> is called after every load, not once at setup.
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Accounting</h4>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">One sigma precomputed for the whole budget. ONE persistent privacy engine per client reused across rounds. Calling the accountant afresh each round drops cross-round composition and reports budget far smaller than actually spent. Conformal calibration budget is composed into reported total.</p>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Limitation — Stated Plainly</h4>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
+                If encoders are pretrained on pooled federated training data, they have seen private data non-privately. Numbers from that mode measure the UPPER BOUND — not a valid end-to-end guarantee. <code>pretrain_encoders.py</code> prints PROXY/ORACLE warning and stamps the mode into checkpoint metadata. Closing this gap with a genuinely external public corpus is the <strong>single most important outstanding item</strong>.
               </div>
             </motion.div>
           )}
@@ -197,180 +181,150 @@ print(f"Privacy budget spent: ε = {epsilon:.3f}")`}
           {/* COMPRESSION */}
           {activeTab === 'compression' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">5</div><h3>Gradient Compression</h3></div>
+              <div className="section-header"><div className="section-number">4</div><h3>What Travels on the Uplink</h3></div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Compression Chain (applied to head delta)</h4>
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead><tr><th>Step</th><th>Technique</th><th>Nominal Factor</th></tr></thead>
+                    <tbody>
+                      <tr><td>1</td><td>Top-k sparsification, keep 20%</td><td>5×</td></tr>
+                      <tr><td>2</td><td>8-bit quantization</td><td>4×</td></tr>
+                      <tr><td>3</td><td>Error feedback (residual carried to next round)</td><td>—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>A Subtle Defect, Fixed</h4>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)', marginBottom: 16 }}>
+                Under frozen encoders the encoder deltas are exactly zero. A fixed-k top-k selector will nonetheless "select" 20% of an all-zero tensor and transmit those zeros as if they were updates. The selector is now <strong>capped by the number of non-zero entries</strong>, so an all-zero tensor sends nothing. Without that cap the measured uplink would be inflated by traffic carrying no information.
+              </div>
+              <div className="info-box note">
+                Dense (non-frozen) path is unaffected by the cap and was verified bit-identical before and after the fix.
+              </div>
+            </motion.div>
+          )}
+
+          {/* FEDCONFORM-HC */}
+          {activeTab === 'conformal' && (
+            <motion.div variants={fadeUp} className="section">
+              <div className="section-header"><div className="section-number">5</div><h3>FedConform-HC — Calibrated Prediction Sets</h3></div>
+              <div className="info-box success" style={{ marginBottom: 16 }}>
+                <strong>Status:</strong> IMPLEMENTED in <code>model/utils/fedconform_hc.py</code>
+              </div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">A point prediction is insufficient for a clinical decision. Split conformal prediction converts model scores into a set that contains the true label with a user-chosen probability, using a held-out calibration split. The federated version aggregates a per-client quantile hierarchically.</p>
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Why the DP Mechanism Matters</h4>
               <div className="info-box note" style={{ marginBottom: 16 }}>
-                <strong>Why compression AFTER DP:</strong> DP noise is added to gradients first. Compression after DP = gradient already privacy-safe → compressing does not violate DP (post-processing theorem).
+                The quantile must be released privately. Additive noise on a quantile is a poor fit: the noise scale needed for a strict budget is comparable to the spread of the statistic. The released quantile is dominated by noise → sets are either vacuous (every label) or invalid (coverage lost).
               </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Step 1: Top-k Sparsification with Error Feedback</h4>
-              <div className="code-block" style={{ marginBottom: 16 }}>
-{`class GradientCompressor:
-    def compress(self, gradient_dict, round_id):
-        for name, grad in gradient_dict.items():
-            grad = grad + self.residuals[name]  # error feedback
-            k = int(len(grad.flatten()) * 0.2)  # top 20%
-            values, indices = torch.topk(grad.abs().flatten(), k)
-            # Save residual (unselected gradients for next round)
-            residual = grad.clone(); residual.flatten()[indices] = 0
-            self.residuals[name] = residual
-        → Keep 20% → 5× reduction`}
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">Uses the <strong>EXPONENTIAL MECHANISM</strong>, which selects a value from the score distribution with probability weighted by utility rather than perturbing additively.</p>
+                <div className="table-container" style={{ marginTop: 12 }}>
+                  <table className="data-table">
+                    <thead><tr><th>Metric</th><th>Exponential Mechanism</th><th>Additive Mechanism</th></tr></thead>
+                    <tbody>
+                      <tr><td>Bias</td><td>~0.001</td><td>—</td></tr>
+                      <tr><td>Std. deviation</td><td>—</td><td>~0.416</td></tr>
+                      <tr className="highlight-row"><td>Difference</td><td colSpan={2}>Three orders of magnitude better behaved</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-
-              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Step 2: 8-bit Quantization</h4>
-              <div className="code-block" style={{ marginBottom: 16 }}>
-{`def quantize_8bit(values):
-    scale = (v_max - v_min) / 255.0 + 1e-8
-    quantized = ((values - v_min) / scale).round().clamp(0, 255).byte()
-    → float32 → uint8 → 4× reduction`}
-              </div>
-
-              <div className="stats-grid">
-                <div className="stat-card"><div className="stat-label">Top-k</div><div className="stat-value">5×</div><div className="stat-change target">sparsity=0.2</div></div>
-                <div className="stat-card"><div className="stat-label">Quantization</div><div className="stat-value">4×</div><div className="stat-change target">float32→uint8</div></div>
-                <div className="stat-card"><div className="stat-label">Combined</div><div className="stat-value green">20×</div><div className="stat-change positive">5× × 4×</div></div>
-                <div className="stat-card"><div className="stat-label">Per Device</div><div className="stat-value">2.5 MB</div><div className="stat-change positive">was 10 MB in P4</div></div>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
+                <strong>Budget:</strong> Calibration runs on the final round only. Its ε is composed into the reported total — NOT reported separately. A system that counts only its training epsilon and performs data-dependent calibration has understated its true budget.
               </div>
             </motion.div>
           )}
 
-          {/* ONNX */}
-          {activeTab === 'onnx' && (
+          {/* TRAINING LOOP */}
+          {activeTab === 'training' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">6</div><h3>ONNX Export & Optimization</h3></div>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`# Export
-torch.onnx.export(model, (dummy_signal, dummy_image), "hfl_mm.onnx",
-    opset_version=17, input_names=["signal", "image"],
-    output_names=["logits"], dynamic_axes={...},
-    do_constant_folding=True)
-
-# INT8 Quantization
-quantize_dynamic(model_input="hfl_mm.onnx", model_output="hfl_mm_int8.onnx",
-    weight_type=QuantType.QInt8, per_channel=True)
-
-# Benchmark (1000 runs + 100 warmup)
-session = ort.InferenceSession("hfl_mm_int8.onnx",
-    providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
-→ latencies: Mean, P50, P95, P99, Max`}
+              <div className="section-header"><div className="section-number">6</div><h3>Hierarchical Training Loop</h3></div>
+              <div className="arch-diagram">
+                <div className="arch-layer device">
+                  <div className="arch-layer-label">Layer 1: Client</div>
+                  <div className="arch-layer-content">Local DP-SGD on the head; compress the delta</div>
+                </div>
+                <div className="arch-arrow">↓ Compressed head delta</div>
+                <div className="arch-layer edge">
+                  <div className="arch-layer-label">Layer 2: Edge (×2)</div>
+                  <div className="arch-layer-content">FedAvg over its clients every τ_e rounds; ASWA staleness weighting</div>
+                </div>
+                <div className="arch-arrow">↓ Aggregated updates</div>
+                <div className="arch-layer cloud">
+                  <div className="arch-layer-label">Layer 3: Cloud</div>
+                  <div className="arch-layer-content">FedAvg over edges; redistribute</div>
+                </div>
               </div>
-              <div className="stats-grid">
-                <div className="stat-card"><div className="stat-label">FP32 ONNX</div><div className="stat-value">~8.4 MB</div></div>
-                <div className="stat-card"><div className="stat-label">INT8 ONNX</div><div className="stat-value green">~2.1 MB</div></div>
-                <div className="stat-card"><div className="stat-label">P95 Latency</div><div className="stat-value green">~68ms</div></div>
-                <div className="stat-card"><div className="stat-label">Target</div><div className="stat-value">&lt;100ms ✓</div></div>
-              </div>
-            </motion.div>
-          )}
 
-          {/* HYPERPARAMETERS */}
-          {activeTab === 'hyperparams' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">7</div><h3>Hyperparameter Reference Table</h3></div>
-              <div className="table-container">
-                <table className="data-table">
-                  <thead><tr><th>Category</th><th>Parameter</th><th>Value</th><th>Justification</th></tr></thead>
-                  <tbody>
-                    <tr><td rowSpan="5"><strong>Architecture</strong></td><td>Encoder A type</td><td>1D-CNN+GRU</td><td>Time-series, low-mem</td></tr>
-                    <tr><td>GRU hidden dim</td><td>128</td><td>Balance: capacity/speed</td></tr>
-                    <tr><td>Encoder B type</td><td>MobileNetV3-Small</td><td>Edge-friendly, &lt;100ms</td></tr>
-                    <tr><td>Fusion dim</td><td>[512, 256]</td><td>Reduce from 704</td></tr>
-                    <tr><td>Normalization</td><td>GroupNorm</td><td>Required for Opacus</td></tr>
-                    <tr><td rowSpan="5"><strong>FL Training</strong></td><td>Global rounds</td><td>20</td><td>Convergence target</td></tr>
-                    <tr><td>Edge rounds (τ_e)</td><td>5</td><td>HED-FL optimal</td></tr>
-                    <tr><td>Local epochs</td><td>1</td><td>Prevents client drift</td></tr>
-                    <tr><td>Learning rate</td><td>1e-3</td><td>Adam default</td></tr>
-                    <tr><td>Batch size</td><td>32</td><td>GPU memory safe</td></tr>
-                    <tr><td rowSpan="4"><strong>Privacy</strong></td><td>Target ε</td><td>1.0</td><td>Privacy budget</td></tr>
-                    <tr><td>Target δ</td><td>1e-5</td><td>= 1/dataset_size</td></tr>
-                    <tr><td>Gradient clip C</td><td>1.0</td><td>Standard in DP-FL</td></tr>
-                    <tr><td>Noise σ</td><td>~1.1</td><td>Auto-set by Opacus</td></tr>
-                    <tr><td rowSpan="3"><strong>Compression</strong></td><td>Sparsity k</td><td>0.20</td><td>Top-20% gradients</td></tr>
-                    <tr><td>Quant bits</td><td>8</td><td>uint8, 4× reduction</td></tr>
-                    <tr><td>Error feedback</td><td>Yes</td><td>Prevents accuracy drop</td></tr>
-                    <tr><td rowSpan="3"><strong>ONNX</strong></td><td>Opset</td><td>17</td><td>PyTorch 2.x compat</td></tr>
-                    <tr><td>Quant type</td><td>QInt8</td><td>Dynamic quantization</td></tr>
-                    <tr><td>Warmup runs</td><td>100</td><td>JIT compilation cache</td></tr>
-                  </tbody>
-                </table>
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginTop: 24, marginBottom: 12 }}>Model Selection</h4>
+              <div className="info-box note" style={{ marginBottom: 16 }}>
+                On a POOLED validation split across all clients, never on a single client's split. One client's split is small and class-skewed enough that a handful of misclassifications swings the score by points — selecting on it selects noise. Selection metric: AUPRC (binary) / macro AUROC (multiclass).
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Ablation Knobs</h4>
+              <div className="code-block">
+{`--n_edges / --tau_e    hierarchy
+--no_dp               privacy off, genuinely: no clipping, no noise,
+                      no accountant. NOT the same as a large epsilon
+                      (which still clips per-sample gradients).
+--sparsity            top-k fraction
+--quant_bits          quantization width`}
               </div>
             </motion.div>
           )}
 
-          {/* PARAMETER COUNT */}
-          {activeTab === 'params' && (
+          {/* COMPONENT STATUS */}
+          {activeTab === 'status' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">8</div><h3>Model Parameter Count & Sizes</h3></div>
+              <div className="section-header"><div className="section-number">7</div><h3>Component Status — Implemented vs Designed</h3></div>
+              <div className="info-box note" style={{ marginBottom: 20 }}>
+                No component is credited on the strength of merely existing in the repository.
+              </div>
               <div className="table-container" style={{ marginBottom: 24 }}>
                 <table className="data-table">
-                  <thead><tr><th>Component</th><th>Params</th><th>% of Total</th><th>Notes</th></tr></thead>
+                  <thead><tr><th>Component</th><th>Built</th><th>Run That Establishes Contribution</th></tr></thead>
                   <tbody>
-                    <tr><td>Encoder A (1D-CNN)</td><td>~200K</td><td>6.5%</td><td>Conv layers + GN</td></tr>
-                    <tr><td>Encoder A (GRU)</td><td>~220K</td><td>7.2%</td><td>2-layer GRU (128 hidden)</td></tr>
-                    <tr><td>Encoder B (MobileNetV3)</td><td>~2,500K</td><td>81.3%</td><td>1,000K trainable, 1,500K frozen</td></tr>
-                    <tr><td>Fusion head</td><td>~150K</td><td>4.9%</td><td>FC512→FC256→FC_cls</td></tr>
-                    <tr className="highlight-row"><td><strong>Total trainable</strong></td><td><strong>~1,570K</strong></td><td>100%</td><td>—</td></tr>
-                    <tr className="highlight-row"><td><strong>Total parameters</strong></td><td><strong>~3,070K</strong></td><td>—</td><td>—</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="stats-grid">
-                <div className="stat-card"><div className="stat-label">PyTorch .pt</div><div className="stat-value">~12 MB</div><div className="stat-change target">params + optimizer</div></div>
-                <div className="stat-card"><div className="stat-label">ONNX FP32</div><div className="stat-value">~8.4 MB</div><div className="stat-change target">params only</div></div>
-                <div className="stat-card"><div className="stat-label">ONNX INT8</div><div className="stat-value green">~2.1 MB</div><div className="stat-change positive">4× compression</div></div>
-                <div className="stat-card"><div className="stat-label">Gradient/round</div><div className="stat-value">~2.5 MB</div><div className="stat-change positive">20× compressed</div></div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* DOMAIN CONFIGS */}
-          {activeTab === 'domains' && (
-            <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">9</div><h3>Domain-Specific Configurations</h3></div>
-              <div className="table-container">
-                <table className="data-table">
-                  <thead><tr><th>Config</th><th>IIoT (CWRU)</th><th>Smart City (Urban+EPA)</th><th>Healthcare (WESAD+CXR)</th></tr></thead>
-                  <tbody>
-                    <tr><td>Encoder A in_channels</td><td>1 (vibration)</td><td>6 (env. vector, FC encoder)</td><td>5 (ACC×3, EDA, TEMP)</td></tr>
-                    <tr><td>Encoder A length L</td><td>1024</td><td>N/A (FC, not conv)</td><td>160 (5s window)</td></tr>
-                    <tr><td>Encoder B input</td><td>STFT spectrogram (RGB)</td><td>Mel-spectrogram (RGB)</td><td>X-ray (grayscale→RGB)</td></tr>
-                    <tr><td>num_classes</td><td>4</td><td>5</td><td>4</td></tr>
-                    <tr><td>Loss</td><td>CrossEntropy</td><td>CrossEntropy</td><td>WeightedCrossEntropy</td></tr>
-                    <tr><td>Signal augment</td><td>jitter ±2%, time-shift ±50</td><td>—</td><td>Gaussian noise σ=0.01</td></tr>
-                    <tr><td>Image augment</td><td>hflip, brightness ±20%</td><td>—</td><td>hflip, rotation ±5°</td></tr>
+                    <tr><td>FedMamba-HC encoder_a</td><td style={{ color: 'var(--success)' }}>YES</td><td>Modality ablation</td></tr>
+                    <tr><td>FeatureEncoder encoder_b</td><td style={{ color: 'var(--success)' }}>YES</td><td>Modality ablation</td></tr>
+                    <tr><td>LateFusionHead</td><td style={{ color: 'var(--success)' }}>YES</td><td>Modality ablation (C5)</td></tr>
+                    <tr><td>Head-only DP fine-tuning</td><td style={{ color: 'var(--success)' }}>YES</td><td>ε sweep, B4→B6</td></tr>
+                    <tr><td>Gradient compression</td><td style={{ color: 'var(--success)' }}>YES</td><td>Ablation A3, A4</td></tr>
+                    <tr><td>Two-tier hierarchy</td><td style={{ color: 'var(--success)' }}>YES</td><td>Ablation A1, S3→S4</td></tr>
+                    <tr><td>FedConform-HC</td><td style={{ color: 'var(--success)' }}>YES</td><td>Empirical coverage vs nominal</td></tr>
+                    <tr><td>ASWA</td><td style={{ color: 'var(--success)' }}>YES</td><td style={{ color: '#F59E0B' }}>NOT YET DEFINED — unablated</td></tr>
+                    <tr><td>FedKD-E distillation</td><td style={{ color: '#F59E0B' }}>YES (not freeze-aware)</td><td style={{ color: '#EF4444' }}>Blocked; disabled in every run</td></tr>
+                    <tr><td>ClinicalCMGA</td><td style={{ color: '#EF4444' }}>NO</td><td>Not a component of this system</td></tr>
                   </tbody>
                 </table>
               </div>
             </motion.div>
           )}
 
-          {/* DEPENDENCIES */}
-          {activeTab === 'deps' && (
+          {/* DEPLOYMENT PATH */}
+          {activeTab === 'deployment' && (
             <motion.div variants={fadeUp} className="section">
-              <div className="section-header"><div className="section-number">10</div><h3>Package Dependencies</h3></div>
-              <div className="code-block" style={{ marginBottom: 20 }}>
-{`# Core ML
-pip install torch torchvision torchaudio           # PyTorch 2.x
-pip install opacus                                 # DP-SGD
-pip install onnx onnxruntime-gpu                   # ONNX export+inference
-pip install onnxruntime-extensions                 # extra ops
-
-# Data Processing
-pip install librosa soundfile                      # audio
-pip install scipy wfdb                             # signal processing
-pip install numpy pandas matplotlib seaborn        # analysis/viz
-pip install scikit-learn                           # metrics
-pip install tqdm tensorboard                       # training utilities
-pip install soundata                               # UrbanSound8K loader
-
-# Additional for PHANTOM-FL
-pip install einops                                 # tensor rearrange
-pip install timm                                   # ViT reference`}
+              <div className="section-header"><div className="section-number">8</div><h3>Deployment Path</h3></div>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <p className="section-description">The trained checkpoint is exported to ONNX — a runtime-independent artifact whose input shapes and class count are read FROM THE GRAPH by the benchmark, not assumed by it.</p>
               </div>
-              <div className="kv-grid">
-                <div className="kv-item"><div className="kv-label">torch</div><div className="kv-value">2.1.x (CUDA 12.1, RTX A2000)</div></div>
-                <div className="kv-item"><div className="kv-label">opacus</div><div className="kv-value">1.4.x (GRU support)</div></div>
-                <div className="kv-item"><div className="kv-label">onnxruntime</div><div className="kv-value">1.16.x (CUDA EP)</div></div>
-                <div className="kv-item"><div className="kv-label">python</div><div className="kv-value">3.10.x</div></div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>GroupNorm Export Shim</h4>
+              <div className="info-box note" style={{ marginBottom: 16 }}>
+                GroupNorm requires a shim for ONNX export. Applied at export time only; does not alter trained weights.
+              </div>
+
+              <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>INT8 Dynamic Quantization</h4>
+              <div className="info-box" style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)', marginBottom: 16 }}>
+                <strong>OPT-IN and non-fatal.</strong> ONNX Runtime decomposes Gemm into MatMul before quantizing — node-exclusion by original layer name does not match the rewritten node. Rather than ship a model that silently fails on some runtimes, INT8 is offered as an option and its failure never blocks the FP32 path.
+              </div>
+
+              <div className="info-box note">
+                <strong>Latency figure must state its execution provider.</strong> The IoT deployment claim is a CPU claim. Measuring on CUDA benchmarks the edge server, which is a different question.
               </div>
             </motion.div>
           )}

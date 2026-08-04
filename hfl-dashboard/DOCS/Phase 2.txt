@@ -17,7 +17,7 @@ PHASE 2 — Simulator Selection & Design
   │ Packet-level accuracy  │ True packet-level simulation with queuing, loss,  │ Matlab (abstract only), NS2 (outdated)  │ NS-3 wins         │
   │                        │ delay models                                      │                                         │                   │
   ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
-  │ Python interface       │ PyBind11-based Python bindings (ns3-gym, direct   │ OMNET++ (C++ only), NS2 (TCL only)      │ NS-3 wins         │
+  │ Python interface       │ cppyy-based Python bindings (v3.36+), direct API   │ OMNET++ (C++ only), NS2 (TCL only)      │ NS-3 wins         │
   │                        │ API)                                              │                                         │                   │
   ├────────────────────────┼───────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────┤
   │ FL research adoption   │ Cited in HED-FL, RoPPFL, HCEF for network         │ —                                       │ NS-3 is the       │
@@ -30,7 +30,7 @@ PHASE 2 — Simulator Selection & Design
   │                        │ need)                                             │                                         │                   │
   └────────────────────────┴───────────────────────────────────────────────────┴─────────────────────────────────────────┴───────────────────┘
 
-  What NS-3 models in  project:
+  What NS-3 models in your project:
   - Device → Edge wireless link (WiFi 802.11ax or LTE-Advanced)
   - Edge → Cloud wired/fiber link (CSMA or point-to-point)
   - Packet loss, jitter, channel congestion under load
@@ -70,7 +70,7 @@ PHASE 2 — Simulator Selection & Design
   │                     │                                                  │                                               │ thesis          │
   └─────────────────────┴──────────────────────────────────────────────────┴───────────────────────────────────────────────┴─────────────────┘
 
-  What CloudSim Plus models in  project:
+  What CloudSim Plus models in your project:
   - Edge server resource provisioning (CPU, RAM, bandwidth per VM)
   - FL round scheduling: local training → edge aggregation → cloud aggregation tasks
   - Computation energy: E_comp = κ · f² · C · D per device per round
@@ -135,7 +135,7 @@ PHASE 2 — Simulator Selection & Design
   ║           NS-3: NETWORK SIMULATION DESIGN                        ║
   ╚══════════════════════════════════════════════════════════════════╝
 
-  TOPOLOGY: 3-Tier Hierarchical (matches  HFL architecture exactly)
+  TOPOLOGY: 3-Tier Hierarchical (matches your HFL architecture exactly)
 
     [IoT Device Cluster A]          [IoT Device Cluster B]
      Dev-1  Dev-2  Dev-3             Dev-4  Dev-5  Dev-6
@@ -184,7 +184,13 @@ PHASE 2 — Simulator Selection & Design
 
   PYTHON INTERFACE:
     • ns3-gym (OpenAI Gym environment for NS-3) OR
-    • Direct Python binding via PyBind11 (ns-3 native from v3.37+)
+    • Direct Python binding via cppyy (ns-3 native from v3.36+)
+      NOTE: NOT PyBind11. From v3.36 the bindings are cppyy-based and
+      the namespace is FLAT — `from ns import ns`, then ns.NodeContainer.
+      The per-module form (ns.core, ns.network, ...) was removed. Code
+      written against the older convention raises ImportError even on a
+      correctly built tree, which makes a fallback path look like a
+      successful simulation. See Phase 3, Steps 6-7.
     • Post-processing: Python reads FlowMonitor XML → pandas → plots
 
   ---
@@ -331,7 +337,7 @@ PHASE 2 — Simulator Selection & Design
   7. Simulator Comparison Summary (Thesis Table)
 
   ┌───────────────────┬────────────────────────────────────┬──────────────────────────────┬─────────────────────────────────────┐
-  │     Dimension     │                NS-3                │        CloudSim Plus         │        Scope in  Project        │
+  │     Dimension     │                NS-3                │        CloudSim Plus         │        Scope in Your Project        │
   ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
   │ Simulation type   │ Packet-level network               │ Discrete-event compute       │ Complementary                       │
   ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
@@ -343,8 +349,47 @@ PHASE 2 — Simulator Selection & Design
   ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
   │ FL relevance      │ Communication overhead measurement │ Computation cost measurement │ Both required                       │
   ├───────────────────┼────────────────────────────────────┼──────────────────────────────┼─────────────────────────────────────┤
-  │ Validation target │ O1 (comm reduction) + O3 (latency) │ O4 (energy)                  │ O2 (privacy) validated analytically │
+  │ Validation target │ O1 (comm reduction) + O3b          │ O4 (energy)                  │ O2 (privacy) from the training run  │
+  │                   │ (update reliability)               │                              │ O3a (inference latency) from ONNX   │
   └───────────────────┴────────────────────────────────────┴──────────────────────────────┴─────────────────────────────────────┘
+
+  ---
+  8. Why a THIRD tool: ONNX Runtime
+
+  Two simulators are not sufficient to validate all four objectives.
+  NS-3 models the network and CloudSim Plus models compute and energy,
+  but neither can answer Objective 3a — the DEPLOYED inference latency
+  of the trained model.
+
+  Measuring that inside the training framework, on the training
+  machine, with the training batch size, does not support a deployment
+  claim: it measures the research environment. ONNX Runtime is
+  therefore adopted as the third evaluation tool.
+
+  ┌──────────────────────┬────────────────────────────────────────────┐
+  │ Criterion            │ ONNX Runtime                               │
+  ├──────────────────────┼────────────────────────────────────────────┤
+  │ Runtime independence │ Graph runs without PyTorch installed       │
+  │ Portability          │ Same artifact on CPU, GPU, embedded targets│
+  │ Provider control     │ Execution provider is explicit and is read │
+  │                      │ back from the session (a request can       │
+  │                      │ silently fall back)                        │
+  │ Standardisation      │ ONNX is the interchange format for ML      │
+  │                      │ models — the deployment claim transfers    │
+  │ Quantization         │ Dynamic INT8 available (opt-in here)       │
+  └──────────────────────┴────────────────────────────────────────────┘
+
+  DIVISION OF EVIDENCE — each objective owned by exactly one tool:
+
+    O1   uplink reduction        → NS-3        (packet level)
+    O2   epsilon, accuracy loss  → training    (PyTorch + accountant)
+    O3a  inference latency       → ONNX Runtime
+    O3b  update reliability      → NS-3        (packet level)
+    O4   energy per round        → CloudSim Plus
+
+  No objective is answered by more than one tool. Where two tools could
+  plausibly report the same quantity, the packet-level or measured
+  source is authoritative and the analytical one is labelled as such.
 
   ---
   Phase 2 Summary
@@ -365,4 +410,8 @@ PHASE 2 — Simulator Selection & Design
   │ Shared parameter mapping table                                  │ Done   │
   ├─────────────────────────────────────────────────────────────────┼────────┤
   │ Thesis-ready comparison table                                   │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ ONNX Runtime selection + justification (third tool, O3a)        │ Done   │
+  ├─────────────────────────────────────────────────────────────────┼────────┤
+  │ Objective-to-tool ownership mapping (no double-counting)        │ Done   │
   └─────────────────────────────────────────────────────────────────┴────────┘

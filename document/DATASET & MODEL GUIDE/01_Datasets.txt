@@ -1,444 +1,390 @@
-
 =======================================================================
- DATASET ACCESS, SELECTION & INTEGRATION GUIDE
+ DATASET SELECTION, ACCESS & INTEGRATION GUIDE
  HFL-MM: Hierarchical Federated Multimodal IoT Learning
  Student : Samartha H V | MIT Bengaluru | Regd. 251580130019
+ Guide   : Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
+ Revised : 2026-08-04
 =======================================================================
 
+  Two datasets carry this research. Both are registered in
+  SIMULATORS/data/loaders/datasets.py, which is the single source of
+  truth for every shape, path, client count and class count used
+  anywhere in the codebase.
+
+    vitaldb   PRIMARY research domain — clinical IoMT
+    wear      Fast-iteration domain — wearable IoT
+
+  Nothing in the pipeline hardcodes a dataset. Adding an entry to the
+  registry is sufficient to make training, baselines, the privacy
+  sweep, the simulators, the exporters and every figure run on it.
+
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 1: WHY THESE DATASETS
+  SECTION 1: THE SELECTION CRITERION THAT DECIDES EVERYTHING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The HFL-MM framework targets THREE IoT application domains, each
-requiring TWO heterogeneous modalities. Dataset selection criteria:
+Research Gap #1 of this project is "no multimodal fusion in existing
+federated learning". To DEMONSTRATE that gap rather than assert it, a
+dataset must satisfy two conditions that are easy to confuse.
 
-  ✓ Publicly available (no purchase/institutional access required)
-  ✓ Multi-class (minimum 3 classes — tests non-IID partitioning)
-  ✓ Appropriate size (processable on 12GB VRAM, 500GB disk)
-  ✓ Used in recent FL literature (ensures fair comparison)
-  ✓ Represents real IoT data distribution (not curated lab data)
+  CONDITION A — GENUINE PAIRING
+    The two modalities must describe the SAME entity at the SAME time,
+    and must have been RECORDED that way by the instrument. Pairing two
+    independent sources by a rule manufactures a correlation that does
+    not exist in the world. If the rule is a function of the label, the
+    "fusion gain" measured afterwards is label leakage, not fusion.
 
-  Domain          Primary Modality      Secondary Modality    Classes
+  CONDITION B — A SHARED TARGET
+    Both modalities must independently carry information about the
+    label. Genuine pairing with a target only one modality can predict
+    is still a fake fusion task: the second encoder contributes
+    nothing, and any apparent gain is noise.
+
+  Worked example of passing A but failing B:
+    Genuinely paired cardiac signal + chest image, target = a rhythm
+    class read off the signal. The image cannot report a rhythm, so the
+    image encoder is decoration and fusion cannot help. The task looks
+    multimodal and is not.
+
+  THE TEST THAT SETTLES IT
+    Train three models on identical splits: modality A alone, modality
+    B alone, and fused. Fusion must beat BOTH unimodal arms by more
+    than the seed-to-seed standard deviation. Beating only the weaker
+    arm proves nothing — the fused model can reach that by ignoring the
+    weak modality entirely.
+
+    Implemented in SIMULATORS/scripts/modality_ablation.py and run as a
+    first-class pipeline stage, not as an afterthought.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 2: DATASET 1 — VitalDB (PRIMARY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Source     : Lee et al., "VitalDB, a high-fidelity multi-parameter
+               vital signs database in surgical patients",
+               Scientific Data 9:279, 2022.
+  Access     : https://vitaldb.net — open, no credentialing required.
+               Fetched track-by-track via the public API by
+               SIMULATORS/data/loaders/fetch_vitaldb.py (resumable).
+  Domain     : Clinical IoMT — intraoperative patient monitoring.
+  Licence    : CC BY 3.0. Redistribution of derived arrays permitted
+               with attribution.
+
+2.1  WHY THIS DATASET
+
+  VitalDB is recorded by Vital Recorder, a single acquisition system
+  attached to one patient during one operation. Both modalities come
+  out of the SAME operation record. There is no pairing rule anywhere
+  in the pipeline — the pairing is a property of the instrument.
+
+  Condition A is satisfied by construction.
+  Condition B is satisfied by measurement (Section 5).
+
+2.2  WHAT IS ON DISK
+
+  Windows        : 48,712
+  Source cases   : 6,257 surgeries
+  Clients        : 9
+  Classes        : 2
+  Edge servers   : 2
+
+  MODALITY A — intraoperative vital-sign trends
+    Shape        : (18, 300)
+    Content      : 9 numeric trend channels + 9 observed-masks
+    Sampling     : 0.5 Hz over a 10-minute window
+    Channels     : non-invasive and invasive pressures, heart rate,
+                   temperature and related intraoperative numerics
+
+    WHY 18 CHANNELS FOR 9 SIGNALS
+      Operating-theatre monitoring is intermittently observed: a cuff
+      pressure appears every few minutes, a probe is detached and
+      reattached, a line is flushed. Imputing those gaps and discarding
+      the fact that they WERE gaps throws away information, because
+      which signals are being watched is itself clinically meaningful —
+      an anaesthetist escalates monitoring when a patient deteriorates.
+      Each signal therefore carries a parallel binary mask channel
+      marking observed vs imputed (GRU-D style). Missingness is treated
+      as signal, not as damage to be repaired silently.
+
+    EXCLUDED ON PURPOSE
+      The point-sampled high-rate waveforms (ECG_II, PLETH, ART) are
+      dropped. At 0.5 Hz a waveform is not downsampled, it is aliased:
+      the retained value is one arbitrary instantaneous sample of a
+      signal whose information lives at hundreds of hertz. Keeping them
+      would add channels that look informative and are not.
+
+  MODALITY B — preoperative clinical and laboratory vector
+    Shape        : (34,)
+    Content      : demographics, comorbidity indicators, preoperative
+                   laboratory values, surgical context
+    Provenance   : the same case record as Modality A
+
+    Fields that encode the outcome or its timing are excluded by an
+    explicit forbidden-field list (length of ICU stay, in-hospital
+    death, admission/discharge and operation timestamps, identifiers).
+    A preoperative vector containing a postoperative fact is not a
+    predictor, it is the answer.
+
+  LABEL — postoperative ICU admission
+    Positive rate: 19.7 % of windows
+    Unit         : the label belongs to the OPERATION; every window cut
+                   from one operation inherits that operation's outcome.
+
+2.3  LEAKAGE CONTROL — WHY THE SPLIT IS BY CASE
+
+  Windows from one operation are strongly correlated: consecutive
+  10-minute windows of the same patient under the same anaesthetic are
+  near-duplicates. Splitting windows at random would place near-copies
+  of the same operation in both train and test, and the reported score
+  would measure memorisation of individual patients rather than
+  generalisation to new ones.
+
+  The split is therefore BY CASE, stratified by outcome within each
+  surgical type, 70/15/15. No case appears in more than one split.
+
+  Pooled totals: train 34,044 | val 7,308 | test 7,360 windows
+  Test cases   : 947 distinct operations
+
+2.4  WHY THE CLIENTS ARE NON-IID BY NATURE
+
+  Clients are surgical operation types (optype), not random shards. A
+  thoracic list and a general-surgery list genuinely see different
+  patients with different risk. Measured ICU base rate across the nine
+  clients spans 3.2 % to 50.7 % — a sixteen-fold spread in the positive
+  class.
+
+  This is the honest form of the non-IID condition federated learning
+  exists to handle. It is a property of clinical practice, not a
+  Dirichlet parameter chosen to make the problem look hard.
+
+  Operation types with too few positive cases to support a local model
+  are merged into one combined client, so every client holds at least
+  10 positive cases. Without that merge a client can hold a single
+  class, its local AUROC is undefined, and any average over clients
+  silently drops it.
+
+2.5  SCORING UNIT — WINDOWS TRAIN, CASES COUNT
+
+  The model consumes windows; the clinical question is about the
+  operation. Because windows within a case are correlated, window-level
+  metrics overstate the effective sample size. Every reported result
+  therefore carries BOTH:
+
+    window-level  — what the model optimises
+    case-level    — each case's window probabilities averaged into one
+                    prediction per operation
+
+  Case-level is the statistically honest and clinically meaningful
+  number, and is what should be quoted in the thesis.
+
+2.6  METRICS — WHY AUPRC, NOT ACCURACY
+
+  At a 19.7 % positive rate, roughly 80 % accuracy is free: predict "no
+  ICU" for everything. Accuracy is therefore close to uninformative
+  here, and AUROC is optimistic under class imbalance. Average
+  precision (AUPRC) is the metric that actually moves when the minority
+  class is handled well, so checkpoint selection uses AUPRC on this
+  dataset and class weighting n/(K·count_k) is applied throughout.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 3: DATASET 2 — WEAR (FAST ITERATION)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Source     : Bock et al., "WEAR: An Outdoor Sports Dataset for
+               Wearable and Egocentric Activity Recognition",
+               Proc. ACM IMWUT, 2024.
+  Access     : open download, no credentialing.
+  Domain     : Wearable IoT — outdoor activity recognition.
+
+3.1  ROLE OF THIS DATASET
+
+  WEAR is the fast-iteration domain. Its arms train in tens of seconds,
+  which makes it the right place to shake out pipeline bugs, verify a
+  new flag, or confirm a stage runs end to end before committing GPU
+  hours on the clinical data. It is NOT the dataset the multimodal
+  claim rests on, for the reason given in Section 5.
+
+3.2  WHAT IS ON DISK
+
+  Windows        : 38,578
+  Clients        : 22 (one per subject)
+  Classes        : 18 activities
+  Edge servers   : 2
+
+  MODALITY A — inertial
+    Shape        : (12, 100)
+    Content      : 4 body-worn accelerometers x 3 axes
+    Sampling     : 50 Hz over a 2-second window
+
+  MODALITY B — egocentric video features
+    Shape        : (2048,)
+    Content      : two-stream I3D features over the SAME 2 seconds
+
+  PAIRING: hardware-synchronised. The inertial sensors and the head-
+  mounted camera are clocked together on one wearer; the two modalities
+  describe the same person at the same instant because they were
+  captured that way.
+
+  Pooled totals: train 26,424 | val 5,395 | test 5,969 windows
+
+3.3  LEAKAGE CONTROL — TEMPORAL, WITHIN (SUBJECT, ACTIVITY)
+
+  Two properties of this data make naive splitting wrong:
+
+  (a) Windows overlap by 50 %. Adjacent windows literally share one
+      second of raw signal. A random split puts that shared second on
+      both sides of the boundary.
+
+  (b) A whole-recording temporal split is LABEL-DISJOINT. Subjects
+      perform activities in blocks, so cutting each recording at 70 %
+      of its duration hands the validation split only the activities
+      that happen to fall late in the session — this produced
+      validation sets containing 3 or 4 of the 18 classes, making the
+      validation score meaningless.
+
+  The split is therefore temporal WITHIN each (subject, activity)
+  group, 70/15/15, with a one-window gap dropped at each boundary to
+  remove the shared overlapping second. Every split sees every class,
+  and no raw sample crosses a boundary.
+
+3.4  A HANDLED DATA DEFECT
+
+  One subject's inertial stream contains 25.8 % missing samples. A
+  plain mean/std normalisation propagates a single NaN across every
+  window of that subject, and from there into the batch statistics —
+  silently destroying a quarter of the input while training continues
+  and reports plausible numbers.
+
+  Normalisation is NaN-aware (nanmean/nanstd computed on the training
+  split only), and residual NaNs are imputed to the post-normalisation
+  mean. Statistics are computed on train only, never on val or test.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 4: SIDE-BY-SIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌────────────────────┬──────────────────────┬─────────────────────┐
+  │                    │ vitaldb              │ wear                │
+  ├────────────────────┼──────────────────────┼─────────────────────┤
+  │ Role               │ PRIMARY (clinical)   │ fast iteration      │
+  │ Windows            │ 48,712               │ 38,578              │
+  │ Clients            │ 9 (surgical type)    │ 22 (subject)        │
+  │ Classes            │ 2                    │ 18                  │
+  │ Modality A         │ (18, 300) @ 0.5 Hz   │ (12, 100) @ 50 Hz   │
+  │ Modality B         │ (34,) clinical       │ (2048,) I3D video   │
+  │ Pairing            │ same patient,        │ hardware-           │
+  │                    │ same second          │ synchronised        │
+  │ Split unit         │ case (operation)     │ time within         │
+  │                    │                      │ (subject, activity) │
+  │ Non-IID source     │ surgical specialty   │ per-subject style   │
+  │ Imbalance          │ 19.7 % positive      │ near-uniform        │
+  │ Selection metric   │ AUPRC                │ AUROC               │
+  │ Class weighting    │ yes                  │ no                  │
+  │ Edge servers       │ 2                    │ 2                   │
+  └────────────────────┴──────────────────────┴─────────────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 5: THE FUSION TEST — MEASURED RESULT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Protocol: centralised and non-private, so the question is about the
+  DATA and is not confounded by federation or privacy noise. All three
+  arms share encoder architecture, head depth, optimiser, schedule,
+  epochs and seed; only the head input width differs (256 / 576 / 832),
+  which is inherent to the comparison. Each arm is RETRAINED on its own
+  inputs — feeding zeros to a jointly-trained model measures "what
+  happens when a modality breaks", not "what that modality is worth".
+  Splits are the dataset's own, so the leakage controls above apply.
+  2 seeds.
+
+  VitalDB (7,360 test windows / 947 test cases)
   ─────────────────────────────────────────────────────────────────────
-  IIoT            CWRU vibration        STFT spectrograms     4
-  Smart City      UrbanSound8K audio    EPA air quality CSV   5
-  Healthcare      WESAD wearable EEG    ChestX-ray14 images   4/14
+    arm                AUROC       AUPRC    case AUROC   case AUPRC
+    signals only      0.8283      0.5281       0.8590       0.6446
+    clinical only     0.7700      0.5022       0.7713       0.4961
+    FUSED             0.8694      0.6343       0.8875       0.6740
+
+    Gain over the BEST unimodal arm: +0.0411 AUROC, +0.1062 AUPRC
+    That is 14.1x the across-arm seed standard deviation.
+
+    Fusion beats BOTH arms, not merely the weaker one.
+    → Research Gap #1 is DEMONSTRATED on this dataset.
+
+  WEAR (5,969 test windows)
   ─────────────────────────────────────────────────────────────────────
+    arm                AUROC       AUPRC
+    inertial only     0.9976      0.9761
+    video only        0.9957      0.9629
+    FUSED             0.9980      0.9831
+
+    Gain over the BEST unimodal arm: +0.0004 AUROC, +0.0070 AUPRC
+
+    The inertial modality alone already reaches 0.9976 AUROC. There is
+    no headroom left for a second modality to fill, so this task CANNOT
+    evidence fusion regardless of the sign of the gain.
+    → Reported as AT CEILING. It is not counted as a second
+      confirmation, and the multimodal claim does not rest on it.
+
+  This asymmetry is stated openly wherever the ablation is reported,
+  and the verdict is written into the result JSON by the ablation
+  script itself so a downstream reader cannot mistake a ceiling for a
+  confirmation. Presenting the WEAR gain as supporting evidence would
+  be overclaiming from a saturated benchmark.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 2: DATASET 1 — CWRU BEARING VIBRATION (IIoT PRIMARY)
+  SECTION 6: HOW TO BUILD THEM
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Name: Case Western Reserve University (CWRU) Bearing Dataset
-Task: Rotating machinery fault detection (Industrial IoT)
-Source: Case School of Engineering, CWRU
+  VitalDB
+    python data/loaders/fetch_vitaldb.py          # resumable API fetch
+    python data/loaders/preprocess_vitaldb.py     # window + split + partition
 
-2.1  Dataset Description
-  Vibration signal recordings from accelerometers on rolling-element
-  bearings under 4 fault conditions:
-    Class 0: Normal (healthy bearing)
-    Class 1: Ball fault (0.007", 0.014", 0.021" diameter)
-    Class 2: Inner race fault (0.007", 0.014", 0.021")
-    Class 3: Outer race fault (0.007", 0.014", 0.021")
+  WEAR
+    python data/loaders/preprocess_wear.py
 
-  Sampling rate: 12,000 Hz (drive-end) / 48,000 Hz (fan-end)
-  Load conditions: 0, 1, 2, 3 HP (4 operating conditions)
-  File format: .mat (MATLAB format) — readable via scipy.io.loadmat
-  Total size: ~800 MB (uncompressed)
+  Both preprocessors write, under data/processed/<name>/:
+    the modality arrays, labels, meta/case_ids.npy where applicable,
+    and the per-client partition indices with partition_meta.json.
 
-2.2  Download Instructions
+  Both clean stale per-device index files before writing. A previous
+  run with more clients otherwise leaves orphaned device_NN_*.npy files
+  that a later run with fewer clients will happily load.
 
-  Method A — Direct Download (recommended):
-    URL: https://engineering.case.edu/bearingdatacenter/download-data-file
+  VERIFICATION (run before trusting any result)
+    python tests/verify_datasets.py --dataset vitaldb
+    python tests/verify_datasets.py --dataset wear
 
-    Files to download (Drive End, 12kHz, all 4 loads):
-      Normal:       97.mat, 98.mat, 99.mat, 100.mat
-      Ball fault:   118.mat, 119.mat, 120.mat, 121.mat (0.007")
-                    185.mat, 186.mat, 187.mat, 188.mat (0.014")
-                    222.mat, 223.mat, 224.mat, 225.mat (0.021")
-      Inner race:   105.mat, 106.mat, 107.mat, 108.mat (0.007")
-                    169.mat, 170.mat, 171.mat, 172.mat (0.014")
-                    209.mat, 210.mat, 211.mat, 212.mat (0.021")
-      Outer race:   130.mat, 131.mat, 132.mat, 133.mat (0.007")
-                    197.mat, 198.mat, 199.mat, 200.mat (0.014")
-                    234.mat, 235.mat, 236.mat, 237.mat (0.021")
+  This is an adversarial audit, not a smoke test. It checks split
+  disjointness, case/subject leakage across splits, NaN and infinity
+  presence, label range, class coverage per split, index bounds,
+  partition completeness, normalisation sanity, and agreement between
+  partition_meta.json and the arrays actually on disk.
 
-    Download script (run from project root):
-      mkdir -p SIMULATORS/data/raw/cwru
-      cd SIMULATORS/data/raw/cwru
-      # Download each .mat file (example for normal, load 0):
-      wget "https://engineering.case.edu/sites/default/files/97.mat"
-      # (repeat for all files listed above — see download_datasets.py)
-
-  Method B — Python pyBearingDataset library:
-      pip install bearingdataset
-      from bearingdataset import CWRU
-      cwru = CWRU(setting="DE", rpm=1797, downsample=1)
-      cwru.download(save_dir="SIMULATORS/data/raw/cwru/")
-
-  Method C — Kaggle mirror (if direct access is slow):
-    Search: "CWRU Bearing Dataset" on Kaggle
-    Direct: kaggle datasets download -d brjapon/cwru-bearing-datasets
-
-2.3  Preprocessing
-
-  Step 1: Load .mat files
-    import scipy.io as sio
-    data = sio.loadmat("97.mat")
-    signal = data["X097_DE_time"].flatten()   # Drive-end 12kHz signal
-
-  Step 2: Sliding window segmentation
-    window_size = 1024 samples = 85.3ms at 12kHz
-    stride = 512 (50% overlap)
-    → Each file yields ~500–2000 windows depending on file length
-
-  Step 3: Normalize
-    signal = (signal - signal.mean()) / signal.std()
-    clip to [-3, 3] (remove rare spikes)
-
-  Step 4: Generate spectrogram (second modality)
-    from scipy.signal import stft
-    f, t, Zxx = stft(window, fs=12000, nperseg=256)
-    magnitude = np.abs(Zxx)  # shape: (129, ~9)
-    # Resize to 224×224 for MobileNetV3
-    from PIL import Image
-    img = Image.fromarray((magnitude_normalized * 255).astype(np.uint8))
-    img = img.resize((224, 224), Image.BICUBIC)
-    # Apply jet colormap → RGB
-    import matplotlib.cm as cm
-    img_rgb = cm.jet(np.array(img)/255.0)[:,:,:3]  # (224, 224, 3)
-
-  Step 5: Save as numpy arrays
-    np.save("SIMULATORS/data/processed/cwru/signals.npy", signals)   # (N, 1024)
-    np.save("SIMULATORS/data/processed/cwru/spectrograms.npy", imgs) # (N, 3, 224, 224)
-    np.save("SIMULATORS/data/processed/cwru/labels.npy", labels)     # (N,)
-
-  Total samples after windowing: ~35,000–50,000 windows
-
-2.4  Non-IID Partition (for 7 IIoT devices)
-
-  Apply Dirichlet allocation (α=0.5) across 7 devices:
-    python data/loaders/partition_noniid.py \
-      --domain iiot \
-      --n_devices 7 \
-      --alpha 0.5 \
-      --seed 42
-
-  Each device gets different class proportions, simulating reality:
-  Device 0: 70% normal, 20% ball, 10% inner, 0% outer
-  Device 1: 5% normal, 60% inner, 35% outer, 0% ball
-  (exact values sampled from Dirichlet(α=[0.5,0.5,0.5,0.5]))
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 3: DATASET 2 — UrbanSound8K (SMART CITY PRIMARY)
+  SECTION 7: PROVENANCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Name: UrbanSound8K
-Task: Urban sound event classification (Smart City IoT)
-Source: Salamon et al., ACM MM 2014
+  Paths do not identify data. Rebuilding a dataset with different
+  window settings leaves every stored path unchanged, so a result file
+  that records only "data/processed/wear" cannot be traced to the
+  arrays that produced it.
 
-3.1  Dataset Description
-  8,732 labeled urban sound clips, 10 classes (we use 5 most distinct):
-    Class 0: air_conditioner
-    Class 1: car_horn
-    Class 2: children_playing
-    Class 3: dog_bark
-    Class 4: street_music
-    (Excluded: drilling, engine_idling, gun_shot, jackhammer, siren
-     — keep for potential extension)
+  Every run therefore records a dataset fingerprint (md5 of the label
+  array and of partition_meta.json) via engineering/runctx.py.
+  Current values:
 
-  Duration: ≤4 seconds per clip
-  Format: .wav (mono/stereo, variable sample rate)
-  Total size: ~6 GB (full), ~3 GB (5 classes only)
-  Organization: 10 pre-defined folds for cross-validation
+    vitaldb   labels d3fa814dd4396efd   partition_meta 69feba3f786f9e64
+    wear      labels 8aeb2aeeb2bba951   partition_meta 38c58aadc2a84eee
 
-3.2  Download Instructions
+  If a published number cannot be matched to one of these, the data it
+  came from is not the data described in this document.
 
-  Official:
-    URL: https://urbansounddataset.weebly.com/urbansound8k.html
-    Registration: free (name + email + affiliation)
-    Direct link (after registration): provided via email
-
-  Alternative — Kaggle:
-    kaggle datasets download -d chrisfilo/urbansound8k
-    unzip urbansound8k.zip -d SIMULATORS/data/raw/urbansound/
-
-  Using soundata library (recommended):
-    pip install soundata
-    import soundata
-    dataset = soundata.initialize("urbansound8k")
-    dataset.download()
-
-3.3  Preprocessing (Mel-Spectrogram)
-
-    import librosa
-    import numpy as np
-
-    def audio_to_mel(file_path, sr=22050, n_mels=128, duration=4.0):
-        y, sr = librosa.load(file_path, sr=sr, duration=duration, mono=True)
-        # Pad/trim to fixed duration
-        target_len = int(sr * duration)
-        if len(y) < target_len:
-            y = np.pad(y, (0, target_len - len(y)))
-        else:
-            y = y[:target_len]
-        # Mel spectrogram
-        mel = librosa.feature.melspectrogram(
-            y=y, sr=sr, n_mels=n_mels, hop_length=512, n_fft=1024)
-        mel_db = librosa.power_to_db(mel, ref=np.max)
-        # Normalize to [0, 1]
-        mel_norm = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min() + 1e-8)
-        return mel_norm  # shape: (128, 173) → resize to (128, 128) for Encoder B
-
-  Resize to (3, 224, 224) for MobileNetV3:
-    # Repeat single channel 3 times (gray → RGB)
-    mel_3ch = np.stack([mel_norm]*3, axis=0)  # (3, 128, 173)
-    # Use PIL resize
-    from torchvision.transforms.functional import resize
-    mel_tensor = torch.tensor(mel_3ch).float()
-    mel_resized = resize(mel_tensor, [224, 224])  # (3, 224, 224)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 4: DATASET 3 — EPA AQS (SMART CITY SECONDARY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Name: EPA Air Quality System (AQS) — Daily Summary Data
-Task: Air quality index classification (Smart City secondary modality)
-Source: U.S. Environmental Protection Agency
-
-4.1  Download Instructions
-
-  URL: https://aqs.epa.gov/aqsweb/airdata/download_files.html
-  Files: daily_88101_2023.zip (PM2.5), daily_42602_2023.zip (NO2)
-         daily_44201_2023.zip (Ozone), daily_42101_2023.zip (CO)
-
-  Python API alternative:
-    pip install pyaqsapi
-    import pyaqsapi as aqs
-    aqs.bystate.dailysummarybystate(
-        parameter="88101", bdate=date(2023,1,1),
-        edate=date(2023,12,31), stateFIPS="06"  # California
-    )
-
-4.2  Feature Vector (6 dimensions)
-
-  Per hourly aggregation window:
-    [PM2.5_mean, NO2_mean, O3_mean, CO_mean, AQI, temperature]
-  Normalize each to [0,1] across training set.
-  Label: AQI category (0=Good, 1=Moderate, 2=Unhealthy for Sensitive,
-                        3=Unhealthy, 4=Very Unhealthy)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 5: DATASET 4 — WESAD (HEALTHCARE PRIMARY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Name: WESAD — Wearable Stress and Affect Detection
-Task: Physiological stress detection (Healthcare IoT)
-Source: Schmidt et al., ACM ICMI 2018 | UCI ML Repository
-
-5.1  Dataset Description
-  15 subjects wearing chest-strap (RespiBAN) + wrist (Empatica E4)
-  Sensors used in our work:
-    ACC  : 3-axis accelerometer (32 Hz, chest)
-    EDA  : electrodermal activity (4 Hz, wrist)
-    TEMP : skin temperature (4 Hz, wrist)
-  Labels:
-    Class 0: Baseline (relaxed)
-    Class 1: Stress (Trier Social Stress Test)
-    Class 2: Amusement (comedy video)
-    Class 3: Meditation (optional, some subjects)
-
-  Format: .pkl files per subject
-  Total size: ~4 GB
-
-5.2  Download Instructions
-
-  Official (requires free registration):
-    https://archive.ics.uci.edu/dataset/465/wesad+wearable+stress+and+affect+detection
-
-  Direct download:
-    wget "https://archive.ics.uci.edu/static/public/465/wesad.zip"
-    unzip wesad.zip -d SIMULATORS/data/raw/wesad/
-
-5.3  Preprocessing
-
-    import pickle
-    import numpy as np
-
-    def load_wesad_subject(subject_id, data_dir):
-        path = f"{data_dir}/S{subject_id}/S{subject_id}.pkl"
-        with open(path, 'rb') as f:
-            data = pickle.load(f, encoding='latin1')
-        # Chest sensor: ACC (3-axis, 700Hz), downsample to 32Hz
-        acc = data['signal']['chest']['ACC']       # (N, 3)
-        # Wrist sensor: EDA (4Hz), TEMP (4Hz)
-        eda = data['signal']['wrist']['EDA']       # (N, 1)
-        temp = data['signal']['wrist']['TEMP']     # (N, 1)
-        labels = data['label']                     # (N,) 0=transient,1=base,2=stress,3=amu,4=med
-        return acc, eda, temp, labels
-
-    def create_windows(signals, labels, window_sec=5, fs=32):
-        window = window_sec * fs  # 160 samples at 32Hz
-        windows, window_labels = [], []
-        for i in range(0, len(signals) - window, window//2):
-            seg = signals[i:i+window]   # (160, C)
-            label = np.mode(labels[i:i+window])[0]
-            if label in [1, 2, 3, 4]:   # exclude transient
-                windows.append(seg)
-                window_labels.append(label - 1)  # remap to 0-3
-        return np.array(windows), np.array(window_labels)
-
-  Output: signals shape (N, 160, 5) [5 channels: ACC×3, EDA, TEMP]
-  Reshape for 1D-CNN: (N, 5, 160) → Encoder A input
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 6: DATASET 5 — NIH ChestX-ray14 (HEALTHCARE SECONDARY)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Name: NIH ChestX-ray14 (subset: 4 classes)
-Task: Chest pathology detection (Healthcare imaging modality)
-Source: Wang et al., CVPR 2017 | NIH Clinical Center
-
-6.1  Dataset Description
-  112,120 frontal-view chest X-ray images, 14 pathology labels.
-  We use 4-class subset for FL experiment tractability:
-    Class 0: No Finding (normal)
-    Class 1: Atelectasis
-    Class 2: Cardiomegaly
-    Class 3: Effusion
-  (Top 4 classes by count → most balanced distribution)
-
-  Format: .png, 1024×1024 grayscale
-  Total size (full): ~45 GB | 4-class subset: ~11 GB
-
-6.2  Download Instructions
-
-  Official NIH:
-    https://nihcc.app.box.com/v/ChestXray-NIHCC
-    (18 .tar.gz files — download all or specific batches)
-
-  Google Cloud Storage (faster):
-    gsutil -m cp -r gs://gcs-public-data--chest-xray/chest-xray-14/ \
-      SIMULATORS/data/raw/chestxray/
-
-  Kaggle (easiest):
-    kaggle datasets download -d nih-chest-xrays/data
-    # Then filter to 4 classes using metadata CSV
-
-  Filter script:
-    import pandas as pd
-    meta = pd.read_csv("Data_Entry_2017.csv")
-    target = meta[meta["Finding Labels"].isin(
-        ["No Finding", "Atelectasis", "Cardiomegaly", "Effusion"])]
-    # Single-label only (exclude multi-label for clean classification)
-    target_single = target[~target["Finding Labels"].str.contains("|")]
-
-6.3  Preprocessing
-
-    from PIL import Image
-    import torchvision.transforms as T
-
-    transform = T.Compose([
-        T.Grayscale(num_output_channels=3),  # Gray → RGB (MobileNetV3 input)
-        T.Resize(256),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406],  # ImageNet stats
-                    std=[0.229, 0.224, 0.225])
-    ])
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 7: ALTERNATIVE / BACKUP DATASETS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  If download/preprocessing of primary datasets is infeasible:
-
-  Domain         Primary               Backup                Why Backup
-  ─────────────────────────────────────────────────────────────────────
-  IIoT vibr.     CWRU Bearing           MFPT Bearing          Same task,
-                                        (mfpt.org/fault-data) smaller (1GB)
-  Smart City aud. UrbanSound8K          ESC-50 (50 classes)   Smaller (600MB)
-                                        github.com/karolpiczak/ESC-50
-  Smart City env. EPA AQS               Beijing PM2.5 (UCI)   Simpler format
-                                        archive.ics.uci.edu/dataset/381
-  Healthcare sig. WESAD                 MIT-BIH Arrhythmia    Well-known ECG
-                                        (physionet.org)       benchmark
-  Healthcare img. ChestX-ray14          CheXpert (Stanford)   Similar task
-                                        stanfordmlgroup.github.io/projects/chexpert/
-  ─────────────────────────────────────────────────────────────────────
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 8: NON-IID PARTITIONING ACROSS 20 DEVICES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Full partitioning script: SIMULATORS/data/loaders/partition_noniid.py
-
-  Algorithm (Dirichlet Non-IID, standard in FL literature):
-
-    For each class c in domain d:
-      proportions = np.random.dirichlet(α × ones(n_devices_in_cluster))
-      Assign fraction proportions[i] of class-c samples to device i.
-
-  Example output for IIoT domain (7 devices, 4 classes, α=0.5):
-
-  Device  Normal   Ball    Inner   Outer   Total
-  ──────────────────────────────────────────────────
-  Dev-0   62.4%   18.3%   12.5%   6.8%   4,210
-  Dev-1   8.1%    71.2%   15.3%   5.4%   3,870
-  Dev-2   4.3%    3.2%    78.9%  13.6%   4,550
-  Dev-3   21.7%   12.4%   4.8%   61.1%   3,990
-  Dev-4   45.2%   30.1%   19.0%   5.7%   4,100
-  Dev-5   7.8%    8.9%    6.4%   76.9%   3,750
-  Dev-6   50.5%   6.0%    38.5%   5.0%   4,630
-  ──────────────────────────────────────────────────
-
-  This strong class imbalance (α=0.5) tests the HFL-MM framework's
-  ability to converge under severe non-IID conditions — a key challenge
-  addressed by the two-tier FedAvg with weighted aggregation.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 9: DATASET STORAGE STRUCTURE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  SIMULATORS/data/
-  ├── raw/
-  │   ├── cwru/                    # Raw .mat files
-  │   ├── urbansound/              # Raw .wav files (10 folds)
-  │   ├── epa_aqs/                 # Raw .zip / .csv files
-  │   ├── wesad/                   # Raw .pkl files (S2–S17)
-  │   └── chestxray/               # Raw .png images + CSV
-  ├── processed/
-  │   ├── cwru/                    # signals.npy, spectrograms.npy, labels.npy
-  │   ├── smartcity/               # melspecs.npy, env_vectors.npy, labels.npy
-  │   └── healthcare/              # wearable.npy, xray.npy, labels.npy
-  └── partitioned/
-      ├── iiot/
-      │   ├── device_0/ → device_6/    # train.pt, val.pt, test.pt
-      ├── smartcity/
-      │   ├── device_7/ → device_13/
-      └── healthcare/
-          ├── device_14/ → device_19/
-
-  Each device folder contains PyTorch Dataset files:
-    TensorDataset(signal_tensor, image_tensor, label_tensor)
-    Saved as: torch.save(dataset, "train.pt")
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 10: DISK SPACE & COMPUTE REQUIREMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Dataset               Raw Size    Processed Size    Download Time
-  ─────────────────────────────────────────────────────────────────
-  CWRU Bearing           ~800 MB      ~2 GB            ~5 min
-  UrbanSound8K           ~6 GB        ~4 GB            ~20 min
-  EPA AQS                ~500 MB      ~100 MB          ~5 min
-  WESAD                  ~4 GB        ~500 MB          ~15 min
-  ChestX-ray14 (4-cls)   ~11 GB       ~8 GB            ~45 min
-  ─────────────────────────────────────────────────────────────────
-  TOTAL                  ~22 GB       ~15 GB            ~90 min
-  ─────────────────────────────────────────────────────────────────
-
-  Available on your machine: NVIDIA RTX A2000 12GB VRAM
-  Training batch size: 32 per device (federated, not all at once)
-  GPU memory per training step: ~4–6 GB (MobileNetV3 + 1D-CNN parallel)
-  Expected training time: 20 rounds × ~8 min/round ≈ 2.7 hours total
+=======================================================================
+ END — 01_Datasets.txt
+=======================================================================

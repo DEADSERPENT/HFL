@@ -12,7 +12,7 @@ REVISION HISTORY
 -----------------------------------------------------------------------
  v1.0  2026-04-02  Original 3-domain scope (IIoT + Smart City + HC)
  v2.0  2026-04-22  REVISED — Healthcare domain exclusively
-                   Datasets: PTB-XL + CheXpert (upgraded)
+                   Datasets: VitalDB (primary) + WEAR (fast iteration)
                    Models: HFL-MM → PHANTOM-FL (sequential)
                    IPs: FedMamba-HC + FedConform-HC (Phase 5 impl.)
                         ClinicalCMGA (Phase 5 design, Phase 6 impl.)
@@ -55,17 +55,21 @@ DOMAIN DECISION (Final — 2026-04-22):
                (Q1, IF ~7.7, focuses on AI+healthcare systems)
     Secondary: npj Digital Medicine (Q1, IF ~15.2, Nature portfolio)
 
-Phase 4 validated the simulation scaffold:
-  [PASS] 76.4% communication reduction    (O1, target ≥ 50%)
-  [PASS] 74.9% energy saving              (O4, target ≥ 20%)
-  [PASS] 99.05% update reliability        (target > 99%)
+Phase 4 validated the simulation scaffold (measured 2026-08-04,
+vitaldb / wear — see Phase 4 §4.5):
+  [PASS] 90.8 % / 96.1 % uplink reduction   (O1, target >= 50 %)
+         measured from the real compressor, not size x sparsity
+  [PASS] 72.3 % / 76.8 % energy saving      (O4, target >= 20 %)
+         given a stipulated 5x local-compute reduction
+  [PASS] 100.000 % / 99.987 % update reliability  (target > 99 %)
+         NS-3 FlowMonitor at 30 m cell radius
 
 Two QoS targets remain unvalidated — Phase 5 closes this gap:
   [ ] Inference latency < 100ms    (requires real model + ONNX deploy)
   [ ] Accuracy loss ≤ 2% at ε=1   (requires real FL training + DP-SGD)
 
 Phase 5 achieves this by:
-  (a) Loading PTB-XL (ECG) + CheXpert (chest X-ray) real clinical data
+  (a) Loading VitalDB intraoperative trends + preoperative clinical vectors
   (b) Building HFL-MM with FedMamba-HC encoder (IP-1, novel Mamba SSM)
   (c) Wrapping with FedConform-HC (IP-9, federated conformal prediction)
   (d) Fully designing ClinicalCMGA (IP-3, for Phase 6 PHANTOM-FL)
@@ -84,114 +88,195 @@ DEPLOYMENT TOPOLOGY (Healthcare):
     → 70% train / 15% val / 15% test per device
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  5.2  HEALTHCARE DATASETS
+  5.2  DATASETS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-DATASET UPGRADE DECISION (Final — 2026-04-22):
-  Previous plan: WESAD (wearable stress) + ChestXray14
-  Upgraded to:   PTB-XL (ECG) + CheXpert (chest X-ray)
+  Two datasets, registered in SIMULATORS/data/loaders/datasets.py, which
+  is the single source of truth for every shape, path, client count and
+  class count used anywhere in the codebase.
 
-  Rationale:
-    • PTB-XL has 21,837 records vs. WESAD's 15 subjects — 1000× more
-      data, proper clinical pathology labels, widely cited benchmark
-    • CheXpert has 224,316 images with Stanford clinical labels, better
-      uncertainty handling than ChestXray14's NIH labels
-    • PTB-XL is DIRECTLY compatible with FedMamba-HC (12-lead ECG input)
-    • Both are freely available (PTB-XL: PhysioNet; CheXpert: free reg.)
+  THE SELECTION RULE
+    Research Gap #1 claims "no multimodal fusion in existing FL". To
+    DEMONSTRATE that rather than assert it, a dataset must satisfy two
+    conditions that are easy to conflate:
 
-──────────────────────────────────────────────────────────────────────
-5.2.1  MODALITY A — PTB-XL (12-Lead ECG)
-──────────────────────────────────────────────────────────────────────
+      A — GENUINE PAIRING. The two modalities describe the SAME entity
+          at the SAME time and were RECORDED that way. Joining two
+          independent sources by a rule manufactures a correlation that
+          does not exist in the world; if the rule involves the label,
+          the resulting "fusion gain" is leakage.
 
-  Source     : PhysioNet — https://physionet.org/content/ptb-xl/1.0.3/
-  License    : Creative Commons Attribution 4.0 (free, no registration)
-  Size       : ~1.7 GB (10-second ECG records at 500 Hz)
-  Records    : 21,837 clinical 12-lead ECGs from 18,885 patients
-  Labels     : 71 SNOMED CT codes → aggregated to 5 superclasses
+      B — A SHARED TARGET. Both modalities must independently carry
+          information about the label. Genuine pairing with a target
+          only one modality can predict is still a fake fusion task.
 
-  5-Class Cardiac Classification Schema:
-  ┌────────────────────────────────────────────────────────────────┐
-  │ Class ID  Label                    SNOMED Code  # Records      │
-  ├────────────────────────────────────────────────────────────────┤
-  │ 0         Normal (NORM)            426783006    9,514           │
-  │ 1         Myocardial Infarction    164865005    5,469           │
-  │ 2         ST/T Change (STTC)       428750005    5,250           │
-  │ 3         Conduction Disturbance   233917008    4,907           │
-  │ 4         Hypertrophy (HYP)        164873001    2,649           │
-  └────────────────────────────────────────────────────────────────┘
-  Note: Multi-label cases assigned to primary superclass.
-  Split: official PTB-XL fold 1–8 train / fold 9 val / fold 10 test
+    A dataset satisfying A but not B looks multimodal and is not.
 
-  Preprocessing Pipeline:
-    1. Load waveforms at 100 Hz (resampled from 500 Hz via wfdb)
-       → Each record: [12, 1000] (12 leads × 1000 samples at 100 Hz)
-    2. Bandpass filter: 0.5–40 Hz (removes baseline wander + EMG noise)
-    3. Per-lead z-score normalization (mean/std per lead per record)
-    4. Handle missing leads: zero-pad with lead-failure flag vector
-    5. Final tensor shape per sample: [12, 1000]
+5.2.1  PRIMARY — VitalDB (clinical IoMT)
 
-  Download command:
-    pip install wfdb
-    python -c "import wfdb; wfdb.dl_database('ptb-xl', \
-               dl_dir='data/raw/ptb-xl')"
+  Source   : Lee et al., "VitalDB, a high-fidelity multi-parameter vital
+             signs database in surgical patients", Sci Data 9:279, 2022
+  Access   : https://vitaldb.net — open, no credentialing
+  Licence  : CC BY 3.0
+  Fetch    : data/loaders/fetch_vitaldb.py (track-level API, resumable)
 
-──────────────────────────────────────────────────────────────────────
-5.2.2  MODALITY B — CheXpert (Chest X-Ray)
-──────────────────────────────────────────────────────────────────────
+  Windows      : 48,712 from 6,257 surgeries
+  Clients      : 9 (surgical operation type)
+  Classes      : 2 — postoperative ICU admission, 19.7 % positive
+  Edge servers : 2
 
-  Source     : Stanford ML Group — https://stanfordmlgroup.github.io/
-                                   competitions/chexpert/
-  License    : Free for non-commercial research (registration required)
-  Size       : ~439 GB (full) / ~11 GB (downsampled 320×320 version)
-               USE DOWNSAMPLED VERSION for this project
-  Records    : 224,316 frontal chest X-rays from 65,240 patients
-  Labels     : 14 pathologies (multi-label) + U-zeros uncertain policy
+  MODALITY A — intraoperative vital-sign trends       shape (18, 300)
+    9 numeric trend channels + 9 observed-mask channels, 0.5 Hz over a
+    10-minute window.
 
-  5-Label Clinical Subset (most prevalent, clinically significant):
-  ┌────────────────────────────────────────────────────────────────┐
-  │ Label ID  Pathology              # Positive   U-zeros policy   │
-  ├────────────────────────────────────────────────────────────────┤
-  │ 0         No Finding             16,627        N/A             │
-  │ 1         Pleural Effusion       75,696        → 0             │
-  │ 2         Cardiomegaly           20,739        → 0             │
-  │ 3         Atelectasis            29,420        → 0             │
-  │ 4         Consolidation          12,730        → 0             │
-  └────────────────────────────────────────────────────────────────┘
-  Task: Multi-label binary classification (each label 0/1)
-  Metric: AUC per label + macro-AUC (standard CheXpert benchmark)
+    WHY 18 CHANNELS FOR 9 SIGNALS
+      Theatre monitoring is intermittently observed: cuff pressures
+      arrive every few minutes, probes detach, lines are flushed.
+      Imputing those gaps and discarding the fact that they WERE gaps
+      throws away information, because which signals are being watched
+      is itself clinically meaningful — an anaesthetist escalates
+      monitoring when a patient deteriorates. Each signal therefore
+      carries a parallel binary observed-mask (GRU-D style).
 
-  Preprocessing Pipeline:
-    1. Load downsampled 320×320 JPEG
-    2. Convert to RGB (3 channels)
-    3. Resize to 224×224 (center crop after resize to 256)
-    4. Normalize: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-       (ImageNet statistics — for MobileNetV3 pretrained weights)
-    5. Uncertain labels (U=-1): map to 0 (U-zeros policy)
-    6. Final tensor shape per sample: [3, 224, 224]
+    EXCLUDED ON PURPOSE
+      Point-sampled high-rate waveforms (ECG_II, PLETH, ART) are
+      dropped. At 0.5 Hz a waveform is not downsampled, it is aliased:
+      the retained value is one arbitrary instantaneous sample of a
+      signal whose information lives at hundreds of hertz.
 
-  Registration link: https://stanfordmlgroup.github.io/competitions/chexpert/
-  After registration, download CheXpert-v1.0-small.zip (~11 GB)
+  MODALITY B — preoperative clinical vector           shape (34,)
+    Demographics, comorbidity indicators, preoperative laboratory
+    values, surgical context — from the SAME case record.
+    Fields encoding the outcome or its timing (length of ICU stay,
+    in-hospital death, admission/discharge timestamps, identifiers) are
+    excluded by an explicit forbidden-field list. A preoperative vector
+    containing a postoperative fact is not a predictor, it is the answer.
 
-──────────────────────────────────────────────────────────────────────
-5.2.3  MULTIMODAL PAIRING STRATEGY
-──────────────────────────────────────────────────────────────────────
+  PAIRING: same patient, same second. Both modalities come from one
+  Vital Recorder acquisition attached to one patient during one
+  operation. There is no pairing rule anywhere in the pipeline — the
+  pairing is a property of the instrument. Condition A holds by
+  construction.
 
-  Clinical Reality: ECG + chest X-ray are routinely ordered together
-  in cardiology and emergency medicine. The fusion of these modalities
-  enables richer pathology detection than either modality alone.
+  SPLIT: BY CASE, stratified by outcome within surgical type, 70/15/15.
+    Consecutive 10-minute windows of the same patient under the same
+    anaesthetic are near-duplicates. A random window split would place
+    near-copies of one operation on both sides and measure memorisation
+    of individual patients rather than generalisation to new ones.
+    No case appears in more than one split.
+    Pooled: train 34,044 | val 7,308 | test 7,360 windows; 947 test cases.
 
-  Pairing logic:
-    • Each PTB-XL record has a patient ID and date
-    • Each CheXpert image has a patient ID and study date
-    • Where patient IDs overlap: direct pairing
-    • Where no overlap: synthetic pairing within same pathology class
-      (same-class pairing to preserve label validity)
-    • Ratio: 70% direct patient pairs / 30% within-class synthetic pairs
+  NON-IID BY NATURE: clients are surgical specialties, so the ICU base
+  rate spans 3.2 %–50.7 % across the nine clients — a sixteen-fold
+  spread. This is a measured property of clinical practice, not a
+  Dirichlet parameter chosen to make the task look hard. Operation types
+  with too few positive cases are merged so no client holds a single
+  class (a single-class client has undefined AUROC and is otherwise
+  silently dropped from any average).
 
-  Combined task: 5-class cardiac health assessment
-    → Uses PTB-XL 5-class labels as primary
-    → CheXpert 5-label multilabel as auxiliary supervision
-    → Loss = 0.7 × CrossEntropy(ECG_logits) + 0.3 × BCE(CXR_logits)
+  SCORING UNIT: the model consumes windows; the clinical question is per
+  OPERATION. Because windows within a case are correlated, window-level
+  metrics overstate effective sample size. Every result is reported at
+  BOTH window and case level, and the case-level figure is the one to
+  quote.
+
+  METRIC: at 19.7 % positive, ~80 % accuracy is free. Checkpoint
+  selection uses AUPRC and class weighting n/(K·count_k) is applied.
+
+5.2.2  FAST ITERATION — WEAR (wearable IoT)
+
+  Source : Bock et al., "WEAR: An Outdoor Sports Dataset for Wearable
+           and Egocentric Activity Recognition", Proc. ACM IMWUT, 2024
+
+  Windows      : 38,578
+  Clients      : 22 (one per subject)
+  Classes      : 18 activities
+  Edge servers : 2
+
+  MODALITY A — 4 body-worn accelerometers x 3 axes,   shape (12, 100)
+                50 Hz over a 2-second window
+  MODALITY B — two-stream I3D egocentric video        shape (2048,)
+                features over the SAME 2 seconds
+
+  PAIRING: hardware-synchronised. Inertial sensors and the head-mounted
+  camera are clocked together on one wearer.
+
+  SPLIT: temporal WITHIN each (subject, activity) group, 70/15/15, with
+  a one-window gap at each boundary.
+    Two properties force this. Windows overlap by 50 %, so adjacent
+    windows literally share one second of raw signal and a random split
+    puts that second on both sides. And a whole-recording temporal split
+    is LABEL-DISJOINT — subjects perform activities in blocks, so
+    cutting each recording at 70 % of its duration produced validation
+    sets containing 3 or 4 of the 18 classes.
+    Pooled: train 26,424 | val 5,395 | test 5,969 windows.
+
+  A HANDLED DEFECT: one subject's inertial stream has 25.8 % missing
+  samples. Plain mean/std normalisation propagates a single NaN across
+  every window of that subject and into batch statistics — silently
+  destroying a quarter of the input while training reports plausible
+  numbers. Normalisation is NaN-aware, computed on train only.
+
+  ROLE: WEAR is the fast-iteration domain — arms train in tens of
+  seconds, which makes it the right place to shake out pipeline bugs
+  before committing GPU hours on the clinical data. It is NOT the
+  dataset the multimodal claim rests on (see 5.2.3).
+
+5.2.3  THE FUSION TEST — MEASURED
+
+  Protocol: centralised and non-private, so the question is about the
+  DATA and not confounded by federation or privacy noise. All three arms
+  share architecture, head depth, optimiser, schedule, epochs and seed;
+  only head input width differs (256 / 576 / 832). Each arm is RETRAINED
+  on its own inputs — feeding zeros to a jointly-trained model measures
+  what happens when a modality BREAKS, not what it is WORTH. 2 seeds.
+
+  VitalDB (7,360 test windows / 947 cases)
+  ─────────────────────────────────────────────────────────────────────
+  arm                AUROC     AUPRC   case AUROC   case AUPRC
+  signals only      0.8283    0.5281      0.8590       0.6446
+  clinical only     0.7700    0.5022      0.7713       0.4961
+  FUSED             0.8694    0.6343      0.8875       0.6740
+  ─────────────────────────────────────────────────────────────────────
+  Gain over the BEST unimodal arm: +0.0411 AUROC, +0.1062 AUPRC
+  = 14.1x the across-arm seed standard deviation.
+
+  Fusion beats BOTH arms, not merely the weaker one. A fused model
+  reaches the weaker arm by ignoring it; beating the STRONGER arm is the
+  only outcome that requires the second modality to contribute.
+  → Research Gap #1 is DEMONSTRATED on this dataset.
+
+  WEAR (5,969 test windows)
+  ─────────────────────────────────────────────────────────────────────
+  inertial only 0.9976 / 0.9761 · video only 0.9957 / 0.9629
+  FUSED 0.9980 / 0.9831      gain +0.0004 AUROC, +0.0070 AUPRC
+  ─────────────────────────────────────────────────────────────────────
+  AT CEILING. The best single modality already reaches 0.9976 AUROC, so
+  there is no headroom for a second modality to fill and this task
+  CANNOT evidence fusion regardless of the gain's sign. Reported as a
+  ceiling effect, NOT counted as a second confirmation. The ablation
+  script writes this verdict into its own output so a downstream reader
+  cannot mistake one for the other.
+
+  Artifact: results/phase5/ablation_<dataset>.json
+
+5.2.4  VERIFICATION AND PROVENANCE
+
+  python tests/verify_datasets.py --dataset <ds>
+    An adversarial audit, not a smoke test: split disjointness, case and
+    subject leakage across splits, NaN/infinity presence, label range,
+    per-split class coverage, index bounds, partition completeness,
+    normalisation sanity, and agreement between partition_meta.json and
+    the arrays actually on disk.
+
+  Paths do not identify data — rebuilding a dataset with different
+  window settings leaves every stored path unchanged. Every run
+  therefore records a fingerprint (md5 of the label array and of
+  partition_meta.json):
+
+    vitaldb  labels d3fa814dd4396efd  partition_meta 69feba3f786f9e64
+    wear     labels 8aeb2aeeb2bba951  partition_meta 38c58aadc2a84eee
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   5.3  HFL-MM ARCHITECTURE (HEALTHCARE VERSION)
@@ -207,7 +292,7 @@ Framework: PyTorch 2.x + Opacus + mamba-ssm + ONNX Runtime
   INPUT LAYER (per IoT device):
   ┌──────────────────────────┐    ┌──────────────────────────┐
   │  Modality A              │    │  Modality B               │
-  │  PTB-XL 12-lead ECG      │    │  CheXpert Chest X-ray     │
+  │  Intraop trends (18,300) │    │  Clinical vector (34,)    │
   │  Tensor: [B, 12, 1000]   │    │  Tensor: [B, 3, 224, 224] │
   └──────────┬───────────────┘    └──────────┬────────────────┘
              │                               │
@@ -257,7 +342,7 @@ Framework: PyTorch 2.x + Opacus + mamba-ssm + ONNX Runtime
 
 MOTIVATION:
   The original 1D-CNN+GRU encoder was designed for short vibration
-  signals (1024 samples, 1 channel). PTB-XL ECG records are 12-lead,
+  signals (1024 samples, 1 channel). The intraoperative tensor is 18-channel,
   1000 samples at 100 Hz — the multi-lead structure requires a model
   that captures inter-lead dependencies simultaneously.
 
@@ -289,7 +374,7 @@ ARCHITECTURE:
     → Linear(128, 256) → GELU → [B, 256]
 
   FLOPs per sample: ~18M (vs. 1D-CNN+GRU ~11M) — slight increase
-  justified by 12-lead multi-channel handling and better accuracy.
+  justified by multi-channel handling and better accuracy.
 
 MATHEMATICAL FORMULATION:
   Selective SSM core (per Mamba paper):
@@ -392,7 +477,8 @@ NOVEL CLAIM:
 MOTIVATION:
   This IP extends PHANTOM-FL's CMGA (Cross-Modal Gated Attention) for
   clinical settings where modalities arrive asynchronously:
-    • ECG may be recorded 30 minutes before chest X-ray
+    • both modalities come from ONE acquisition on ONE case, so there is
+      no temporal offset to model and no pairing rule to justify
     • Patient may be moving, causing motion artifacts in ECG
     • ICU settings: continuous ECG but intermittent X-ray (daily)
 
@@ -440,7 +526,7 @@ IMPLEMENTATION NOTE FOR PHASE 6:
   when PHANTOM-FL is integrated. The FedMamba-HC encoder feeds into
   ClinicalCMGA's Encoder A slot, MobileNetV3 into Encoder B slot.
   The temporal gap inputs (Δt_a, Δt_b) are metadata fields in the
-  PTB-XL + CheXpert paired dataset (timestamps included in both).
+  VitalDB: both modalities from one operation record, instrument-paired.
 
 NOVEL CLAIM:
   First cross-modal attention mechanism for federated clinical AI that:
@@ -453,7 +539,9 @@ NOVEL CLAIM:
   5.5  BASELINE COMPARISON SUITE — B0 THROUGH B5
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-All 6 baselines run on IDENTICAL PTB-XL + CheXpert data splits.
+All baselines run on IDENTICAL splits from the dataset's own partition
+files, so the leakage controls (case-level for VitalDB, temporal for
+WEAR) apply identically to baselines and to the proposed model.
 Same model architecture (MobileNetV3 + same fusion head) used for
 all baselines except B5 (MOON adds contrastive head).
 
@@ -569,7 +657,7 @@ Topology: 20 IoT devices → 3 Edge servers → 1 Cloud server
   Max grad norm: C = 1.0  (per-sample gradient clipping threshold)
   Batch size   : 32       (virtual batch for privacy accounting)
   Target ε     : 1.0      (strong privacy)
-  Target δ     : 1e-5     (≈1/N_total, N_total≈21,837)
+  Target δ     : 1e-5     (≈1/N_total; VitalDB N_total = 48,712 windows)
   Accounting   : Rényi DP (RDP) moments accountant
 
   Privacy budget allocation:
@@ -650,7 +738,7 @@ Target: Inference latency < 100ms end-to-end at edge.
 
 QoS Target: ≤ 2% accuracy loss at ε=1 vs. Centralized (B0).
 
-Expected Healthcare Accuracy Targets (PTB-XL 5-class macro-AUC):
+Accuracy reporting (VitalDB, binary ICU admission):
 
   ε       σ(noise)  Macro-AUC   Accuracy   Δ vs B0 (Central)
   ──────────────────────────────────────────────────────────────
@@ -664,7 +752,9 @@ Expected Healthcare Accuracy Targets (PTB-XL 5-class macro-AUC):
   B0 (Centralized):             ~0.87        ~85%        baseline
   ──────────────────────────────────────────────────────────────
 
-Note: Macro-AUC is the primary metric (CheXpert standard).
+Note: AUPRC is the primary metric on VitalDB — at 19.7 % positive,
+accuracy is nearly uninformative and AUROC is optimistic under imbalance.
+Case-level figures are the ones to quote (see 5.2.1).
 5-class classification accuracy is secondary metric.
 Both reported per ε sweep.
 
@@ -676,13 +766,13 @@ Execute from /home/deadserpent/HFL/SIMULATORS/:
 
   STEP 1 — Download Datasets
     python data/loaders/download_datasets.py
-    [Downloads PTB-XL from PhysioNet automatically]
-    [Prints CheXpert registration URL — manual download required]
+    [Fetches VitalDB tracks from the public API — resumable]
+    [WEAR downloads openly; no credentialing for either dataset]
 
   STEP 2 — Preprocess Healthcare Data
     python data/loaders/preprocess_healthcare.py \
-      --ptbxl_dir data/raw/ptb-xl \
-      --chexpert_dir data/raw/chexpert \
+      --dataset vitaldb \
+
       --output_dir data/processed/healthcare
 
   STEP 3 — Non-IID Partitioning
@@ -758,11 +848,11 @@ Execute from /home/deadserpent/HFL/SIMULATORS/:
   ┌──────────────────────────────────────────────────────────────────┐
   │ QoS Target              Phase 4    Phase 5    Status            │
   ├──────────────────────────────────────────────────────────────────┤
-  │ Energy saving ≥ 20%     74.9%      —          PASS (P4) ✓       │
-  │ Comm. reduction ≥ 50%   76.4%      ~95%       PASS (P4→P5) ✓   │
-  │ Update reliability >99% 99.05%     —          PASS (P4) ✓       │
-  │ Inference latency <100ms —         ~47–86ms   PASS (P5) ✓       │
-  │ Accuracy loss <2% (ε=1) —         ~1.5%      PASS (P5) ✓       │
+  │ Energy saving ≥ 20%     72.3/76.8% —          PASS (P4) ✓       │
+  │ Comm. reduction ≥ 50%   90.8/96.1% —          PASS (P4) ✓       │
+  │ Update reliability >99% 100.0/99.99% —        PASS (P4) ✓       │
+  │ Inference latency <100ms —         pending    ONNX, this phase  │
+  │ Accuracy loss <2% (ε=1) —         pending    ε sweep, paired   │
   └──────────────────────────────────────────────────────────────────┘
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -771,7 +861,9 @@ Execute from /home/deadserpent/HFL/SIMULATORS/:
 
   Path                                              Description
   ──────────────────────────────────────────────────────────────────────
-  data/loaders/download_datasets.py                 PTB-XL + CheXpert
+  data/loaders/fetch_vitaldb.py                     VitalDB track fetch
+  data/loaders/preprocess_vitaldb.py                windowing + partition
+  data/loaders/preprocess_wear.py                   windowing + partition
   data/loaders/preprocess_healthcare.py             ECG + CXR pipeline
   data/loaders/partition_noniid.py                  Dirichlet partition
   model/fedmamba_hc.py                              IP-1: Mamba encoder
@@ -817,6 +909,7 @@ Phase 6 will:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   PHASE 5 STATUS: IN PROGRESS (2026-04-22)
   Domain: Healthcare Exclusively | Model: HFL-MM-HC → PHANTOM-FL
-  Datasets: PTB-XL + CheXpert | IPs Active: IP-1 + IP-9 + IP-3(design)
+  Datasets: VitalDB (primary) + WEAR | IP-1 + IP-9 implemented;
+  cross-modal attention remains DESIGN ONLY and is not claimed
   Baselines: B0–B5 | Venue: IEEE JBHI / npj Digital Medicine
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

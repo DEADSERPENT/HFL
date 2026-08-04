@@ -10,7 +10,7 @@ PHASE 1 — Research Understanding & Planning
 
   Findings: Achieves "gradient indistinguishability" — better accuracy than standard DP while maintaining formal privacy guarantees.
 
-  Gaps relevant to  work:
+  Gaps relevant to your work:
   - Flat single-tier architecture — no hierarchical edge-cloud structure
   - Does not address multimodal data fusion (treats all data as generic gradient vectors)
   - No bandwidth optimization for high-volume multimodal streams (camera + vibration + audio)
@@ -23,7 +23,7 @@ PHASE 1 — Research Understanding & Planning
 
   Findings: Hierarchical clustering significantly extends IoT network lifetime vs. flat FL.
 
-  Gaps relevant to  work:
+  Gaps relevant to your work:
   - No Differential Privacy — privacy risks are unaddressed
   - Treats all data generically — no awareness of heterogeneous QoS needs (high-bandwidth video vs. low-bandwidth sensor data)
   - No multimodal fusion strategy
@@ -36,7 +36,7 @@ PHASE 1 — Research Understanding & Planning
 
   Findings: Reduces training time and energy by adapting to each device's capability.
 
-  Gaps relevant to  work:
+  Gaps relevant to your work:
   - Focuses on compression, not privacy-preserving noise injection — no guarantee of ε ≤ 1
   - Does not target real-time inference latency < 100ms for fused multimodal streams
   - Optimizes convergence speed, not end-to-end QoS
@@ -49,7 +49,7 @@ PHASE 1 — Research Understanding & Planning
 
   Findings: Edge nodes can serve as effective security verifiers, reducing cloud computational burden.
 
-  Gaps relevant to  work:
+  Gaps relevant to your work:
   - Treats learning task as generic vector aggregation — no multimodal fusion
   - Does not target ≥50% uplink traffic reduction
   - Prioritizes security robustness over strict latency QoS (<100ms)
@@ -62,7 +62,7 @@ PHASE 1 — Research Understanding & Planning
 
   Findings: Statistically optimized assignment reduces model weight divergence and accelerates convergence on MNIST and CIFAR-10.
 
-  Gaps relevant to  work:
+  Gaps relevant to your work:
   - Single modality only (image classification) — no multimodal extension
   - Relies on exposing local class label statistics, which directly violates ε ≤ 1 privacy budget
   - No cross-modal fusion, no QoS latency targets
@@ -128,13 +128,20 @@ PHASE 1 — Research Understanding & Planning
     │  exhaustion)    │             │  + D2D Offloading    │
     └─────────────────┘             └──────────────────────┘
 
-       APPLICATION DOMAINS
-    ┌──────────┐  ┌──────────┐  ┌──────────┐
-    │  IIoT    │  │  Smart   │  │Healthcare│
-    │ Camera + │  │  City    │  │ Wearable │
-    │Vibration │  │Traffic + │  │+ Imaging │
-    │  Fusion  │  │Pollution │  │  Data    │
-    └──────────┘  └──────────┘  └──────────┘
+       APPLICATION DOMAINS (scoped to two, deliberately)
+    ┌────────────────────┐      ┌────────────────────┐
+    │  CLINICAL IoMT     │      │  WEARABLE IoT      │
+    │  (PRIMARY)         │      │  (fast iteration)  │
+    │  intraop vital     │      │  inertial +        │
+    │  trends + preop    │      │  egocentric video  │
+    │  clinical vector   │      │  features          │
+    └────────────────────┘      └────────────────────┘
+
+    Scope was narrowed from three speculative domains to two REAL,
+    genuinely-paired ones. A domain only earns a place here if its two
+    modalities were captured by one instrument from one subject at one
+    time — otherwise any "fusion" result it produces is an artefact of
+    how the pairing was constructed, not a property of the data.
 
        EVALUATION TARGETS
     ≥50% comm. reduction | ε≤1 privacy | <100ms latency | ≥20% energy saved
@@ -194,7 +201,7 @@ PHASE 1 — Research Understanding & Planning
   │  │ └──────────┘ │  │ └──────────┘ │  │              │              │
   │  └──────────────┘  └──────────────┘  └──────────────┘              │
   │                                                                     │
-  │  Modalities: [Camera] [Microphone] [Vibration] [Env. Sensor]       │
+  │  Modalities: [time-series signals] [dense feature vector]           │
   └─────────────────────────────────────────────────────────────────────┘
 
     DATA FLOW:  Raw Sensors → Feature Extraction → Local Train →
@@ -207,7 +214,7 @@ PHASE 1 — Research Understanding & Planning
   ║               DEVELOPMENT ROADMAP (Jan–May 2026)                ║
   ╚══════════════════════════════════════════════════════════════════╝
 
-  PHASE 1: Research & Planning          [JAN 2026] ← YOU ARE HERE
+  PHASE 1: Research & Planning          [JAN 2026]  COMPLETE
   ├── Literature synthesis (5 papers)
   ├── Gap identification (4 gaps)
   ├── Vision & Architecture maps
@@ -295,25 +302,49 @@ PHASE 1 — Research Understanding & Planning
   ├──────────────┼─────────────────────────────────────────────────┤
   │ May 2026     │ JOINT EVALUATION                                │
   │              │ • Full system: all 4 objectives simultaneously  │
-  │              │ • Dataset: non-IID multimodal distribution       │
-  │              │   (IIoT: vibration+camera, SmartCity, Health)   │
+  │              │ • Data: genuinely-paired multimodal, non-IID     │
+  │              │   by natural client structure (see below)        │
   │              │ • Ablation study: remove each component,        │
   │              │   measure degradation                           │
   │              │ • Generate: graphs, tables, comparison plots    │
   └──────────────┴─────────────────────────────────────────────────┘
 
   DATASETS TO BE USED:
-    • IIoT: CWRU Bearing dataset (vibration) + custom camera frames
-    • Smart City: MISR dataset / air quality + traffic video
-    • Healthcare: WESAD (wearable) + ChestX-ray14 (imaging)
-    Data Partitioning: non-IID (Dirichlet distribution, α=0.5)
+    • PRIMARY — VitalDB (clinical IoMT), Lee et al., Sci Data 2022
+        Modality A: intraoperative vital-sign trends + observed-masks
+        Modality B: preoperative clinical + laboratory vector
+        Label: postoperative ICU admission
+        Pairing: same patient, same second, one acquisition system
+        Split: BY CASE (no operation spans train and test)
+
+    • FAST ITERATION — WEAR, Bock et al., IMWUT 2024
+        Modality A: body-worn inertial sensors
+        Modality B: egocentric video features, same instant
+        Pairing: hardware-synchronised
+        Split: temporal within (subject, activity), with a boundary gap
+
+  DATA PARTITIONING — measured, not synthesised:
+    Clients are natural units (surgical operation type; subject), so the
+    non-IID structure is a property of the domain rather than a
+    Dirichlet parameter chosen to make the task look hard. On the
+    primary dataset the positive-class base rate spans 3.2 %-50.7 %
+    across clients — a sixteen-fold spread.
 
   KEY COMPARISON BASELINES:
-    1. Centralized Training (upper bound accuracy)
-    2. Flat FL (FedAvg, no hierarchy, no DP)
-    3. FL2DP (flat FL + DP, no hierarchy)
-    4. HED-FL (hierarchy + no DP)
-    5. PROPOSED: HFL + DP + multimodal fusion ( system)
+    1. Centralized Training            (upper bound)
+    2. Local only                      (lower bound)
+    3. Flat FL (FedAvg, no DP)
+    4. Flat FL + DP on the whole model
+    5. Flat FL + DP on the fusion head only
+    6. Hierarchical FL WITHOUT DP
+    7. Hierarchical FL + DP            (proposed)
+
+    Arms 4-7 exist to SEPARATE two changes that are usually made
+    together. 4→5 isolates the privacy recipe; 5→7 isolates the
+    topology; 6→7 isolates what privacy costs at fixed topology.
+    Without the intermediate arms a win can be reported but not
+    attributed.
+    5. PROPOSED: HFL + DP + multimodal fusion (your system)
 
   ---
   Phase 1 Summary

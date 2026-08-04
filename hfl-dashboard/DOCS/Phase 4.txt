@@ -64,7 +64,8 @@ Note on GPU in HFL_Proposed scenario:
   HFL_Proposed benefit:
     — Compressed gradients → IoT trains 5× faster (3,000 vs 15,000 MI)
     — Edge GPU accelerates aggregation (+30W during 0.25s aggregation: negligible)
-    — Net: 74.9% energy saving vs Centralized FL
+    — Net: 72.3 % (vitaldb) / 76.8 % (wear) energy saving vs Centralized FL
+      (measured 2026-08-04 — see 4.5.4)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   4.3  NS-3 NETWORK SIMULATION — DESIGN & IMPLEMENTATION
@@ -94,27 +95,64 @@ Note on GPU in HFL_Proposed scenario:
 
 4.3.2  Uplink Volume per Scenario
 
+  Payload and device count come from the DATASET REGISTRY, never from a
+  fixed constant. Simulating a model size that matches neither trained
+  network makes every derived QoS figure describe an experiment that
+  was never run.
+
+  vitaldb — 9 devices, 2 edges, 7.46 MB model, 20 % top-k => 1.49 MB
+  ─────────────────────────────────────────────────────────────────
   Scenario              Uplink (MB/round)    Method
-  ─────────────────────────────────────────────────────────────────
-  CentralizedFL         1000.0               50 MB × 20 devices (raw)
-  FlatFL_NoDP           1000.0               50 MB × 20 devices
-  FlatFL_DP             1020.0               +2% DP noise overhead
-  HierarchicalFL_NoDP    230.0               10 MB compressed × 20 + 10 MB × 3
-  HFL_Proposed           236.0               10.3 MB × 20 + 10.3 MB × 3 (DP)
+  CentralizedFL           67.14              7.46 MB × 9 devices (raw)
+  FlatFL_NoDP             67.14              7.46 MB × 9 devices
+  FlatFL_DP               68.48              +2 % DP noise overhead
+  HierarchicalFL_NoDP     16.41              1.49 MB × 9 + 1.49 MB × 2
+  HFL_Proposed            16.82              compressed + DP overhead
   ─────────────────────────────────────────────────────────────────
 
-4.3.3  NS-3 Packet Simulation (HFL_Proposed, every 10 rounds)
+  wear — 22 devices, 2 edges, 15.70 MB model, 20 % top-k => 3.14 MB
+  ─────────────────────────────────────────────────────────────────
+  CentralizedFL          345.40              15.70 MB × 22 devices
+  FlatFL_NoDP            345.40              15.70 MB × 22 devices
+  FlatFL_DP              352.31              +2 % DP noise overhead
+  HierarchicalFL_NoDP     75.36              3.14 MB × 22 + 3.14 MB × 2
+  HFL_Proposed            77.43              compressed + DP overhead
+  ─────────────────────────────────────────────────────────────────
 
-  Topology : 1 IoT node ──[WiFi 802.11ax/5GHz]── Edge AP ──[P2P 1Gbps]── Cloud
-  Duration : 10.0 simulation seconds
-  Traffic  : BulkSendApplication (max 50 MB), PacketSink at edge
+4.3.3  NS-3 Packet Simulation (EVERY scenario, configurable cadence)
+
+  Topology : N IoT nodes ──[WiFi 802.11ax]── Edge AP ──[P2P]── Cloud
+             N and the edge count come from the registry, and each edge
+             cell gets its OWN wireless channel (see 4.6.1, bug B3).
+  Duration : 20.0 simulation seconds per round
+  Traffic  : BulkSendApplication carrying the COMPRESSED payload
+             (1.49 MB vitaldb / 3.14 MB wear), PacketSink at the cloud
   Monitor  : FlowMonitor → per-flow throughput, packet loss, delay
-  Injection: FlowMonitor stats replace analytical estimates for packet loss
+  Injection: FlowMonitor stats replace analytical estimates where the
+             packet-level run executed
 
-4.3.4  Reliability Model
+  REQUIRES A BUILT NS-3 WITH WORKING PYTHON BINDINGS. Without them the
+  script falls back to the analytical path and still prints results
+  under an NS-3 heading. See Phase 3, Steps 6-7, and check the
+  [OK] / [WARN] line the script prints on startup.
 
-  reliability_pct = 100 × (1 − pkt_loss_rate) × consistency_factor
-  consistency_factor ∼ Uniform(0.97, 1.03) — models non-iid variability
+4.3.4  Reliability Model — MEASURED, NOT ASSUMED
+
+  reliability_pct = 100 x (1 - measured_loss_rate)
+
+  where measured_loss_rate comes from NS-3 FlowMonitor:
+      loss = 1 - (rx_packets / tx_packets)
+
+  An earlier version computed this from a per-scenario rng.uniform()
+  range multiplied by a "consistency factor". That is an assumption
+  wearing the clothes of a measurement: the proposed system's range had
+  been chosen to sit just above the 99 % target, so the objective could
+  not fail, and the figure came out identical on two datasets that
+  differ by 2.4x in model size and client count. A number that does not
+  move when the system changes is not measuring the system.
+
+  See 4.5.2 for the measured values and 4.6.1 defect B6 for why the
+  original topology could not have produced loss at all.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   4.4  CLOUDSIM PLUS COMPUTE SIMULATION — DESIGN & IMPLEMENTATION
@@ -187,56 +225,265 @@ Note on GPU in HFL_Proposed scenario:
   4.5  SIMULATION RESULTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-4.5.1  NS-3 Network Results (avg over 100 rounds)
+  METHODOLOGICAL NOTE — WHY THESE NUMBERS REPLACED THE EARLIER ONES
 
-  Scenario              Latency(ms)  Uplink(MB)  Reliability(%)
-  ──────────────────────────────────────────────────────────────
-  CentralizedFL            7475.2     1000.0       94.95
-  FlatFL_NoDP              7472.2     1000.0       96.21
-  FlatFL_DP                7843.6     1020.0       96.21
-  HierarchicalFL_NoDP      1787.3      230.0       98.74
-  HFL_Proposed             1830.7      236.0       99.05  ←
-  ──────────────────────────────────────────────────────────────
-  Comm. Reduction : (1000 - 236) / 1000 × 100 = 76.4%
-  Update Reliability (HFL_Proposed): 99.05%
+  An earlier version of this section reported uplink reduction computed
+  as model_size x sparsity, and reliability drawn from per-scenario
+  rng.uniform() ranges. Neither was a measurement:
 
-4.5.2  CloudSim Plus Compute Results (avg over 100 rounds)
+    · the uplink figure restated a compression ratio that had been
+      chosen as a constant — a reviewer reproduces it in one division;
+    · the reliability figure was the midpoint of a hand-picked interval,
+      which is why it came out identical (99.05 %) on two datasets that
+      differ by 2.4x in model size and 2.4x in client count. A number
+      that does not move when the system changes is not measuring the
+      system.
 
-  Scenario              Energy(J)  Uplink(MB)  Task Time(s)
-  ──────────────────────────────────────────────────────────────
-  CentralizedFL          2806.25   1100.0       50.11
-  FlatFL_NoDP            2806.25   1000.0       50.11
-  FlatFL_DP              2806.25   1020.0       50.11
-  HierarchicalFL_NoDP    2922.50    230.0       50.36
-  HFL_Proposed            705.00    236.0       10.36  ←
-  ──────────────────────────────────────────────────────────────
-  Energy Saving vs CentralizedFL: (2806.25 - 705.00) / 2806.25 × 100 = 74.9%
+  Both are now measured. Uplink comes from the real compressor; loss and
+  delay come from NS-3 FlowMonitor over a real 802.11ax topology.
+
+4.5.1  MEASURED UPLINK  (Objective 1)
+
+  Produced by: python scripts/measure_uplink.py --dataset <ds>
+  Method: build the real model from the registry, generate a realistic
+  delta, run the REAL GradientCompressor, serialise, count bytes.
+
+  THE FINDING THAT CHANGES THE ACCOUNTING
+    Top-k sparsification must transmit an INDEX for every value it
+    keeps. Indices are int32 and values are uint8 after quantization, so
+    the indices cost four times what the payload costs and dominate the
+    wire format:
+
+      indices  80.0 % of transmitted bytes
+      values   20.0 %
+      headers  negligible
+
+    The nominal "5x sparsity x 4x quantization = 20x" ratio therefore
+    overstates full-model compression by more than six times. Measured
+    full-model compression is 3.2x, not 20x.
+
+    Under the head-only recipe the frozen encoder deltas are exactly
+    zero and send nothing, so measured compression is 13.3x — and that
+    gain comes from a design decision (what is trained), not the codec.
+
+  Per-client, per-round (vitaldb: dense update 7.111 MB)
+  ─────────────────────────────────────────────────────────────────────
+  arm                transmitted     compression   indices   values
+  full model            2.250 MB          3.2x     1.799 MB  0.450 MB
+  head only             0.534 MB         13.3x     0.427 MB  0.107 MB
+  ─────────────────────────────────────────────────────────────────────
+
+  System uplink per round, vs centralized (every client sends dense):
+
+    dataset   centralized   full-model        head-only
+    vitaldb      64.00 MB   24.75 MB          5.87 MB
+                            (61.3 % less)     (90.8 % less)
+    wear        329.47 MB  101.19 MB         12.91 MB
+                            (69.3 % less)     (96.1 % less)
+
+  OBJECTIVE 1 (>= 50 % uplink reduction): PASS on both datasets, and it
+  passes even in the full-model arm. The head-only recipe is what turns
+  a comfortable margin into a large one.
+
+  Artifacts: results/phase5/uplink_measured_<dataset>.json
+
+4.5.2  MEASURED RELIABILITY AND DELAY  (Objective 3b)
+
+  Produced by: python3 ns3/hfl-scenarios/hfl_network_sim.py \
+                 --dataset <ds> --rounds 5 --ns3_every 1 --cell_radius 30
+  Method: every scenario carries its OWN measured payload through the
+  real topology; loss and delay are read from FlowMonitor. No scenario
+  uses an assumed loss rate.
+
+  WHY GEOMETRY MATTERS HERE
+    All nodes previously defaulted to position (0,0,0). Co-located nodes
+    see a perfect channel, every architecture delivers 100 %, and the
+    reliability objective becomes a tautology. Devices are now placed on
+    a disc of radius r around their access point, so path loss degrades
+    SNR with distance and frame errors emerge from the real PHY/MAC.
+
+  vitaldb — cell radius 30 m, n = 5 packet-level rounds per scenario
+  ─────────────────────────────────────────────────────────────────────
+  Scenario                rx(MB)   delay(ms)      loss(%)   reliability
+  CentralizedFL            73.59      24.20   0.274±0.080     99.726 %
+  FlatFL_NoDP              73.59      21.27   0.236±0.128     99.764 %
+  FlatFL_DP                75.08      23.44   0.226±0.131     99.774 %
+  HierarchicalFL_NoDP       5.52      17.90   0.000±0.000    100.000 %
+  HFL_Proposed              5.68      17.26   0.000±0.000    100.000 %
+  ─────────────────────────────────────────────────────────────────────
+
+  wear — cell radius 30 m, n = 5 packet-level rounds per scenario
+  ─────────────────────────────────────────────────────────────────────
+  Scenario                rx(MB)   delay(ms)      loss(%)   reliability
+  CentralizedFL           284.63      39.21   0.485±0.113     99.515 %
+  FlatFL_NoDP             293.01      35.74   0.497±0.079     99.503 %
+  FlatFL_DP               287.00      40.44   0.545±0.127     99.455 %
+  HierarchicalFL_NoDP      13.58      22.84   0.000±0.000    100.000 %
+  HFL_Proposed             13.99      21.66   0.013±0.027     99.987 %
+  ─────────────────────────────────────────────────────────────────────
+
+  THE EFFECT REPLICATES, AND SCALES WITH THE PAYLOAD RATIO
+    WEAR moves 284 MB in the flat arms against 14 MB in the hierarchical
+    arms — roughly 20x, against 13x on vitaldb. The measured loss gap
+    widens correspondingly: flat arms lose 0.49-0.55 % here versus
+    0.23-0.27 % on vitaldb, while the hierarchical arms stay at or
+    within noise of zero on both.
+
+    Two datasets differing in client count (9 vs 22), model size (7.5 vs
+    15.7 MB) and task (binary clinical outcome vs 18-class activity)
+    produce the same ordering by the same mechanism. That is a
+    replication, not a single favourable run — and it is the evidence
+    that the earlier hand-picked reliability figure could never have
+    provided, since it returned 99.05 % on both regardless.
+
+  READING THIS RESULT HONESTLY
+    The hierarchical arms lose nothing (or within noise of it) while the
+    flat arms lose 0.23-0.55 %, and the mechanism is not subtle: the
+    flat arms push 13-20x more bytes through the same lossy channel, so
+    they have 13-20x the exposure. Delay falls correspondingly — 29 %
+    lower on vitaldb (17.3 vs 24.2 ms) and 45 % lower on wear (21.7 vs
+    39.2 ms).
+
+    All five architectures clear the > 99 % target at this radius. The
+    honest claim is therefore NOT "only the proposed system is reliable"
+    — it is that the proposed system reaches the target with ZERO
+    measured loss and materially lower delay, and that its margin comes
+    from transmitting an order of magnitude less data.
+
+  RANGE LIMIT — reported, not hidden
+    A radius sweep was run at 30 / 50 / 70 / 90 / 105 / 120 m. Beyond
+    ~50 m the link becomes marginal: transfers do not complete inside
+    the round window (centralized delivers 31 MB of an expected 73 MB at
+    50 m), and by 70 m devices fail to associate at all, giving 100 %
+    loss for EVERY architecture.
+
+    Those points are a range limit of the 802.11ax cell, not a
+    reliability comparison between architectures, and the loss figures
+    there must not be quoted as one. At 50 m the ordering also inverts
+    within noise, which is a symptom of truncated transfers rather than
+    an architectural effect.
+
+  Artifacts: results/ns3/stress5_<dataset>_r30.csv
+             results/ns3/stress_vitaldb_r{30,50,70,90,105,120}.csv
+
+4.5.3  ENERGY  (Objective 4)
+
+  Produced by CloudSim Plus with registry-derived topology and payload.
+
+    dataset   centralized      proposed      saving
+    vitaldb     1266.25 J       350.75 J      72.3 %
+    wear        3086.25 J       714.75 J      76.8 %
+
+  SCOPE OF THIS CLAIM — stated so it is not over-read
+    CloudSim's host power model and scheduler are genuinely simulated.
+    The advantage, however, derives from a STIPULATED local-compute
+    reduction (15,000 MI -> 3,000 MI per device round) representing the
+    smaller work a client does when it trains only the fusion head.
+    The correct phrasing for the paper is therefore:
+
+      "Given a 5x reduction in local computation, CloudSim Plus yields
+       a 72.3 % (vitaldb) / 76.8 % (wear) energy saving per round."
+
+    NOT "we measured a 5x compute reduction" — that figure is an input.
+    Replacing it with profiled per-round compute is future work.
+
+  Artifacts: results/cloudsim/cloudsim_results_<dataset>.csv
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   4.6  QoS TARGET VALIDATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  QoS Target                     Value          Result   Status
+  Target                     vitaldb        wear       Source      Status
   ─────────────────────────────────────────────────────────────────────
-  Energy Saving ≥ 20%            74.9%          Phase4   PASS ✓
-  Comm. Reduction ≥ 50%          76.4% (NS-3)   Phase4   PASS ✓
-                                 78.5% (CloudSim) Phase4  PASS ✓
-  Update Reliability > 99%       99.05%         Phase4   PASS ✓
-  Inference Latency < 100ms      —              Phase5   [FL round ≠ inference]
-  Max Accuracy Loss < 2%         —              Phase5   [requires real training]
+  Uplink reduction >= 50 %    90.8 %       96.1 %    compressor   PASS
+                                                     (measured)
+  Update reliability > 99 %  100.000 %   99.987 %  NS-3         PASS
+                             (0.000 %)   (0.013 %)  FlowMonitor
+                             flat arms: 99.73 % / 99.46 % — also PASS
+  Energy saving >= 20 %       72.3 %       76.8 %    CloudSim     PASS
+                                                     (stipulated
+                                                     compute input)
+  Inference latency < 100 ms     —            —      ONNX         Phase 5
+  Accuracy loss <= 2 %           —            —      training     Phase 5
   ─────────────────────────────────────────────────────────────────────
 
-  Note on Inference Latency:
-    FL round latency (1830ms) is the full training communication cycle —
-    this is normal for federated learning and is NOT the inference latency.
-    The 100ms target applies to deployed model inference at the edge,
-    which will be validated in Phase 5 using ONNX edge deployment.
+  Uplink reduction is quoted for the head-only recipe, the proposed
+  configuration. The full-model arm also passes (61.3 % / 69.3 %) and is
+  reported in 4.5.1 so the contribution of the recipe stays visible
+  rather than being absorbed into one headline number.
 
-  Note on Accuracy Loss:
-    Requires real FL training over the CWRU/WESAD/ChestXray14 datasets.
-    Will be validated in Phase 5 (HFL_Proposed vs. CentralizedFL baseline).
+  RELIABILITY IS PER UPDATE, NOT PER RUN.
+    The objective concerns a model UPDATE. The whole-run compound
+    (per-update raised to the number of rounds) is a different quantity
+    and decays fast enough to make a healthy per-update rate look like a
+    failure.
+
+  FL ROUND LATENCY IS NOT INFERENCE LATENCY.
+    The delay measured above is the communication component of a
+    TRAINING round. The < 100 ms objective concerns DEPLOYED inference
+    at the edge and is owned by ONNX Runtime in Phase 5. The two must
+    never be compared.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4.6.1  DEFECTS FOUND WHEN THE PACKET-LEVEL PATH WAS FIRST EXECUTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Recorded because the root cause matters more than the fixes: the NS-3
+  packet-level code path had NEVER ONCE RUN. NS-3 source was checked out
+  but never built, so `import ns` failed, so the script took its
+  analytical fallback every time — while still printing results under an
+  NS-3 heading. Nothing crashed, so five defects sat undetected in code
+  believed to be working.
+
+  Every NS-3 figure produced before 2026-08-04 should be regarded as
+  ANALYTICAL, not packet-level.
+
+  B1  DEAD API. The script used `import ns.core`, `import ns.network`.
+      That form was removed in NS-3 3.36; the bindings are now flat
+      (`from ns import ns`). It raises ImportError even on a correct
+      build, which by itself guaranteed the fallback forever.
+
+  B2  MISSING RUNTIME DEPENDENCY. NS-3 >= 3.36 bindings require cppyy,
+      which was not installed.
+
+  B3  ONE SHARED WIRELESS CHANNEL ACROSS ALL EDGE CELLS. A single
+      YansWifiChannel was created outside the cluster loop, so every
+      cell shared one broadcast domain while carrying different /24
+      subnets. Distinct SSIDs hide this at the MAC layer, but IP does
+      not see SSIDs: GlobalRouter aborted with "Network number
+      confusion (192.168.2.2/24, 192.168.1.1/24)". Each cell now has its
+      own channel — also the physically honest model, since two edge
+      cells are not one radio medium.
+
+  B4  SILENTLY DROPPED DEVICE. Cluster membership used integer division
+      (9 devices // 2 edges = 4), so clusters covered devices 0-7 and
+      the 9th was never attached to any access point. It contributed no
+      traffic, so simulated uplink was short by one client. The last
+      cluster now absorbs the remainder.
+
+  B5  CSV HEADER TAKEN FROM THE FIRST ROW. Fieldnames came from
+      all_results[0].keys(). Only rounds that ran packet-level carry the
+      ns3_* measurements, so whenever an analytical row came first every
+      packet-level column was dropped from the output. This is what hid
+      the problem: even a successful packet-level run would have written
+      a CSV with no packet-level columns. The header is now the union of
+      all rows.
+
+  B6  ALL NODES AT THE ORIGIN. Every node defaulted to position (0,0,0),
+      so the channel was perfect and loss was structurally zero. This is
+      why the earlier implementation needed hand-picked loss ranges at
+      all — with no geometry there was nothing to measure.
+
+  LESSON FOR THE THESIS
+    A simulator that degrades to an analytical model without failing is
+    more dangerous than one that crashes. The startup banner now states
+    which mode is active, and Phase 3 Step 7 makes binding verification
+    a mandatory environment step.
+
+
+
   4.7  KEY IMPLEMENTATION INSIGHTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

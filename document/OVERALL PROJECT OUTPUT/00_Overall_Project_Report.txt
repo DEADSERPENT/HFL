@@ -1,482 +1,374 @@
-
 =======================================================================
- OVERALL PROJECT OUTPUT REPORT
- Planned vs. Achieved — Complete Comparison Across All Phases
+ OVERALL PROJECT REPORT
+ Planned vs. Achieved — Status Across All Phases
  Hierarchical Federated Learning for Privacy-Aware, Low-Latency
  Multimodal IoT Systems
  Student : Samartha H V | MIT Bengaluru | Regd. 251580130019
  Guide   : Dr. Shreyas J | Industry: Mr. Tejas J (Capgemini)
- Report Date: 2026-04-02
+ Revised : 2026-08-04
 =======================================================================
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 1: WHAT WAS ORIGINALLY PLANNED (FROM SOURCE DOCUMENTS)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WHAT THIS DOCUMENT IS
 
-Source documents reviewed:
-  [D1] Problem Statement and Objectives.pdf
-  [D2] Federated_Multimodal_FL_Research_Guidance.pdf
-  [D3] ResearchMethodology IOT.pdf (Jan 2026)
-  [D4] Literature Review.pdf
-  [D5] Literature Survey Format Conversion.pdf
+  This is the EXECUTION PLAN for the study: what is built, how it will
+  be run, and what each experiment will establish. It is not a results
+  report — the results are produced by running the pipeline it
+  describes.
 
-1.1  Original Problem Statement (from D3, verbatim)
+  Where a number already exists it is quoted and its artifact named.
+  Where an experiment is designed but not yet run, this document says
+  what it will measure and what outcome would count as meeting the
+  objective — so that when it runs, the answer is already defined and
+  cannot be chosen after seeing the data.
 
-  "The proposed framework implements a Hierarchical Federated Learning
-  (HFL) architecture operating across three layers: IoT/End Devices,
-  Edge Servers, and a Cloud Server. Unlike traditional flat federated
-  learning, the system adopts a two-tier aggregation strategy that
-  balances local privacy preservation with global model accuracy."
+  Fixing the target before the run is the point. An objective whose
+  pass condition is written down in advance cannot be quietly relaxed
+  to fit whatever came out.
 
-1.2  Original Objectives (from D1 + D2, verbatim)
-
-  ┌─────┬─────────────────────────────────────────┬────────────────────┐
-  │  #  │          Objective                      │  Target Metric     │
-  ├─────┼─────────────────────────────────────────┼────────────────────┤
-  │ O1  │ Reduce uplink data via two-tier          │ ≥50% reduction     │
-  │     │ aggregation                              │ vs. centralized    │
-  ├─────┼─────────────────────────────────────────┼────────────────────┤
-  │ O2  │ Limit accuracy loss under privacy        │ ≤2% loss at ε≤1    │
-  ├─────┼─────────────────────────────────────────┼────────────────────┤
-  │ O3  │ Achieve real-time inference              │ <100ms end-to-end  │
-  ├─────┼─────────────────────────────────────────┼────────────────────┤
-  │ O4  │ Demonstrate energy savings               │ ≥20% per round     │
-  └─────┴─────────────────────────────────────────┴────────────────────┘
-
-  Secondary targets (from D3):
-    • Update reliability > 99%
-    • Privacy budget ε ≤ 1.0 (Gaussian or Laplace mechanism)
-    • High reliability under realistic network (NS-3)
-    • Energy savings extending battery-powered IoT device lifetime
-
-1.3  Original Architecture Planned (from D3, Figure 1)
-
-  Layer 1: IoT/End Devices
-    → Multimodal data collection (image, audio, vibration, env. sensors)
-    → On-device feature extraction (lightweight)
-    → Differential Privacy noise injection (ε ≤ 1)
-    → Local model training (only updates leave device)
-    → Encrypted local updates {W_i, W_j}
-
-  Layer 2: Edge Server Layer
-    → Dynamic device clustering
-    → Edge aggregation (FedAvg at edge)
-    → Update filtering + compression
-    → Local model redistribution to devices
-
-  Layer 3: Cloud Server
-    → Final global aggregation (FedAvg)
-    → Global model W_global distributed back to edges
-
-  Data flow: Uplink: encrypted gradients | Downlink: global model
-
-1.4  Original Methodology (from D3, Section 0.4)
-
-  Stage 1: Privacy-Preserving Local Training
-    "Calibrated noise (Gaussian or Laplace) added to local gradients
-    to achieve gradient indistinguishability. Raw data never leaves
-    the device."
-
-  Stage 2: Hierarchical Aggregation
-    Edge: "Dynamically clustering devices, partial aggregation — targets
-          up to 50% reduction in uplink traffic."
-    Cloud: "Final aggregation on compressed, privacy-safe updates."
-
-  Stage 3: QoS Validation
-    "EdgeCloudSim or NS-3 for simulation. Inference latency < 100ms.
-    Energy savings ≥ 20% per training round."
-
-1.5  Original Timeline (from D3, Table 1)
-
-  January 2026:  Literature Survey
-  February 2026: Problem Formulation
-  March 2026:    Objective I — Framework Design
-  April 2026:    Objective II — Optimization & Efficiency
-  May 2026:      Privacy Integration + Simulation + Paper + Report
-
-1.6  Original Research Gaps Identified (from D2)
-
-  Gap 1: No unified framework jointly optimizing all 4 objectives
-  Gap 2: Multimodal hierarchical FL unexplored (multimodal + hierarchy together)
-  Gap 3: Static privacy budgets — no adaptive ε allocation
-  Gap 4: No real-time QoS guarantees in robustness frameworks
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 2: WHAT WAS ACTUALLY ACHIEVED (PHASES 1–6)
+  SECTION 1: THE PROBLEM AND ITS OBJECTIVES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-2.1  Phase-by-Phase Achievement Summary
+  Source: document/DOCUMENT PDF/
+          "Research Problem Statements for Multimodal.pdf",
+          Problem Statement 1 — Federated Multimodal Edge-Cloud
+          Learning for Low-Latency, Privacy-Preserving IoT
 
-  ┌────────┬────────────────────────────────┬────────┬─────────────────┐
-  │ Phase  │ Deliverable                    │ Status │ Date Completed  │
-  ├────────┼────────────────────────────────┼────────┼─────────────────┤
-  │ 1      │ Literature review (5 papers)   │ DONE ✓ │ Jan 2026        │
-  │        │ Gap analysis (4 gaps)          │ DONE ✓ │                 │
-  │        │ Vision + architecture maps     │ DONE ✓ │                 │
-  │        │ Quantified objectives (O1–O4)  │ DONE ✓ │                 │
-  │        │ Development roadmap            │ DONE ✓ │                 │
-  ├────────┼────────────────────────────────┼────────┼─────────────────┤
-  │ 2      │ Simulator selection (NS-3 +    │ DONE ✓ │ Feb 2026        │
-  │        │ CloudSim Plus) with formal     │        │                 │
-  │        │ justification tables           │ DONE ✓ │                 │
-  │        │ Dual-simulator architecture    │ DONE ✓ │                 │
-  │        │ designed                       │        │                 │
-  ├────────┼────────────────────────────────┼────────┼─────────────────┤
-  │ 3      │ NS-3 v3.46.1 installed +       │ DONE ✓ │ Feb 2026        │
-  │        │ verified (Python bindings)     │        │                 │
-  │        │ CloudSim Plus v8.5.6 built     │ DONE ✓ │                 │
-  │        │ (Maven, BUILD SUCCESS)         │        │                 │
-  │        │ GPU auto-detect (RTX A2000)    │ DONE ✓ │                 │
-  ├────────┼────────────────────────────────┼────────┼─────────────────┤
-  │ 4      │ NS-3 simulation (500 rows CSV) │ DONE ✓ │ Mar 2026        │
-  │        │ CloudSim sim (500 rows CSV)    │ DONE ✓ │                 │
-  │        │ O1 PASS: 76.4% comm. reduction │ DONE ✓ │                 │
-  │        │ O4 PASS: 74.9% energy saving   │ DONE ✓ │                 │
-  │        │ Reliability PASS: 99.05%       │ DONE ✓ │                 │
-  ├────────┼────────────────────────────────┼────────┼─────────────────┤
-  │ 5      │ HFL-MM model designed +        │ PLANNED│ Apr 2026        │
-  │        │ trained on 3 real datasets     │        │                 │
-  │        │ DP-SGD (Opacus, ε=1)           │        │                 │
-  │        │ ONNX INT8 deployed             │        │                 │
-  │        │ O2 target: ≤2% accuracy loss   │        │                 │
-  │        │ O3 target: <100ms P95 latency  │        │                 │
-  ├────────┼────────────────────────────────┼────────┼─────────────────┤
-  │ 6      │ Joint evaluation + ablation    │ PLANNED│ May 2026        │
-  │        │ Statistical analysis           │        │                 │
-  │        │ 10 publication figures         │        │                 │
-  │        │ Thesis (8 chapters)            │        │                 │
-  │        │ IEEE Trans. Ind. Inf. paper    │        │                 │
-  └────────┴────────────────────────────────┴────────┴─────────────────┘
+  PROBLEM
+    Multimodal IoT devices generate large, heterogeneous data that
+    overloads networks and risks privacy when centralised. Transmitting
+    raw streams to the cloud increases latency and energy use, harming
+    real-time decisions. On-device models reduce transfer but struggle
+    to stay accurate and coordinated across devices. A hierarchical,
+    privacy-preserving approach is needed that balances local
+    computation, communication, latency and energy across edge-cloud
+    layers.
 
-2.2  Quantitative Results (Current as of Apr 2026)
+  OBJECTIVES (quantified, as written in the source)
+    O1  Hierarchical FL design   >= 50 % reduction in uplink traffic
+    O2  Privacy mechanisms       strict budget eps <= 1, with model
+                                 accuracy loss limited to <= 2 %
+    O3  QoS validation           inference latency < 100 ms AND
+                                 > 99 % successful model updates
+    O4  Energy efficiency        >= 20 % energy saving per training
+                                 round
 
-  COMPLETED (Phases 1–4 verified):
-  ─────────────────────────────────────────────────────────────────────
-  O1 — Communication Reduction:
-    Planned:  ≥50% vs. centralized
-    Achieved: 76.4% (NS-3) | 78.5% (CloudSim)
-    Status:   PASS ✓ — exceeded by 26.4 percentage points
+  These thresholds are encoded in exactly one place in the codebase,
+  SIMULATORS/scripts/check_objectives.py, so a target cannot drift
+  between a script, a figure and the thesis text.
 
-  O4 — Energy Savings:
-    Planned:  ≥20% per round vs. centralized
-    Achieved: 74.9% per round (CloudSim simulation)
-    Status:   PASS ✓ — exceeded by 54.9 percentage points
-
-  Reliability:
-    Planned:  >99% successful model updates
-    Achieved: 99.05% (HFL_Proposed, NS-3)
-    Status:   PASS ✓
-
-  Privacy budget:
-    Planned:  ε ≤ 1.0 (Gaussian mechanism)
-    Designed: ε=1.0, δ=1e-5, σ=1.1 (calibrated via RDP accountant)
-    Status:   CONFIGURED ✓ (Phase 5 will measure actual spend)
-  ─────────────────────────────────────────────────────────────────────
-
-  PLANNED (Phase 5 targets — pending execution):
-  ─────────────────────────────────────────────────────────────────────
-  O2 — Accuracy Loss:
-    Planned:  ≤2% vs. centralized at ε=1
-    Expected: ~1.5% (based on FL2DP literature at ε=1)
-    Status:   IN PROGRESS
-
-  O3 — Inference Latency:
-    Planned:  <100ms end-to-end
-    Expected: ~68ms P95 (ONNX INT8 on RTX A2000 + WiFi network delay)
-    Status:   IN PROGRESS
-  ─────────────────────────────────────────────────────────────────────
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 3: PLANNED vs. ACHIEVED — DETAILED COMPARISON
+  SECTION 2: RESEARCH GAPS ADDRESSED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-3.1  Architecture Comparison
+  Gap 1  No multimodal fusion in existing FL — prior hierarchical and
+         private FL work treats client data as generic gradient
+         vectors, with no notion of two heterogeneous modalities
+         describing the same entity.
+         STATUS: DEMONSTRATED on VitalDB (Section 5).
 
-  ┌──────────────────────────┬──────────────────────────┬──────────────┐
-  │   WHAT WAS PLANNED       │   WHAT WAS BUILT         │   MATCH?     │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ 3-layer HFL (IoT/Edge/   │ 3-layer HFL (20 IoT /    │ MATCH ✓      │
-  │ Cloud)                   │ 3 Edge / 1 Cloud)        │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Two-tier FedAvg          │ Two-tier FedAvg (τ_e=5   │ MATCH ✓      │
-  │ aggregation              │ edge rounds per global)  │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ On-device DP noise       │ DP-SGD (Opacus), ε=1.0,  │ MATCH ✓      │
-  │ (Gaussian or Laplace)    │ Gaussian mechanism        │ (Gaussian)   │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Dynamic device           │ Static Dirichlet clusters │ PARTIAL ✓   │
-  │ clustering at edge       │ (3 clusters fixed)        │ (Phase 5     │
-  │                          │                           │  dynamic)    │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ EdgeCloudSim or NS-3     │ NS-3 v3.46.1 +            │ EXCEED ✓     │
-  │ for QoS validation       │ CloudSim Plus v8.5.6      │ (both used)  │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Multimodal data          │ HFL-MM model (1D-CNN+GRU  │ MATCH ✓      │
-  │ processing (image,       │ + MobileNetV3 + late      │ (3 domains)  │
-  │ audio, vibration, env.)  │ fusion; 3 IoT domains)   │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Gradient compression     │ Top-20% sparsification    │ EXCEED ✓     │
-  │ (mentioned broadly)      │ + 8-bit quantization      │ (20× vs ~5×  │
-  │                          │ = 20× combined            │  expected)   │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Inference latency        │ ONNX INT8 edge deployment │ NOVEL ✓      │
-  │ validation               │ + ONNX Runtime benchmark  │ (not in      │
-  │ (not specified how)      │ (1000 runs, P95 logged)  │  original)   │
-  └──────────────────────────┴──────────────────────────┴──────────────┘
+  Gap 2  Privacy-efficiency trade-off unresolved — hierarchical FL work
+         omits differential privacy; DP work omits hierarchy. Neither
+         line reports what the other costs.
+         STATUS: apparatus complete, measurement pending (Section 6).
 
-3.2  Methodology Comparison
+  Gap 3  Real-time QoS not addressed in privacy/robustness frameworks —
+         inference latency under deployment conditions is rarely
+         reported at all.
+         STATUS: apparatus complete (ONNX export + portable benchmark),
+         measurement pending on current data.
 
-  ┌──────────────────────────┬──────────────────────────┬──────────────┐
-  │   PLANNED APPROACH       │   ACTUAL APPROACH        │   VERDICT    │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Realistic network        │ NS-3 WiFi 802.11ax +      │ EXCEED ✓     │
-  │ simulation               │ LTE + fiber topology +    │              │
-  │                          │ FlowMonitor packet-level  │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Energy modeling          │ CloudSim Plus analytical  │ EXCEED ✓     │
-  │                          │ power model (3-phase      │              │
-  │                          │ IoT/Edge/Cloud energy)   │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Non-IID data             │ Dirichlet distribution    │ MATCH ✓      │
-  │ distribution             │ α=0.5 across 20 devices  │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ 3 IoT application        │ IIoT (CWRU+spectrogram), │ MATCH ✓      │
-  │ domains                  │ Smart City (UrbanSound+   │              │
-  │                          │ EPA), Healthcare (WESAD+  │              │
-  │                          │ ChestXray14)              │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ Privacy budget ε ≤ 1     │ RDP moments accountant    │ EXCEED ✓     │
-  │ (unspecified accounting) │ (Opacus) with per-round  │              │
-  │                          │ ε tracking                │              │
-  ├──────────────────────────┼──────────────────────────┼──────────────┤
-  │ QoS comparison vs.       │ 5 baselines: Centralized, │ EXCEED ✓     │
-  │ baselines                │ FlatFL, FL2DP, HED-FL,   │ (more        │
-  │ (unspecified count)      │ Proposed (5 systems)      │  baselines)  │
-  └──────────────────────────┴──────────────────────────┴──────────────┘
+  Gap 4  Static privacy budgets — adaptive privacy allocation is
+         proposed in the literature but seldom ablated against a
+         uniform budget.
+         STATUS: an adaptive variant was implemented and measured
+         WORSE than uniform (Section 8). Reported as a negative result.
 
-3.3  Timeline Comparison
-
-  ┌──────────────┬──────────────────────┬──────────────────────┬────────┐
-  │  MONTH       │  PLANNED             │  ACTUAL              │ STATUS │
-  ├──────────────┼──────────────────────┼──────────────────────┼────────┤
-  │ January 2026 │ Literature Survey    │ Phase 1 complete:    │ ON     │
-  │              │                      │ 5 papers, 4 gaps,    │ TIME ✓ │
-  │              │                      │ vision + arch map    │        │
-  ├──────────────┼──────────────────────┼──────────────────────┼────────┤
-  │ February     │ Problem Formulation  │ Phase 2+3 complete:  │ ON     │
-  │ 2026         │                      │ Simulators selected, │ TIME ✓ │
-  │              │                      │ installed, verified  │        │
-  ├──────────────┼──────────────────────┼──────────────────────┼────────┤
-  │ March 2026   │ Objective I —        │ Phase 4 complete:    │ ON     │
-  │              │ Framework Design     │ Both sims running,   │ TIME ✓ │
-  │              │                      │ O1+O4+Reliability    │        │
-  │              │                      │ PASS                 │        │
-  ├──────────────┼──────────────────────┼──────────────────────┼────────┤
-  │ April 2026   │ Objective II —       │ Phase 5 planned:     │ ON     │
-  │              │ Optimization &       │ Model designed,      │ TRACK  │
-  │              │ Efficiency           │ datasets configured, │        │
-  │              │                      │ ONNX pipeline ready  │        │
-  ├──────────────┼──────────────────────┼──────────────────────┼────────┤
-  │ May 2026     │ Privacy Integration  │ Phase 6 planned:     │ ON     │
-  │              │ + Simulation +       │ Joint eval + ablation│ TRACK  │
-  │              │ Paper + Report       │ + thesis + paper     │        │
-  └──────────────┴──────────────────────┴──────────────────────┴────────┘
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 4: WHAT EXCEEDED ORIGINAL EXPECTATIONS
+  SECTION 3: PHASE STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The following was NOT in the original PDF documents but was ADDED
-during project execution — all represent improvements beyond the plan:
+  Phase 1  Research understanding, gap analysis, objectives   COMPLETE
+  Phase 2  Simulator selection and justification              COMPLETE
+  Phase 3  Environment setup (NS-3, CloudSim Plus, Python)    COMPLETE
+  Phase 4  Simulator implementation                           CODE COMPLETE
+                                                              runs pending
+  Phase 5  Model, privacy, deployment                         CODE COMPLETE
+                                                              runs pending
+  Phase 6  Joint evaluation, ablation, statistics, figures    CODE COMPLETE
+                                                              runs pending
 
-  E1. Dual simulator approach (NS-3 + CloudSim Plus together)
-      Original: "EdgeCloudSim OR NS-3"
-      Achieved: Both running with shared config file — more rigorous.
+  "CODE COMPLETE, runs pending" is the accurate description of the
+  current state. Every implementation requirement traced from the phase
+  reports is satisfied and dataset-agnostic; what remains is execution
+  on the current datasets.
 
-  E2. Communication reduction far exceeded target
-      Original target: ≥50% reduction
-      Achieved:        76.4% (Phase 4) → expected 95% (Phase 5 with 20×)
-      Excess:          26.4% above target in Phase 4 alone
+  Machine-checkable status:
+    python tests/traceability.py --dataset vitaldb
 
-  E3. Energy savings far exceeded target
-      Original target: ≥20% per round
-      Achieved:        74.9% per round
-      Excess:          54.9% above target
+  This enumerates every deliverable written in the phase reports and
+  checks it against the codebase, with artifacts checked PER DATASET —
+  because a result on one dataset says nothing about another.
 
-  E4. ONNX INT8 edge deployment (not in original plan)
-      Original: "prototype the system" — inference latency target stated
-               but method of achieving it was unspecified
-      Achieved: ONNX export → INT8 quantization → Runtime benchmark
-               (specific P95 latency measurement methodology)
-
-  E5. Gradient compression quantified (not in original plan)
-      Original: compression mentioned broadly ("reduce uplink traffic")
-      Achieved: Top-k sparsification (20%) + 8-bit quantization = 20×
-               combined — specific, implementable, measurable
-
-  E6. 5-baseline comparison system (original plan unspecified)
-      Original: comparison vs. "centralized training" and "flat FL"
-      Achieved: 5 systems (S0–S4): CentralizedFL, FlatFL, FL2DP,
-               HED-FL, HFL-MM (proposed) — covers all prior art
-
-  E7. Error feedback mechanism in compression (novel)
-      Not in any PDF document. Added to prevent accuracy degradation
-      from accumulating quantization errors across FL rounds.
-
-  E8. Modality-aware graceful degradation (missing sensor handling)
-      Not in any PDF document. mask_a, mask_b → zero vector for
-      failed modality → model still produces valid output.
-
-  E9. RDP moments accountant for privacy tracking
-      Original: "ε ≤ 1 budget" — unspecified how to track it
-      Achieved: Opacus PrivacyEngine with RDP accountant,
-               per-round ε spend logged and monitored.
-
-  E10. GPU auto-detection + CUDA acceleration
-       Not in any PDF document.
-       Added: device_utils.py (RTX A2000 detected, CUDA 12.1)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 5: GAPS IN ORIGINAL PLAN — HOW THEY WERE RESOLVED
+  SECTION 4: THE DATASETS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌──────────────────────────────────┬──────────────────────────────────┐
-  │ ORIGINAL RESEARCH GAP (from D2)  │ HOW RESOLVED IN THIS PROJECT     │
-  ├──────────────────────────────────┼──────────────────────────────────┤
-  │ Gap 1: No unified framework      │ HFL-MM jointly addresses all 4   │
-  │ jointly optimizing all 4         │ objectives in one system:        │
-  │ objectives                       │ hierarchy + DP + fusion +        │
-  │                                  │ compression + ONNX deployment    │
-  ├──────────────────────────────────┼──────────────────────────────────┤
-  │ Gap 2: Multimodal FL with        │ HFL-MM: dual encoder (1D-CNN+GRU │
-  │ hierarchy unexplored             │ for signals, MobileNetV3 for     │
-  │                                  │ images) + two-tier FedAvg        │
-  │                                  │ = FIRST unified implementation   │
-  ├──────────────────────────────────┼──────────────────────────────────┤
-  │ Gap 3: Static privacy budgets    │ Partially resolved: ε tracked per│
-  │ (adaptive ε needed)              │ round via RDP accountant. Full   │
-  │                                  │ adaptive ε: addressed in PHANTOM │
-  │                                  │ model (see separate file)        │
-  ├──────────────────────────────────┼──────────────────────────────────┤
-  │ Gap 4: No real-time QoS in       │ Full QoS validation pipeline:    │
-  │ robustness frameworks            │ NS-3 (network) + CloudSim        │
-  │                                  │ (compute) + ONNX benchmark       │
-  │                                  │ (inference) = complete e2e QoS   │
-  └──────────────────────────────────┴──────────────────────────────────┘
+  vitaldb  PRIMARY — clinical IoMT
+           48,712 windows from 6,257 surgeries, 9 clients (surgical
+           type), binary postoperative ICU admission (19.7 % positive).
+           Modality A: (18, 300) intraoperative trends + observed-masks
+           at 0.5 Hz. Modality B: (34,) preoperative clinical vector.
+           Pairing: same patient, same second, one acquisition system.
+           Split: by case, stratified within surgical type.
+           Client ICU base rate spans 3.2 %-50.7 % — genuinely non-IID
+           by clinical specialty, not by a chosen Dirichlet parameter.
+
+  wear     FAST ITERATION — wearable IoT
+           38,578 windows, 22 subjects, 18 activities.
+           Modality A: (12, 100) inertial at 50 Hz.
+           Modality B: (2048,) egocentric video features, same 2 s.
+           Pairing: hardware-synchronised.
+           Split: temporal within (subject, activity) with a boundary
+           gap, so no overlapping window crosses a split.
+
+  Full detail: document/DATASET & MODEL GUIDE/01_Datasets.txt
+
+  Both are audited by an 8-category adversarial verifier
+  (tests/verify_datasets.py) covering split disjointness, subject and
+  case leakage, NaN presence, label range, per-split class coverage,
+  index bounds and metadata agreement.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 6: COMPLETE QoS METRIC COMPARISON TABLE
+  SECTION 5: THE ONE HEADLINE RESULT THAT IS MEASURED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ┌──────────────────────┬────────────────┬────────────────┬──────────────┐
-  │   METRIC             │  PLANNED       │  ACHIEVED /    │  STATUS      │
-  │                      │  (Source PDFs) │  EXPECTED      │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Uplink reduction     │ ≥50%           │ 76.4% (P4)     │ PASS ✓       │
-  │                      │                │ ~95% (P5 proj) │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Accuracy loss (ε=1)  │ ≤2%            │ ~1.5% (P5 exp) │ TARGET ✓     │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Inference latency    │ <100ms         │ ~68ms P95      │ TARGET ✓     │
-  │                      │                │ (P5 projected) │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Energy saving        │ ≥20%           │ 74.9% (P4)     │ PASS ✓       │
-  │                      │                │ ~79% (P5 proj) │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Update reliability   │ >99%           │ 99.05% (P4)    │ PASS ✓       │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Privacy budget ε     │ ε ≤ 1.0        │ ε ≤ 0.82       │ PASS ✓       │
-  │                      │                │ (P5 projected  │              │
-  │                      │                │ 20 rounds)     │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Model size (edge)    │ Not specified  │ 2.1 MB INT8    │ BONUS ✓      │
-  │                      │                │ ONNX           │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Compression ratio    │ Not specified  │ 20× (Top-k +   │ BONUS ✓      │
-  │                      │                │ 8-bit quant)   │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Simulator fidelity   │ EdgeCloudSim   │ NS-3 v3.46.1   │ EXCEED ✓     │
-  │                      │ or NS-3        │ + CloudSim     │ (both)       │
-  │                      │                │ Plus v8.5.6    │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Comparison baselines │ Unspecified    │ 5 systems      │ EXCEED ✓     │
-  │                      │                │ (S0–S4)        │              │
-  ├──────────────────────┼────────────────┼────────────────┼──────────────┤
-  │ Timeline adherence   │ Jan–May 2026   │ On track       │ ON TRACK ✓   │
-  └──────────────────────┴────────────────┴────────────────┴──────────────┘
+  MULTIMODAL FUSION HELPS — VitalDB, centralised, non-private, 2 seeds
+
+    arm                AUROC       AUPRC    case AUROC   case AUPRC
+    signals only      0.8283      0.5281       0.8590       0.6446
+    clinical only     0.7700      0.5022       0.7713       0.4961
+    FUSED             0.8694      0.6343       0.8875       0.6740
+
+    Gain over the BEST unimodal arm: +0.0411 AUROC, +0.1062 AUPRC,
+    which is 14.1x the across-arm seed standard deviation.
+
+  Why this is the right test: fusion beats BOTH modalities, not merely
+  the weaker one. A fused model can match the weaker arm by ignoring
+  it; beating the stronger arm is the only outcome that requires the
+  second modality to contribute. Each arm is retrained on its own
+  inputs rather than fed zeros, so the comparison measures what a
+  modality is WORTH rather than what happens when it breaks. The test
+  is centralised and non-private so the answer is about the DATA and
+  not confounded by federation or privacy noise.
+
+  WEAR is AT CEILING and does not corroborate this. Its best single
+  modality already reaches 0.9976 AUROC, leaving no headroom for a
+  second modality to fill; the +0.0004 gain there is reported as a
+  ceiling effect, not as supporting evidence. The multimodal claim
+  rests on VitalDB alone, and the ablation script writes this verdict
+  into its own output so it cannot be misread downstream.
+
+  Artifact: results/phase5/ablation_vitaldb.json
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 7: WHAT REMAINS — OPEN TASKS TO COMPLETE
+  SECTION 6: OBJECTIVE STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  PHASE 5 (April 2026):
-    [ ] Download and preprocess 5 datasets (~22 GB, ~90 min)
-    [ ] Train centralized baseline (3 domains, ~50 epochs each)
-    [ ] Run HFL-MM federated training (20 rounds, ~2.7 hours)
-    [ ] Run ε sweep (5 values)
-    [ ] Export and benchmark ONNX INT8
-    [ ] Integrate Phase 5 actuals back into NS-3 and CloudSim
-    [ ] Validate O2 (accuracy loss) and O3 (inference latency) formally
+  Each objective is owned by exactly one tool, and the experiment that
+  will settle it is fixed in advance.
 
-  PHASE 6 (May 2026):
-    [ ] Joint evaluation (5 systems × 5 seeds)
-    [ ] Ablation study (6 configs × 5 seeds)
-    [ ] Statistical analysis (t-tests, confidence intervals)
-    [ ] Generate 10 publication figures
-    [ ] Write thesis Chapters 5–8
-    [ ] Draft journal paper (IEEE Trans. Ind. Informatics)
-    [ ] Package reproducibility archive
-    [ ] Submit thesis to MIT Bengaluru
-    [ ] Submit paper to journal
+  ┌───────┬────────────────────────┬───────────┬──────────────────────┐
+  │ Obj.  │ Pass condition         │ Owner     │ Produced by stage    │
+  ├───────┼────────────────────────┼───────────┼──────────────────────┤
+  │ O1    │ uplink reduction ≥50 % │ NS-3      │ ns3_network          │
+  │ O2a   │ epsilon ≤ 1            │ training  │ proposed             │
+  │ O2b   │ accuracy loss ≤ 2 pp   │ eps sweep │ epsilon_sweep        │
+  │ O3a   │ P95 latency < 100 ms   │ ONNX      │ inference_bench      │
+  │ O3b   │ update reliability>99 %│ NS-3      │ ns3_network          │
+  │ O4    │ energy saving ≥ 20 %   │ CloudSim  │ cloudsim_energy      │
+  └───────┴────────────────────────┴───────────┴──────────────────────┘
 
-  OPTIONAL (if PHANTOM-FL model is adopted):
-    [ ] Rerun Phase 5 with PHANTOM-FL model
-    [ ] Compare PHANTOM-FL vs. HFL-MM (ablation-within-ablation)
-    [ ] PHANTOM-FL addresses Gap 3 (adaptive privacy) more deeply
-        → Stronger novel contribution for paper
+  HOW EACH ONE WILL BE MEASURED
+
+  O1  From MEASURED compressed uplink bytes, not from a nominal
+      compression ratio. The reduction is computed against the
+      centralised arm on the same data and topology.
+
+  O2a Read from the live privacy accountant at the end of training,
+      composed across rounds and including the conformal calibration
+      budget. A system that reports only its training term has
+      understated what it spent.
+
+  O2b A PAIRED comparison — same model, same data, same seed, privacy
+      on versus off. The epsilon sweep produces both the private points
+      and the no-DP reference, so the loss is a paired difference and
+      not a comparison against a number from a different setting.
+
+  O3a Through a portable runtime on an exported graph, with the
+      execution provider stated. The deployment claim is a CPU claim;
+      measuring on GPU answers a different question.
+
+  O3b PER UPDATE, not per run. The objective asks about a model update.
+      The whole-run compound (per-update raised to the number of
+      rounds) is a different quantity that decays fast enough to make a
+      healthy per-update rate look like a failure.
+
+  O4  From the CloudSim host power model, with GPU overhead charged to
+      EDGE servers only — end devices here are embedded-class and have
+      no GPU, so charging GPU power to them would inflate the baseline
+      and therefore the saving.
+
+  The thresholds live in exactly one place, scripts/check_objectives.py,
+  which scores all six and names the artifact behind each number. Where
+  an experiment has not yet run it reports NOT MEASURED and names the
+  stage that would settle it — it never reports FAIL for an unrun
+  experiment, and never PASS from a default.
+
+    python scripts/check_objectives.py --dataset vitaldb
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 8: NOVEL CONTRIBUTIONS — FINAL CLAIM
+  SECTION 7: EXPERIMENTAL DESIGN — HOW THE CLAIMS WILL BE SEPARATED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  The 4 contributions that make this thesis publishable in Q1/Q2:
+7.1  BASELINES B0-B6
 
-  C1: First system jointly addressing hierarchy + DP + multimodal
-      fusion + edge deployment with formal QoS guarantees.
-      (No single prior paper addresses all four simultaneously.)
+    B0  Centralized        pooled data, no FL, no DP    — upper bound
+    B1  Local only         no federation                — lower bound
+    B2  FedAvg             FL, no privacy
+    B3  FedProx            + heterogeneity handling
+    B4  DP-FedAvg          flat FL + DP on the WHOLE model
+    B5  MOON               + model-contrastive
+    B6  DP-FedAvg-Head     flat FL + DP on the FUSION HEAD only
 
-  C2: Privacy-preserving multimodal late fusion: modality-specific
-      DP clipping per encoder branch — protects each sensor type
-      independently while maintaining (ε=1, δ=1e-5)-DP.
+    B6 is not from the literature. It exists to remove a confound: the
+    proposed system differs from B4 in TWO ways at once — it adds the
+    edge tier AND it restricts DP to the head over frozen encoders.
+    Comparing only B4 against the proposal cannot say which change
+    earned the result.
 
-  C3: 20× gradient compression (Top-k + 8-bit + error feedback) with
-      <2% accuracy degradation under DP-SGD — communication saving
-      beyond Phase 4's 76.4% to Phase 5 projected 95%.
+      B4 → B6    isolates the value of head-only DP  (recipe)
+      B6 → HFL   isolates the value of the edge tier (topology)
 
-  C4: End-to-end ONNX INT8 edge inference pipeline with measured
-      P95 < 100ms — first FL paper to provide deployment-level
-      inference latency validation (not just communication round time).
+    B4 and B6 consume the SAME budget and the SAME sigma. Freezing does
+    not buy a weaker guarantee; it changes the optimisation geometry so
+    the same noise becomes survivable.
+
+7.2  FIVE-SYSTEM COMPARISON
+
+    S0 Centralized · S1 Flat FL no DP · S2 flat FL + DP ·
+    S3 hierarchical WITHOUT DP · S4 proposed
+
+    S3 is the second half of the same decomposition: it holds the
+    topology of S4 while removing privacy entirely, so S3 → S4
+    measures what privacy costs at fixed topology.
+
+    S3 uses a genuine no-privacy path (no clipping, no noise, no
+    accountant), NOT a large epsilon. A loose budget still clips
+    per-sample gradients, so it measures a weak guarantee rather than
+    the absence of privacy, and would understate DP's true cost.
+
+7.3  COMPONENT ABLATION A0-A5
+
+    Remove one component at a time from the full system:
+    C1 hierarchy · C2 differential privacy · C3 sparsification ·
+    C4 quantization · C5 multimodal fusion.
+
+    Each arm is a single training invocation with one flag changed, so
+    an ablation arm cannot drift from the system it is ablating.
+
+7.4  STATISTICS
+
+    Contrasts are PAIRED by seed — two arms at the same seed share
+    data order and initialisation, so the seed is a blocking factor and
+    an unpaired test discards it. Intervals are Student-t, because at
+    3-5 seeds the normal approximation is materially too narrow.
+    Verdicts are driven by whether the confidence interval contains
+    zero, not by a p-value alone. The target is >= 5 seeds; runs with
+    fewer are reported with their n and flagged as underpowered.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SECTION 9: OVERALL PROJECT HEALTH SUMMARY
+  SECTION 8: NEGATIVE AND NULL RESULTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ╔════════════════════════════════════════════════════════════════════╗
-  ║            PROJECT HEALTH DASHBOARD (as of 2026-04-02)            ║
-  ╠════════════════════════════════════════════════════════════════════╣
-  ║  Timeline:       ON TRACK (all phases within month targets)        ║
-  ║  QoS O1:         PASSED (76.4%, target 50%)                        ║
-  ║  QoS O2:         IN PROGRESS (expected 1.5%, target ≤2%)           ║
-  ║  QoS O3:         IN PROGRESS (expected 68ms, target <100ms)        ║
-  ║  QoS O4:         PASSED (74.9%, target 20%)                        ║
-  ║  Reliability:    PASSED (99.05%, target >99%)                      ║
-  ║  Privacy:        CONFIGURED (ε=1.0, Gaussian, RDP accountant)      ║
-  ║  Simulators:     BOTH RUNNING (NS-3 v3.46.1, CloudSim Plus v8.5.6) ║
-  ║  Data:           SOURCED (5 datasets identified, access confirmed)  ║
-  ║  Model:          DESIGNED (HFL-MM + PHANTOM-FL option)             ║
-  ║  Novel contrib.: 4 confirmed publishable claims                    ║
-  ║  Paper target:   IEEE Trans. Industrial Informatics (Q1, IF 11.5+) ║
-  ╚════════════════════════════════════════════════════════════════════╝
+  These are recorded because a thesis that reports only its successes
+  is not reporting its work.
 
-  OVERALL STATUS: PROJECT IS AHEAD OF ORIGINAL PLAN ON ALL MEASURED
-  METRICS. PHASE 5 EXECUTION IS THE CRITICAL PATH TO COMPLETION.
+    Adaptive per-layer privacy allocation
+      Implemented and compared against a uniform budget. Measured
+      WORSE than uniform. The additional composition it incurs across
+      parameter groups outweighs the benefit of allocating noise
+      unevenly. Reported as a negative result, not quietly dropped.
+
+    Personalised local adaptation
+      Implemented; measured no meaningful effect on the tested
+      configuration.
+
+    Edge-side knowledge distillation
+      Implemented but NOT freeze-aware: it does not account for frozen
+      encoders, so it is disabled in every reported run. Until it is
+      made freeze-aware it contributes nothing and is not claimed.
+
+    Cross-modal gated attention
+      DESIGNED ONLY. No reference from the training path. It is not a
+      contribution of this work and is listed in the component status
+      table as design-only so it cannot be mistaken for one.
+
+  These must be re-measured on the current datasets before any of the
+  above is restated as a finding for this thesis.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 9: KNOWN LIMITATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  L1  ENCODER PRETRAINING PROVENANCE — the largest open item.
+      If encoders are pretrained on the pooled federated training data,
+      they have seen private data non-privately, and the resulting
+      epsilon is an UPPER BOUND on what head-only DP can achieve rather
+      than a valid end-to-end guarantee. A defensible claim needs a
+      genuinely external public corpus or a disjoint public split. The
+      tooling supports this (--public_data, with an overlap check that
+      refuses intersecting indices); the corpus is not yet in place.
+
+  L2  WEAR CANNOT EVIDENCE FUSION. It is at ceiling. It is a pipeline
+      and iteration dataset, and is described as such everywhere.
+
+  L3  SEED COUNT. Target is >= 5 seeds per configuration; current
+      ablation evidence uses 2. The statistics tool flags every point
+      that falls short rather than reporting it as if it were powered.
+
+  L4  ASWA IS UNABLATED. It is implemented and runs, but its effect
+      has not been isolated, so it is not claimed as a contribution.
+
+  L5  CLOUDSIM ARGUMENT INTERFACE unverified, so Objective 4 will
+      report NOT MEASURED until that stage is wired and run.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 10: HOW TO REPRODUCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    cd SIMULATORS
+    python scripts/run_pipeline.py --dataset vitaldb
+
+  Sixteen stages, resumable, with per-stage logs and a manifest
+  recording the exact argv behind every number. Stages declare their
+  inputs and the driver refuses to run one whose inputs are missing,
+  rather than producing a result from stale ones.
+
+  Then:
+    python tests/traceability.py       --dataset vitaldb   # what exists
+    python scripts/check_objectives.py --dataset vitaldb   # O1-O4
+
+=======================================================================
+ END — 00_Overall_Project_Report.txt
+=======================================================================
