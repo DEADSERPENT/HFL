@@ -80,18 +80,18 @@ function App() {
           </NavLink>
           <NavLink to="/phase4" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><Rocket size={18} /></span>
-            Phase 4 — Implementation
-            <span className="nav-badge">Done</span>
+            Phase 4 — Simulators
+            <span className="nav-badge" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>Code Complete</span>
           </NavLink>
           <NavLink to="/phase5" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><Cpu size={18} /></span>
-            Phase 5 — Healthcare Model
-            <span className="nav-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' }}>In Progress</span>
+            Phase 5 — Model & Deploy
+            <span className="nav-badge" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>Code Complete</span>
           </NavLink>
           <NavLink to="/phase6" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><BarChart3 size={18} /></span>
             Phase 6 — Evaluation & Paper
-            <span className="nav-badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}>Planned</span>
+            <span className="nav-badge" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>Code Complete</span>
           </NavLink>
 
           <div className="nav-section-title">Documentation</div>
@@ -105,11 +105,11 @@ function App() {
           </NavLink>
           <NavLink to="/phantom-fl" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><Sparkles size={18} /></span>
-            PHANTOM-FL Model
+            Extended Innovations
           </NavLink>
           <NavLink to="/ns3-integration" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><Network size={18} /></span>
-            NS-3 & CloudSim
+            Simulators & Deploy
           </NavLink>
           <NavLink to="/ip-novelty" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <span className="nav-icon"><Brain size={18} /></span>
