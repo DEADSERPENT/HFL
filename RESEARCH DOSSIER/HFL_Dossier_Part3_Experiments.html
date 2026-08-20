@@ -523,32 +523,46 @@ reliability is 99.8001&thinsp;%; the whole-run figure is still emitted under the
 name <code>run_reliability_all_rounds_pct</code>.</div>
 </div>
 
-<h2 class="parthead">4 &nbsp;&mdash;&nbsp; In Flight</h2>
+<h2 class="parthead">4 &nbsp;&mdash;&nbsp; The Revival Gate</h2>
 <div class="cols">
-<h3><span class="eid">E24</span>LiRA at &epsilon;=16 &mdash; the Revival Gate</h3>
+<h3><span class="eid">E24</span>LiRA at &epsilon;=16 &mdash; N-A's Last Chance</h3>
 <p><b>Tests:</b> whether N-A failed because &epsilon;=1 crushed both arms to chance,
-leaving no room for a gap. At &epsilon;=16 the noise is 13&times; lower
-(&sigma; 11.33 &rarr; 0.85), so membership signal should survive if it exists.</p>
-<div class="cfg">Started 2026-08-19 &middot; 6 targets + 32 shadows &middot;
-<code>mia_epsilon_lira.py</code> &middot; log
-<code>lira_eps16_gate.log</code></div>
+leaving no room for a gap to appear. At &epsilon;=16 the noise is 13&times; lower
+(&sigma; 11.33 &rarr; 0.85), so a membership signal should survive if one exists.</p>
+<div class="cfg">Run 2026-08-19/20, completed &middot; 6 targets + 32 shadows, 3 seeds
+&middot; <code>mia_epsilon_lira.py</code> &middot;
+<code>lira_eps/vitaldb/eps16.0/</code></div>
 <table>
-<tr><th>Stage</th><th class="c">State</th></tr>
-<tr><td>Targets (both arms, 3 seeds)</td><td class="c pass">6/6 done</td></tr>
-<tr><td>Record arm, 16 shadows</td><td class="c pass">complete</td></tr>
-<tr><td>Patient arm, 16 shadows</td><td class="c warn">running</td></tr>
+<tr><th>Arm</th><th class="c">Best attack</th><th class="c">Floor</th><th class="c">Margin</th></tr>
+<tr><td>Record-level DP</td><td class="c">0.5465 (loss)</td><td class="c">0.5743</td><td class="c fail">&minus;0.0278</td></tr>
+<tr><td>Patient-level DP</td><td class="c">0.5630 (lira_offline)</td><td class="c">0.5259</td><td class="c">+0.0371</td></tr>
 </table>
-<p><b>Record arm result:</b> best attack <b>0.5465</b> (loss threshold), against
-0.5477 at &epsilon;=1 &mdash; essentially unchanged despite 13&times; less noise. Against
-its own difficulty floor of 0.5743 the margin is <b>&minus;0.0278</b>.</p>
-<div class="concl neg"><span class="lbl">Interim conclusion</span> The
-&ldquo;no room at &epsilon;=1&rdquo; explanation is <b>not holding</b>. Loosening the
-budget sixteenfold did not increase leakage at all, and the attack now sits <i>below</i>
-its confound floor &mdash; no membership signal whatsoever. The paired gap needs the
-patient arm before this is final, but expect this gate to <b>confirm the original
-refutation rather than overturn it</b>. Note also that even a positive result here would
-not revive the &epsilon;=1 claim; it would say the vulnerability exists only at budgets
-looser than the one the system ships at.</div>
+</div>
+
+<table class="full">
+<tr><th>Attack variant</th><th class="c">Paired &Delta; (record &minus; patient)</th><th class="c">95&thinsp;% CI</th><th class="c">Significant?</th><th>Reading</th></tr>
+<tr><td>loss threshold</td><td class="c">+0.0163</td><td class="c">[+0.0123, +0.0204]</td><td class="c warn">yes, positive</td><td>Predicted direction, but an eighth of the predicted size &mdash; and the record arm is below its own floor, so this is confound, not leakage</td></tr>
+<tr><td>lira_offline</td><td class="c fail">&minus;0.1788</td><td class="c">[&minus;0.2553, &minus;0.1024]</td><td class="c fail">yes, <b>reversed</b></td><td>Artifact: the record arm's offline score is 0.3842, far below chance, from over-correction on an asymmetric difficulty tail</td></tr>
+<tr><td>lira_online</td><td class="c">+0.0057</td><td class="c">[&minus;0.0137, +0.0252]</td><td class="c">no</td><td>The principled two-sided variant. Chance.</td></tr>
+<tr><td>lira_online_gv</td><td class="c fail">&minus;0.0552</td><td class="c">[&minus;0.0896, &minus;0.0208]</td><td class="c fail">yes, <b>reversed</b></td><td>Also points the wrong way</td></tr>
+</table>
+
+<div class="cols">
+<div class="concl neg"><span class="lbl">Conclusion &mdash; N-A CLOSED PERMANENTLY</span>
+<b>The four attacks contradict each other.</b> Two report a significant gap in the
+<i>opposite</i> direction to the prediction, one reports a significant gap an eighth of
+the predicted size, and the principled two-sided variant reports chance. Mutually
+inconsistent estimators are the signature of no underlying signal, with each estimator
+being driven by a different facet of the difficulty confound.
+<br><br>Decisive on its own terms: <b>the record-level arm sits 0.0278 BELOW its own
+difficulty floor</b>. It carries no membership signal at all, so there is nothing for a
+record-versus-patient gap to be made of. Loosening the budget sixteenfold changed the
+record arm's attack AUC by 0.0012 (0.5477 &rarr; 0.5465).
+<br><br><b>The &ldquo;no room at &epsilon;=1&rdquo; hypothesis is refuted.</b> N-A did
+not fail for want of headroom; it failed because the effect is not there. This closes the
+question rather than leaving it open at n=5, and it does so with the difficulty floor as
+a witness. Do not re-run at higher budgets &mdash; the ceiling has been tested and the
+answer did not change.</div>
 </div>
 
 <h2 class="parthead">5 &nbsp;&mdash;&nbsp; Not Yet Run</h2>
@@ -593,9 +607,9 @@ looser than the one the system ships at.</div>
 <tr><td class="c">E21</td><td>Objective verification</td><td class="c pass">SUCCESS</td><td>VitalDB 7/7; WEAR 6 + 1 inconclusive</td></tr>
 <tr><td class="c">E22</td><td>Component ablation A0&ndash;A6</td><td class="c pass">SUCCESS</td><td>DP helps; compression justified; ASWA deleted</td></tr>
 <tr><td class="c">E23</td><td>NS-3 stress tests</td><td class="c pass">SUCCESS</td><td>Holds to 250 rounds; found a definition defect</td></tr>
-<tr><td class="c">E24</td><td>LiRA at &epsilon;=16</td><td class="c warn">RUNNING</td><td>Record arm below its floor; patient arm pending</td></tr>
+<tr><td class="c">E24</td><td>LiRA at &epsilon;=16 (revival gate)</td><td class="c fail">N-A CLOSED</td><td>Attacks mutually contradictory; record arm below its own floor</td></tr>
 </table>
-<p class="caption full">24 experiments run. 14 succeeded outright, 4 returned characterised negative results, 3 were mixed or inconclusive, 1 was superseded, 1 priced a cost, 1 is in flight. <b>Every negative and inconclusive outcome is reported rather than dropped</b> &mdash; that is what makes the positive results credible.</p>
+<p class="caption full">24 experiments run, all complete. 14 succeeded outright, 5 returned characterised negative results, 3 were mixed or inconclusive, 1 was superseded, and 1 priced a cost. <b>Every negative and inconclusive outcome is reported rather than dropped</b> &mdash; that is what makes the positive results credible.</p>
 
 </body>
 </html>
