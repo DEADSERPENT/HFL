@@ -226,8 +226,6 @@ class ClinicalCMGA(nn.Module):
 # ============================================================
 # [ ] Replace FC fusion head in HFLMMHC.__init__ with ClinicalCMGA()
 # [ ] Add delta_t_a, delta_t_b extraction from PTB-XL metadata
-# [ ] Add quality score computation in preprocess_healthcare.py
-# [ ] Add urgency field to partition_noniid.py dataset schema
 # [ ] Verify Opacus .make_private_with_epsilon() still works after swap
 # [ ] Re-run GroupNorm check: replace_bn_with_gn() on full model
 # [ ] Update onnx_exporter.py dummy inputs to include metadata tensors

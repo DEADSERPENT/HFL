@@ -1,0 +1,33 @@
+{
+  "dataset": "wear",
+  "epsilons": [
+    1.0,
+    "inf"
+  ],
+  "recipes": [
+    "head"
+  ],
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56
+  ],
+  "rounds": 30,
+  "select_on": "auc",
+  "class_weight": false,
+  "pretrained_encoders": "checkpoints/pretrained_encoders_wear.pt",
+  "n_devices": 22,
+  "metric": "macro_auc"
+}

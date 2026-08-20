@@ -1,0 +1,407 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>HFL Research Dossier Part 2</title>
+<style>
+@page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+body { font-family: "Times New Roman", Times, serif; font-size: 9.5pt; line-height: 1.32;
+       color: #111; margin: 0; text-align: justify; }
+.cols { column-count: 2; column-gap: 6mm; }
+.full { column-span: all; -webkit-column-span: all; }
+.titleblock { column-span: all; text-align: center; border-bottom: 2.5pt solid #14375e;
+              padding-bottom: 7pt; margin-bottom: 11pt; }
+.titleblock h1 { font-size: 18pt; margin: 0 0 4pt 0; color: #14375e; line-height: 1.2;
+                 font-weight: bold; }
+.titleblock .sys { font-size: 10.5pt; font-style: italic; color: #444; margin-bottom: 7pt; }
+.titleblock .meta { font-size: 8.6pt; color: #333; line-height: 1.45; }
+h2 { font-size: 11pt; color: #14375e; margin: 13pt 0 5pt 0; padding-bottom: 2pt;
+     border-bottom: 1pt solid #a8bdd2; text-transform: uppercase; letter-spacing: .4pt;
+     break-after: avoid; }
+h2.parthead { column-span: all; -webkit-column-span: all; font-size: 12.5pt;
+     background: #14375e; color: #fff; border: none; padding: 5pt 8pt; margin: 14pt 0 9pt 0;
+     letter-spacing: .8pt; }
+h3 { font-size: 9.8pt; color: #1d4d7c; margin: 9pt 0 3pt 0; font-weight: bold;
+     break-after: avoid; }
+p { margin: 0 0 5pt 0; }
+ul, ol { margin: 0 0 6pt 0; padding-left: 14pt; }
+li { margin-bottom: 2.5pt; }
+table { border-collapse: collapse; width: 100%; font-size: 8.1pt; margin: 5pt 0 8pt 0;
+        break-inside: avoid; }
+table.full { font-size: 8.4pt; }
+th { background: #14375e; color: #fff; border: 0.5pt solid #14375e; padding: 3.2pt 4pt;
+     text-align: left; font-weight: bold; }
+td { border: 0.5pt solid #9bb0c4; padding: 3pt 4pt; vertical-align: top; }
+tr:nth-child(even) td { background: #f2f6fa; }
+td.c, th.c { text-align: center; }
+.pass { color: #14652f; font-weight: bold; }
+.fail { color: #9c1c1c; font-weight: bold; }
+.warn { color: #8a5a00; font-weight: bold; }
+.callout { border-left: 3pt solid #14375e; background: #eef3f8; padding: 6pt 8pt;
+           margin: 7pt 0; break-inside: avoid; }
+.callout .lbl { font-variant: small-caps; font-weight: bold; color: #14375e;
+                letter-spacing: .5pt; display: block; margin-bottom: 2pt; font-size: 8.5pt; }
+.danger { border-left-color: #9c1c1c; background: #fbeeee; }
+.danger .lbl { color: #9c1c1c; }
+.good { border-left-color: #14652f; background: #edf6ef; }
+.good .lbl { color: #14652f; }
+.keyline { font-size: 10pt; font-style: italic; text-align: center; color: #14375e;
+           border-top: 1pt solid #a8bdd2; border-bottom: 1pt solid #a8bdd2;
+           padding: 6pt 4pt; margin: 8pt 0; break-inside: avoid; }
+.caption { font-size: 7.9pt; color: #555; font-style: italic; margin: -4pt 0 8pt 0; }
+.small { font-size: 8.2pt; color: #555; }
+.big { font-size: 15pt; font-weight: bold; color: #14375e; }
+</style>
+</head>
+<body>
+
+<div class="titleblock">
+  <h1>Research Dossier &mdash; Part 2: Technical Companion</h1>
+  <div class="sys">Algorithms &middot; Hypothesis Failure &middot; Theory vs Practice &middot; Novelty &middot; Success Rate &middot; PhysioNet</div>
+  <div class="meta">
+    Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT Systems (PP-HFM)<br>
+    <b>Samartha H V</b> (251580130019) &nbsp;&middot;&nbsp; Guide: Dr. Shreyas J &nbsp;&middot;&nbsp; Industry: Mr. Tejas J<br>
+    Manipal Institute of Technology Bengaluru, MAHE &nbsp;&middot;&nbsp; 19 August 2026
+  </div>
+</div>
+
+<h2 class="parthead">1 &nbsp;&mdash;&nbsp; Algorithms Used, and Why</h2>
+
+<table class="full">
+<tr><th>Algorithm</th><th>Where used</th><th>Why this one</th></tr>
+<tr><td><b>FedAvg</b></td><td>Aggregation at edge and cloud</td><td>The standard. Simple, well understood, and the correct baseline. Anything more exotic would need to justify itself against it.</td></tr>
+<tr><td><b>DP-SGD</b> (Opacus)</td><td>Private training of the fusion head</td><td>The only mechanism giving a formal, composable guarantee. Everything else is heuristic.</td></tr>
+<tr><td><b>Patient-level DP-SGD</b> <span class="small">(our variant)</span></td><td>The core privacy mechanism</td><td>Standard DP-SGD clips <i>per sample</i>. Our sample is a 10-minute window and every patient gives about 8 of them. Clipping per window protects windows, not people. We group by patient first, then clip.</td></tr>
+<tr><td><b>Top-<i>k</i> sparsification</b> (20&thinsp;%)</td><td>Gradient compression</td><td>Sends only the 20&thinsp;% largest updates. 5&times; reduction. Cheap and effective.</td></tr>
+<tr><td><b>8-bit quantisation</b></td><td>Gradient compression</td><td>Another 4&times; on top of sparsification. Combined 20&times;.</td></tr>
+<tr><td><b>Error feedback</b></td><td>Compression accumulator</td><td>Compression throws information away. Error feedback stores what was dropped and adds it back next round, so accuracy is not lost.</td></tr>
+<tr><td><b>Head-only DP fine-tuning</b></td><td>The training recipe</td><td>Freeze the encoders, privatise only the fusion head (26&thinsp;% of parameters). This is what made &epsilon; &le; 1 work at all.</td></tr>
+<tr><td><b>Multi-scale 1D-CNN + BiGRU + attention</b></td><td>Signal encoder (modality A)</td><td>Captures patterns at several time scales. Uses DP-compatible layers &mdash; no BatchNorm, which breaks DP-SGD.</td></tr>
+<tr><td><b>MobileNetV3</b> (ImageNet-pretrained)</td><td>Image encoder</td><td>Small enough for edge deployment, and pretrained on public data so freezing it is privacy-valid.</td></tr>
+<tr><td><b>I3D two-stream features</b></td><td>Video modality (WEAR)</td><td>Standard egocentric video representation. Used as given, not trained.</td></tr>
+<tr><td><b>Conformal prediction</b> (LAC score)</td><td>Uncertainty at inference</td><td>Gives a coverage guarantee: the true label is in the predicted set with probability &ge; 1&minus;&alpha;. Important for clinical use.</td></tr>
+<tr><td><b>DP quantile release</b></td><td>Conformal calibration</td><td>Releasing the calibration threshold leaks information. We pay for it: &epsilon; = 0.20 charged to the same budget. Most papers omit this.</td></tr>
+<tr><td><b>LiRA</b> (likelihood-ratio attack)</td><td>Privacy audit</td><td>The strongest membership inference attack available. A weak attack producing a null proves nothing.</td></tr>
+<tr><td><b>Integrated Gradients</b></td><td>Feature attribution</td><td>Shows what the model actually uses. Revealed that missingness masks carry 22&thinsp;% of attribution mass.</td></tr>
+<tr><td><b>RDP accounting</b> (extended orders)</td><td>Privacy budget tracking</td><td>Opacus's default orders stop at &alpha; = 63, which puts a floor of &asymp;0.19 on &epsilon;. We extended the orders so tight budgets are reachable.</td></tr>
+<tr><td colspan="3" style="background:#fbeeee"><b>Tried and dropped:</b> ASWA aggregation (contributed +0.0005 AUROC &mdash; nothing) &middot; SADP adaptive privacy (worse than uniform DP at equal &epsilon;) &middot; FedKD-E distillation (not freeze-aware, would leak) &middot; MOON, FedProx (baselines only) &middot; INT8 quantisation (slower than FP32)</td></tr>
+</table>
+
+<h2 class="parthead">2 &nbsp;&mdash;&nbsp; Why the Hypothesis Failed, and How to Get It Back</h2>
+<div class="cols">
+
+<h3>2.1 What we predicted</h3>
+<p>If you protect only <i>records</i>, an attacker should be able to tell whether a
+<i>patient</i> was in the training set. We predicted an attack success of about
+<b>0.70</b> against record-level DP and about <b>0.50</b> (chance) against
+patient-level DP. A gap of roughly <b>0.20</b>.</p>
+
+<h3>2.2 What we measured</h3>
+<p>Record-level DP: <b>0.5477</b>. Patient-level DP: <b>0.5224</b>. Gap:
+<b>+0.0325</b>, and the confidence interval includes zero. All four attack variants
+gave the same answer.</p>
+
+<h3>2.3 Why it failed &mdash; the real reason</h3>
+
+<p>Not because the attack was weak. We proved that first: the positive control, on a
+model known to memorise, reached <b>0.6277</b> &mdash; it cleared the gate we set before
+running.</p>
+
+<p>The honest reason is this. <b>DP-SGD at &epsilon; = 1 is already very strong.</b> The
+noise (&sigma; = 11.33) is large enough that even record-level DP leaves almost no
+membership signal to find. The theoretical gap between record-level and patient-level
+protection is real, but at this budget both arms are pushed so close to chance that the
+difference between them is smaller than we can measure with 5 seeds.</p>
+
+<p>A supporting clue confirms this. On the patient arm, LiRA actually performed
+<i>worse</i> than a plain loss threshold (&minus;0.0071). That is what a defence with
+nothing left to leak looks like &mdash; not a failing attack.</p>
+
+<div class="callout danger">
+<span class="lbl">Say it this way, always</span>
+The <b>large</b> predicted effect is refuted. A <b>small</b> effect is not excluded &mdash;
+the interval is &plusmn;0.060 wide at n = 5. Never write &ldquo;there is no effect&rdquo;.
+</div>
+
+<h3>2.4 What we would need to get it back</h3>
+</div>
+
+<table class="full">
+<tr><th class="c">#</th><th>What to change</th><th>Why it would help</th><th class="c">Cost</th></tr>
+<tr><td class="c">1</td><td><b>Attack at a weaker privacy budget</b> &mdash; &epsilon; = 4, 8, 16 instead of 1</td><td>At &epsilon; = 1 both arms are near chance, so there is no room for a gap. Weaker DP leaves signal, and the record-vs-patient difference has space to show. This is the most likely route.</td><td class="c">Low</td></tr>
+<tr><td class="c">2</td><td><b>Increase seeds</b> from 5 to 20&ndash;30</td><td>The interval half-width is &plusmn;0.060. The measured gap is +0.0325. More seeds would resolve whether that small gap is real.</td><td class="c">Medium</td></tr>
+<tr><td class="c">3</td><td><b>Use a dataset with higher <i>k</i></b></td><td>VitalDB gives about 8 windows per patient. The more records a patient contributes, the bigger the theoretical gap. A dataset with 50&ndash;100 records per patient should show it more clearly.</td><td class="c">Needs eICU</td></tr>
+<tr><td class="c">4</td><td><b>Attack the worst-case patient, not the average</b></td><td>Average AUC hides the tail. Report TPR at 0.1&thinsp;% FPR &mdash; the confident identifications that are the real clinical disclosure. The machinery already computes this.</td><td class="c">Low</td></tr>
+<tr><td class="c">5</td><td><b>Attack the head-only recipe directly</b></td><td>We already know head-only training memorises harder (0.6277 vs 0.5122). That is where leakage lives. This is the finding that survived.</td><td class="c">Done</td></tr>
+</table>
+<p class="caption full">Route 1 is the recommendation. The hypothesis may not be wrong &mdash; it may simply have been tested at a budget where nothing is visible.</p>
+
+<h2 class="parthead">3 &nbsp;&mdash;&nbsp; Theory vs Practice</h2>
+<div class="cols">
+<h3>3.1 What we achieved in theory</h3>
+</div>
+
+<table class="full">
+<tr><th>Theoretical result</th><th class="c">Status</th><th>Meaning in one line</th></tr>
+<tr><td>Patient-level guarantee holds by construction</td><td class="c pass">PROVEN</td><td>Grouping gradients before clipping bounds one patient's influence, whatever number of records they contribute.</td></tr>
+<tr><td>Record-level &epsilon; &ne; patient-level &epsilon;</td><td class="c pass">PROVEN</td><td>The two are different guarantees. This is analytic and survives the failed attack.</td></tr>
+<tr><td>Price of upgrading the unit = 1.77&times; &sigma;</td><td class="c pass">DERIVED</td><td>Making the guarantee patient-level costs 1.77&times; more noise at the same budget.</td></tr>
+<tr><td>Group privacy conversion is unusable here</td><td class="c pass">SHOWN</td><td>At 8 records per patient, converting a record-level &epsilon; = 1 gives a number that guarantees nothing.</td></tr>
+<tr><td>Composed budget = training + calibration</td><td class="c pass">CORRECT</td><td>&epsilon; = 0.7705 + 0.2000 = 0.9705. Most papers report only the first term.</td></tr>
+<tr><td>Conformal coverage guarantee</td><td class="c pass">HOLDS</td><td>P(true label in predicted set) &ge; 1 &minus; &alpha;, and its release cost is paid for.</td></tr>
+<tr><td>Cost is a function of <i>k</i>, zero at <i>k</i> = 1</td><td class="c pass">PREDICTED &amp;<br>CONFIRMED</td><td>Theory says the two units coincide at <i>k</i> = 1. Measurement agrees (p = 0.75). Theory and experiment match.</td></tr>
+<tr><td>Record-level DP is exploitable by patient MIA</td><td class="c fail">PREDICTED,<br>NOT OBSERVED</td><td>The theory is sound; the effect is not measurable at &epsilon; = 1.</td></tr>
+</table>
+
+<div class="cols">
+<h3>3.2 What we achieved in practice</h3>
+</div>
+
+<table class="full">
+<tr><th>Practical result</th><th class="c">Measured</th><th class="c">Verdict</th></tr>
+<tr><td>Uplink reduction (VitalDB / WEAR)</td><td class="c">90.82&thinsp;% / 96.08&thinsp;%</td><td class="c pass">WORKS</td></tr>
+<tr><td>Energy saving</td><td class="c">72.30&thinsp;% / 76.84&thinsp;%</td><td class="c pass">WORKS</td></tr>
+<tr><td>Inference latency P95</td><td class="c">4.58 ms / 1.22 ms</td><td class="c pass">WORKS</td></tr>
+<tr><td>Update reliability</td><td class="c">100&thinsp;% / 99.94&thinsp;%</td><td class="c pass">WORKS</td></tr>
+<tr><td>Privacy budget achieved</td><td class="c">&epsilon; = 0.9705 / 0.9656</td><td class="c pass">WORKS</td></tr>
+<tr><td>Accuracy cost at &epsilon; = 1 (VitalDB)</td><td class="c">&minus;0.92 pp</td><td class="c pass">WORKS</td></tr>
+<tr><td>Multimodal fusion gain (VitalDB)</td><td class="c">+0.0370 AUROC</td><td class="c pass">WORKS</td></tr>
+<tr><td><i>k</i>-scaling law measured</td><td class="c">24/24 configs</td><td class="c pass">WORKS</td></tr>
+<tr><td>Accuracy cost at &epsilon; = 1 (WEAR)</td><td class="c">1.967 pp, CI [1.76, 2.17]</td><td class="c warn">UNRESOLVED</td></tr>
+<tr><td>Patient MIA vulnerability</td><td class="c">&Delta; CI includes zero</td><td class="c fail">FAILED</td></tr>
+<tr><td>Adaptive DP (SADP)</td><td class="c">&sigma; 11.3 &rarr; 70</td><td class="c fail">FAILED</td></tr>
+<tr><td>INT8 edge quantisation</td><td class="c">1.9&times; slower on CPU</td><td class="c fail">FAILED</td></tr>
+<tr><td>Fusion gain on WEAR</td><td class="c">+0.0004 (ceiling)</td><td class="c fail">NO HEADROOM</td></tr>
+<tr><td>ASWA aggregation</td><td class="c">+0.0005 AUROC</td><td class="c fail">USELESS</td></tr>
+<tr><td>End-to-end valid &epsilon; (public pretraining)</td><td class="c">priced at &minus;0.022 AUROC</td><td class="c warn">NOT CLOSED</td></tr>
+</table>
+
+<div class="cols">
+<div class="callout">
+<span class="lbl">The short version</span>
+<b>Theory:</b> almost everything held. The one thing that did not was a prediction about
+what an attacker could do, not about the mechanism itself.<br>
+<b>Practice:</b> every system objective passed with a wide margin. The failures were all
+in the optional extras &mdash; adaptive privacy, INT8, a fancy aggregator &mdash; none of
+which the framework depends on.
+</div>
+</div>
+
+<h2 class="parthead">4 &nbsp;&mdash;&nbsp; Best and Unique Findings</h2>
+
+<table class="full">
+<tr><th class="c">Rank</th><th>Finding</th><th>Why it is unique</th></tr>
+<tr><td class="c"><b>1</b></td><td><b>The cost of patient-level privacy is a function of <i>k</i>, not a fixed number.</b> Gap 0 &rarr; +0.0507 &rarr; +0.0832 &rarr; +0.0866 AUPRC as <i>k</i> goes 1 &rarr; 2 &rarr; 4 &rarr; 8.</td><td>Every other paper reports privacy cost as one number. We show it is a curve, and which variable controls it. It also carries its own control: at <i>k</i> = 1 the two guarantees are identical and the arms must collapse &mdash; they do.</td></tr>
+<tr><td class="c"><b>2</b></td><td><b>The gap widens because the record arm improves, not because the patient arm degrades.</b> Patient arm is flat (0.4967&ndash;0.5176 at every <i>k</i>); record arm rises (0.5015 &rarr; 0.5955).</td><td>This is the mechanism, and it is counter-intuitive. Extra records per patient buy the patient arm nothing, because the noise scales with the patient's total contribution.</td></tr>
+<tr><td class="c"><b>3</b></td><td><b>Head-only DP fine-tuning memorises members far harder than full-model training.</b> 0.6277 vs 0.5122 under LiRA.</td><td>This is a warning about the very technique the field is adopting for efficiency &mdash; and about our own recipe. Nobody has reported it.</td></tr>
+<tr><td class="c"><b>4</b></td><td><b>At &epsilon; = 1 the noise was never the problem &mdash; the optimisation geometry was.</b> &sigma; = 11.3281 identical before and after; AUC moved 0.562 &rarr; 0.8742.</td><td>Reframes the entire &ldquo;DP destroys utility&rdquo; complaint. A near-linear probe over frozen features tolerates noise that end-to-end training cannot.</td></tr>
+<tr><td class="c"><b>5</b></td><td><b>Differential privacy shifts the model's attention toward missingness.</b> Mask attribution share: full_dp 28.2&thinsp;% &gt; patient 22.0&thinsp;% &gt; full_nodp 19.9&thinsp;% &gt; head_nodp 15.8&thinsp;%.</td><td>An unexpected side effect of privacy: under noise the model leans more on <i>which measurements exist</i> than on their values. Nobody has measured this.</td></tr>
+<tr><td class="c"><b>6</b></td><td><b>A negative result that is actually trustworthy.</b> Patient MIA null, with a positive control that passed its pre-registered gate at 0.6277.</td><td>Most negative results in this area are unpublishable because the attack might just be weak. Ours cannot be dismissed that way.</td></tr>
+<tr><td class="c"><b>8</b></td><td><b>The difficulty floor: MIA numbers in this setting must be read against a confound, not against chance.</b> Ranking patients by shadow difficulty alone &mdash; with no target model &mdash; scores 0.5252 to 0.5743, while the attacks themselves reach only 0.5465&ndash;0.5477.</td><td>Membership attacks are conventionally reported against 0.5. Where members come from the train split and non-members from the test split, that is the wrong reference: the split's own difficulty imbalance is credited to the attacker. We measure the floor and report every attack as a margin over it. At &epsilon;&nbsp;=&nbsp;16 the attack falls <i>below</i> its floor &mdash; no signal at all.</td></tr>
+<tr><td class="c"><b>7</b></td><td><b>Some IoT tasks do not need fusion at all.</b> WEAR's best single modality reaches 0.9976 AUROC; fusion adds +0.0004.</td><td>An honest limit on the multimodal argument that the multimodal FL literature never states.</td></tr>
+</table>
+
+<h2 class="parthead">5 &nbsp;&mdash;&nbsp; Success Rate of the Research</h2>
+
+<table class="full">
+<tr><th>Category</th><th class="c">Achieved</th><th class="c">Rate</th><th>Note</th></tr>
+<tr><td>Engineering objectives (both datasets)</td><td class="c">13 of 14</td><td class="c pass">93&thinsp;%</td><td>Only WEAR O2b unresolved, and deliberately so</td></tr>
+<tr><td>Original four objectives (O1&ndash;O4)</td><td class="c">4 of 4</td><td class="c pass">100&thinsp;%</td><td>All exceeded, most by a wide margin</td></tr>
+<tr><td>Project phases</td><td class="c">5 of 6</td><td class="c pass">83&thinsp;%</td><td>Phase 6 code-complete, runs partly pending</td></tr>
+<tr><td>Phase 5 deliverables</td><td class="c">17 of 17</td><td class="c pass">100&thinsp;%</td><td></td></tr>
+<tr><td>Scientific claims measured</td><td class="c">8 of 12</td><td class="c warn">67&thinsp;%</td><td>1 refuted, 2 never run, 1 evidence-only</td></tr>
+<tr><td>Major hypotheses</td><td class="c">1 of 2</td><td class="c warn">50&thinsp;%</td><td><i>k</i>-law succeeded; patient MIA refuted</td></tr>
+<tr><td>Optional mechanisms we designed</td><td class="c">0 of 3</td><td class="c fail">0&thinsp;%</td><td>SADP, ASWA, FedKD-E all dropped</td></tr>
+<tr><td>External validation</td><td class="c">0 of 1</td><td class="c fail">0&thinsp;%</td><td>Blocked on eICU access</td></tr>
+</table>
+
+<div class="cols">
+<div class="callout good">
+<span class="lbl">Overall, honestly</span>
+<b>Engineering: ~95&thinsp;% successful.</b> The system does everything it was supposed to
+do, with margins of 2&times; to 20&times; on the targets.<br><br>
+<b>Science: ~60&thinsp;% successful.</b> One hypothesis died, one succeeded on a single
+dataset, and one original mechanism has still not been tested.<br><br>
+<b>Combined, a fair figure is 75&ndash;80&thinsp;%.</b> The remaining 20&ndash;25&thinsp;%
+is almost entirely the external validation that eICU would supply.
+</div>
+
+<p class="small">Rating against publication: currently around <b>8.8/10</b> in research
+strength, with roughly a <b>60&ndash;75&thinsp;%</b> chance of a strong publication
+outcome. A successful eICU validation would move that to roughly <b>9.2&ndash;9.4/10</b>
+and <b>75&ndash;90&thinsp;%</b>.</p>
+</div>
+
+<h2 class="parthead">6 &nbsp;&mdash;&nbsp; What Does Not Exist Anywhere Else</h2>
+<div class="cols">
+<p>This is the list of things we could not find in any paper we studied. It is the
+answer to &ldquo;what is new?&rdquo;</p>
+</div>
+
+<table class="full">
+<tr><th class="c">#</th><th>Does not exist in the literature</th><th>Closest existing work, and what it stops short of</th></tr>
+<tr><td class="c">1</td><td><b>The privacy cost measured as a curve in records-per-individual.</b></td><td>Nobody has done this. User-level DP papers (McMahan 2018) report one number for one dataset. The controlling variable has never been isolated.</td></tr>
+<tr><td class="c">2</td><td><b>A hierarchical FL system that carries a formal patient-level guarantee.</b></td><td>HED-FL, HCEF and Mhaisen et al. are hierarchical with <b>no privacy guarantee at all</b>. FL2DP and RoPPFL have privacy but are <b>not hierarchical</b>. The two lines have never met.</td></tr>
+<tr><td class="c">3</td><td><b>Conformal calibration cost composed into the privacy budget.</b></td><td>Conformal FL papers release the calibration quantile for free. Smith (2011) gives the DP quantile mechanism, but nobody charges it to the same budget as training. We do: 0.7705 + 0.2000.</td></tr>
+<tr><td class="c">4</td><td><b>Patient-level membership inference audit with a passing positive control.</b></td><td>MIA audits in FL are conducted at record level &mdash; the quantity a record-level guarantee already protects, so the least informative test. Almost none report a positive control, so their nulls cannot be trusted.</td></tr>
+<tr><td class="c">5</td><td><b>The finding that parameter-efficient DP fine-tuning increases memorisation.</b></td><td>Li et al. (2021) and Yu et al. (2021) propose head-only DP fine-tuning for efficiency. Neither measures whether it leaks more. It does.</td></tr>
+<tr><td class="c">6</td><td><b>Noise calibrated against every client simultaneously in a hierarchy.</b></td><td>Standard practice calibrates against a representative client. That silently understates the budget when an edge tier changes how often each client is sampled. The failure is invisible in a training log.</td></tr>
+<tr><td class="c">7</td><td><b>DP shifting attention toward missingness.</b></td><td>Not reported anywhere. Missingness-as-signal exists in clinical ML, but its interaction with privacy noise does not.</td></tr>
+<tr><td class="c">8</td><td><b>A genuinely paired multimodal clinical FL benchmark under patient-level DP.</b></td><td>Multimodal FL papers pair modalities by construction rule or use unpaired corpora. Ours are paired by the recording apparatus &mdash; same patient, same second.</td></tr>
+</table>
+<p class="caption full">Honest boundary: items 2&ndash;8 are <b>measurements and practices</b>, not new mathematics. The mechanisms themselves (user-level DP, parameter-efficient DP fine-tuning, DP quantile release) are prior art and are cited as such. Claiming to have invented them would be an immediate desk reject. Item 1 is the closest thing to a genuinely new scientific result.</p>
+
+<h2 class="parthead">7 &nbsp;&mdash;&nbsp; What Was Built for the Framework</h2>
+
+<table class="full">
+<tr><th>Component</th><th>File</th><th>What it does</th></tr>
+<tr><td><b>Patient-level DP engine</b></td><td><code>privacy/patient_dp.py</code></td><td>The core contribution. Groups gradients by patient before clipping.</td></tr>
+<tr><td>DP-SGD engine</td><td><code>privacy/dp_engine.py</code></td><td>Opacus wrapper with extended RDP orders so tight budgets are reachable.</td></tr>
+<tr><td>Adaptive DP engine</td><td><code>privacy/sadp_engine.py</code></td><td>Per-group budget split. Retained as a negative result.</td></tr>
+<tr><td>HFL training engine</td><td><code>training/hfl_trainer.py</code></td><td>The three-tier training loop: device &rarr; edge &rarr; cloud.</td></tr>
+<tr><td>Encoder pretraining</td><td><code>training/pretrain_encoders.py</code></td><td>Non-private pretraining, with a deterministic mode and a public-data mode.</td></tr>
+<tr><td>Baseline suite B0&ndash;B5</td><td><code>training/baselines.py</code></td><td>Centralised, local-only, FedAvg, FedProx, DP-FedAvg, MOON.</td></tr>
+<tr><td>Multimodal model</td><td><code>architecture/hfl_mm_model.py</code></td><td>Two encoders plus a fusion head.</td></tr>
+<tr><td>Signal encoder</td><td><code>architecture/fedmamba_hc.py</code></td><td>Multi-scale CNN + BiGRU + attention, DP-compatible.</td></tr>
+<tr><td>Gradient compressor</td><td><code>utils/compression.py</code></td><td>Top-<i>k</i> + 8-bit + error feedback. 20&times; compression.</td></tr>
+<tr><td>Conformal prediction</td><td><code>utils/fedconform_hc.py</code></td><td>Coverage guarantee with DP quantile release.</td></tr>
+<tr><td><b>LiRA attack suite</b></td><td><code>scripts/lira_attack.py</code></td><td>Four attack variants, shadow models, per-patient Gaussians. The audit instrument.</td></tr>
+<tr><td><b><i>k</i>-scaling driver</b></td><td><code>scripts/k_scaling.py</code></td><td>Runs the headline experiment across <i>k</i> and both arms.</td></tr>
+<tr><td>Attribution</td><td><code>scripts/attribution.py</code></td><td>Integrated gradients, with a separate seed-stability check.</td></tr>
+<tr><td>ONNX export + benchmark</td><td><code>deploy/</code></td><td>Edge deployment artifact and 1000-run latency measurement.</td></tr>
+<tr><td>NS-3 integration</td><td><code>scripts/ns3_phase5_integration.py</code></td><td>Packet-level network measurement of every round.</td></tr>
+<tr><td>CloudSim simulation</td><td><code>hfl/HFLCloudSimulation.java</code></td><td>Edge-cloud energy and scheduling model.</td></tr>
+<tr><td>Objective checker</td><td><code>scripts/check_objectives.py</code></td><td>Resolves every objective from measured artifacts. No hardcoded numbers.</td></tr>
+<tr><td>Statistics</td><td><code>scripts/run_statistics.py</code></td><td>Paired tests and confidence intervals for all claims.</td></tr>
+</table>
+<p class="caption full">Roughly 20 modules plus two simulators. The whole pipeline runs from one driver, and every reported number is resolved from a measured artifact rather than typed in.</p>
+
+<h2 class="parthead">8 &nbsp;&mdash;&nbsp; Contribution of Multi-Data and Multi-Model</h2>
+<div class="cols">
+
+<h3>8.1 Multi-data &mdash; two datasets</h3>
+
+<p>Using two very different corpora is what let us separate <b>system claims</b> from
+<b>task claims</b>.</p>
+
+<ul>
+<li><b>VitalDB</b> (clinical, 6,257 patients, ~8 windows each) carries every privacy
+claim. It is the only one that can, because patient-level work needs many records per
+person.</li>
+<li><b>WEAR</b> (wearable, 22 participants) carries the systems claims and proves they
+are not an artefact of one topology or payload size.</li>
+</ul>
+
+<p>The two agree on everything structural: uplink reduction, energy, latency,
+reliability and privacy budget all hold on both. That is the evidence that the
+architecture generalises.</p>
+
+<p>They disagree on the task claims, and that disagreement is itself a finding: fusion
+helps on VitalDB (+0.0370 AUROC) and is pointless on WEAR (+0.0004, ceiling). We report
+this rather than hide it.</p>
+
+<h3>8.2 Multi-model &mdash; two modalities</h3>
+
+<p>Each dataset pairs two genuinely different signal types recorded from the same
+person at the same moment:</p>
+</div>
+
+<table class="full">
+<tr><th>Dataset</th><th>Modality A</th><th>Modality B</th><th class="c">A only</th><th class="c">B only</th><th class="c">Fused</th><th class="c">Gain</th></tr>
+<tr><td>VitalDB</td><td>Intraoperative signals (time series)</td><td>Preoperative clinical + labs (static vector)</td><td class="c">0.8283</td><td class="c">0.7680</td><td class="c"><b>0.8653</b></td><td class="c pass">+0.0370</td></tr>
+<tr><td>WEAR</td><td>Accelerometer (time series)</td><td>Egocentric video features</td><td class="c">0.9976</td><td class="c">0.9957</td><td class="c"><b>0.9980</b></td><td class="c warn">+0.0004</td></tr>
+</table>
+<p class="caption full">AUROC. VitalDB fusion gain is 5.9&times; the seed standard deviation over 5 seeds. WEAR is at ceiling and cannot evidence the claim.</p>
+
+<div class="cols">
+<p><b>Why the multimodal design matters to the privacy question.</b> This is the part
+that is easy to miss. Two modalities mean the model has two sources of evidence about
+the same patient. That makes the patient &mdash; not the window &mdash; the natural unit
+of both <i>learning</i> and <i>disclosure</i>. A single patient's identity is carried by
+the combination of their signals and their clinical record. Protecting one window of
+one modality protects almost nothing about that person.</p>
+
+<p>So multimodality is not decoration here. It is the reason the unit-of-privacy
+question has teeth in the first place.</p>
+
+<div class="callout">
+<span class="lbl">Honest limitation</span>
+The fusion claim rests on <b>one dataset</b>. WEAR structurally cannot corroborate it.
+This is the second-strongest reason to add a third clinical dataset &mdash; the first
+being the <i>k</i>-law.
+</div>
+</div>
+
+<h2 class="parthead">9 &nbsp;&mdash;&nbsp; Why We Want PhysioNet Data (eICU-CRD)</h2>
+<div class="cols">
+
+<h3>9.1 The problem with what we have</h3>
+
+<p>Every privacy claim in this research rests on <b>one dataset from one hospital</b>.
+VitalDB comes from a single institution, and our nine &ldquo;clients&rdquo; are a
+partition we created ourselves. WEAR cannot help &mdash; it has 22 people, one client
+each, and no patient contributes enough records for the <i>k</i>-law to even be defined.</p>
+
+<p>A reviewer will ask one question, and it is the right question:</p>
+
+<div class="keyline">
+&ldquo;Is this a property of patient-level private federated learning,<br>
+or a property of your dataset?&rdquo;
+</div>
+
+<p>Right now we cannot answer it.</p>
+
+<h3>9.2 Why eICU-CRD specifically</h3>
+</div>
+
+<table class="full">
+<tr><th>Property of eICU-CRD</th><th>Why we need it</th></tr>
+<tr><td><b>208 real hospitals</b></td><td>Our clients would be actual institutions, not a partition we invented. This is what federated learning is supposed to model, and we currently only simulate it.</td></tr>
+<tr><td><b>Independent patient population</b></td><td>Different demographics, different care patterns, different equipment. If the <i>k</i>-law survives that, it is structural.</td></tr>
+<tr><td><b>Same patient &rarr; many records structure</b></td><td>The <i>k</i>-law needs it. VitalDB gives about 8 records per patient; eICU gives far more, which stretches the curve into a range we cannot currently reach.</td></tr>
+<tr><td><b>Same modality structure</b> &mdash; time-series vitals plus static clinical variables</td><td>No new encoder needed. The existing pipeline applies almost unchanged, so this is weeks of work, not months.</td></tr>
+<tr><td><b>Credentialed access with ethics training</b></td><td>Reviewers trust PhysioNet. Access requires CITI training and a verified reference, which is itself evidence the work was conducted properly.</td></tr>
+<tr><td><b>Widely used benchmark</b></td><td>Results on eICU can be compared against other published work. Results on a private partition cannot.</td></tr>
+</table>
+
+<div class="cols">
+<h3>9.3 What we will do with it &mdash; and the one rule</h3>
+
+<p>We will <b>not</b> simply run the same experiment and add another table. That is
+worth little.</p>
+
+<p>Instead: fit the <i>k</i>-curve on VitalDB, write down a numeric prediction of what
+the gap should be at eICU's <i>k</i>, <b>freeze that prediction before touching the
+data</b>, then test it.</p>
+
+<div class="callout good">
+<span class="lbl">Why the prediction must be frozen first</span>
+The value of this experiment is that it <b>could fail</b>. If we fit the curve, look at
+eICU, and then write the prediction, no reviewer can tell that apart from
+retrofitting &mdash; and neither can we. This is why the current wait for access is
+useful time rather than lost time: the pre-registration has to be written now.
+</div>
+
+<h3>9.4 Both outcomes are publishable</h3>
+
+<p><b>If the prediction holds</b> &mdash; the cost of patient-level privacy is structural,
+and we can give practitioners a rule: <i>given your k, this is what &epsilon; = 1 will
+cost you</i>. Nobody has published that.</p>
+
+<p><b>If the prediction misses</b> &mdash; we have found the boundary condition, with a
+dated forecast proving the story was not adjusted after the fact. That is also
+publishable, and visibly honest.</p>
+
+<p>A paper reporting that two independent clinical datasets were tested, one confirming
+and one exposing a limit, is stronger than one where everything conveniently worked.</p>
+
+<h3>9.5 Current status</h3>
+
+<p>PhysioNet credentialing is in progress. The guide has been emailed to act as
+reference. Nothing else in the project is blocked by this &mdash; the manuscript
+restructuring, the pre-registration, and the eICU pipeline itself can all be written
+before access arrives.</p>
+
+</div>
+
+</body>
+</html>

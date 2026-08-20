@@ -1,0 +1,23 @@
+{
+  "dataset": "vitaldb",
+  "epsilons": [
+    0.5,
+    1.0,
+    2.0,
+    4.0,
+    8.0,
+    "inf"
+  ],
+  "recipes": [
+    "head"
+  ],
+  "seeds": [
+    42
+  ],
+  "rounds": 10,
+  "select_on": "auprc",
+  "class_weight": true,
+  "pretrained_encoders": "checkpoints/pretrained_encoders_vitaldb_public.pt",
+  "n_devices": 9,
+  "metric": "auprc"
+}

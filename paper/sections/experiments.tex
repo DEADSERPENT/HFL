@@ -1,0 +1,263 @@
+%==============================================================================
+% experiments.tex — Experimental Setup for PP-HFM
+% Self-contained \section{}; \input this into main.tex (never compile alone).
+%
+% Structured after the house experimental-setup template: Datasets,
+% Implementation Details, Evaluation Metrics (defined as numbered equations),
+% Experimental Protocol, closing with a forward pointer to Results.
+%
+% Equation numbering CONTINUES from method.tex, which ends at (15).
+%
+% Every figure here is established fact verified against an artefact:
+%   partition_meta.json   client counts, edge map, split sizes, class balance
+%   datasets.py registry  channel counts, modality contracts, pairing
+%   labels.npy            outcome prevalence
+%   installed packages    library versions
+% No measured outcome appears in this section; outcomes are in Section V.
+%==============================================================================
+
+\section{Experimental Setup}
+\label{sec:experiments}
+
+\subsection{Datasets}
+
+The proposed framework is evaluated on two publicly available multimodal
+corpora: VitalDB \cite{ref20}, a clinical monitoring collection of non-cardiac
+surgical cases, and WEAR \cite{ref21}, an outdoor activity collection combining
+body-worn inertial sensing with egocentric video. Both were selected on a
+property that is decisive for a claim about fusion: in each, the two modalities
+originate from the same individual over the same interval and are associated by
+the recording apparatus rather than by a construction rule. Where modalities
+are paired by a rule, an apparent benefit of fusion may reflect the regularity
+of that rule rather than complementary information, and no claim about fusion
+can be sustained; neither corpus used here requires such a defence. Together
+they span the two deployment regimes that matter for the privacy mechanism ---
+a client holding many individuals, and a client holding one.
+
+In VitalDB, modality~A is the intraoperative monitoring record represented as
+eighteen channels, comprising nine numeric physiological trends and nine binary
+indicators of whether each trend was recorded, and modality~B is a
+thirty-four-dimensional vector of preoperative clinical and laboratory
+variables. Every channel of a case originates from the same patient during the
+same operation, time-aligned at capture across the waveform digitiser, the
+patient monitor and the anaesthesia machine. The prediction target is
+postoperative admission to intensive care, positive in $19.65\,\%$ of windows.
+In WEAR, modality~A is twelve channels of inertial sensing and modality~B is a
+$2048$-dimensional two-stream video feature computed over the same interval and
+synchronised in hardware, with activity recognition over eighteen classes as
+the target.
+
+Each corpus is partitioned into disjoint training, validation and test subsets,
+and these partitions are held fixed throughout all experiments so that no
+record contributes to more than one subset and no arm of any comparison sees a
+different division of the data. For VitalDB the partition comprises $34{,}044$
+training, $7{,}308$ validation and $7{,}360$ test windows drawn from $6{,}257$
+operations, distributed across nine clients by surgical specialty and assigned
+to two edge aggregators; an individual contributes $7.8$ windows on average.
+For WEAR the partition comprises $26{,}424$ training, $5{,}395$ validation and
+$5{,}969$ test windows across twenty-two clients, one per participant, likewise
+assigned to two edges. Partitioning by specialty rather than at random produces
+heterogeneity of the kind that arises in deployment: specialties differ in case
+mix, in outcome prevalence and in which channels are routinely recorded, as
+Fig.~\ref{fig:noniid} shows. The
+validation subset is used exclusively for model selection and the test subset
+is reserved for final evaluation, never consulted during training or checkpoint
+selection.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{fig6_noniid.pdf}
+\caption{Heterogeneity of the clinical partition. Partitioning by surgical
+specialty rather than at random yields clients that differ by a factor of
+seven in size and by more than fifteen in outcome prevalence, from $3.23\,\%$
+to $50.72\,\%$. The skew is a property of how care is organised, not an
+artefact imposed for the experiment.}
+\label{fig:noniid}
+\end{figure*}
+
+Four controls govern the preparation of the clinical corpus, each addressing a
+way in which a reported figure could be inflated with no error visible during
+training. First, splitting is performed by case, so that every window of one
+operation falls on the same side of every boundary; windows minutes apart from
+one patient are highly correlated, and a window-level split would place near
+duplicates of a training example into the test set. Second, modality~B is
+restricted to preoperative variables, every intraoperative column being
+excluded, because interventions such as transfusion or vasopressor
+administration are given \emph{because} a patient is deteriorating and
+therefore encode much of the outcome. Third, missingness is retained as signal
+rather than imputed away: gaps are filled within a case and paired with an
+explicit binary indicator rather than silently zero-filled, since an arterial
+line is placed only in patients judged at risk and its absence is itself
+evidence about acuity. Fourth, normalisation statistics are computed with
+missing-value-aware estimators over training cases only, because a single
+all-missing channel under a naive estimator yields an undefined statistic that
+propagates to every window of every case, destroying that channel while
+training continues to report an accuracy. A further set of individuals is
+reserved before federated training and used only to pretrain the encoders,
+disjoint at the level of the individual from every client's data, which is what
+makes the reported budget an end-to-end statement rather than one conditioned
+on encoders that had already observed the protected population.
+
+\subsection{Implementation Details}
+\label{sec:exp:impl}
+
+All arms are trained under a single, consistent configuration so that
+differences in behaviour can be attributed to the mechanism under test rather
+than to the training regime. Each client performs one local pass per federated
+call; five edge rounds are executed for every cloud round, and training
+proceeds for ten cloud rounds. Optimisation is stochastic gradient descent on
+the privatised gradient, with the per-individual clipping norm set to unity and
+the noise multiplier obtained by the calibration of \eqref{eq:6} against every
+client simultaneously. Updates are sparsified to the largest twenty per cent of
+coordinates and quantised to eight bits before transmission, with the residual
+retained locally as error feedback. Conformal calibration is performed once per
+run at a miscoverage level of $0.1$, and its cost is composed into the reported
+budget according to \eqref{eq:13}.
+
+The encoders are pretrained centrally and then frozen, so that the privatised
+parameter vector is the fusion head alone: $559{,}874$ of the $1{,}864{,}227$
+parameters of the network, or $30.0\,\%$.
+
+Which encoder configuration produced which result is recorded explicitly,
+because the two are not interchangeable. Unless stated otherwise, every result
+in this paper --- the system-level objectives, the privacy--utility
+comparisons and the membership-inference audit --- was obtained under the
+\emph{oracle} configuration of Section~\ref{sec:method:backbone}, in which the
+encoders were pretrained on the pooled client training data. That
+configuration does not carry a valid end-to-end guarantee; it is used because
+it isolates the behaviour of the privatised head from the provenance of the
+representation beneath it, and because holding it fixed across every arm keeps
+the comparisons between arms clean. The \emph{disjoint} configuration, which
+does carry the guarantee, is evaluated separately, and the difference between
+the two is reported in Section~\ref{sec:results:objectives} as the cost of a
+valid guarantee. Readers should treat the absolute utilities reported here as
+an upper bound on what the deployable configuration attains, and the
+differences between arms --- which are what the claims rest on --- as
+unaffected, since every arm shares the same encoders.
+Every normalisation layer in the network is a group or layer normalisation and
+none is a batch normalisation, for the reason given in
+Section~\ref{sec:method:backbone}: batch statistics couple the examples of a
+batch and would make the per-individual gradient ill-defined.
+
+Models are implemented in PyTorch~2.5, with per-sample gradient machinery and
+R\'enyi accounting provided by Opacus~1.5. Deployment artefacts are exported to
+ONNX and quantised to eight-bit integer precision, and inference is measured
+under ONNX Runtime on a general-purpose CPU provider, since an edge node cannot
+be assumed to carry an accelerator and a latency figure obtained on one would
+not describe the target setting. Network behaviour is simulated in ns-3~3.46,
+with the device-to-edge segment carried over a wireless local-area link and the
+edge-to-cloud segment over a point-to-point backhaul; energy is modelled in
+CloudSim~Plus and attributed separately to the device, edge and cloud tiers.
+Training was performed on a single workstation with one NVIDIA RTX~A2000
+accelerator.
+
+\subsection{Evaluation Metrics}
+
+Classification quality is assessed with two complementary measures. The area
+under the receiver operating characteristic curve summarises ranking
+performance across all decision thresholds. It is reported alongside average
+precision, which summarises the precision--recall trade-off,
+%
+\begin{equation}
+\mathrm{AP} = \sum_{n} \big(R_n - R_{n-1}\big)\, P_n,
+\tag{16}
+\label{eq:16}
+\end{equation}
+%
+where $P_n$ and $R_n$ are the precision and recall at the $n$th threshold.
+Average precision is reported because the clinical task is substantially
+imbalanced at $19.65\,\%$ positive: accuracy is nearly uninformative, since a
+constant negative prediction attains four-fifths of it, and the area under the
+ROC curve is optimistic under imbalance. Average precision is the quantity that
+responds when the minority class is handled well.
+
+Metrics are additionally aggregated to the individual. The model scores
+windows, but the clinical question concerns an operation, and the windows of
+one case are highly correlated, so a window-level metric overstates the
+effective sample size. The predictions of a case are therefore averaged,
+%
+\begin{equation}
+\bar{p}_c = \frac{1}{|W_c|} \sum_{w \in W_c} p_w ,
+\tag{17}
+\label{eq:17}
+\end{equation}
+%
+yielding one prediction per individual, which is both the clinically meaningful
+unit and the statistically honest one. Case-level metrics are computed from
+$\bar{p}_c$ by the same expressions applied to $p_w$.
+
+Comparisons between arms are paired by seed rather than reported as independent
+means, since the arms share their partition, their initialisation schedule and
+their calibration data. For $S$ paired seeds with per-seed difference $d_s$, the
+reported interval is
+%
+\begin{equation}
+\bar{d} \pm t_{S-1,\,0.975}\, \frac{s_d}{\sqrt{S}},
+\tag{18}
+\label{eq:18}
+\end{equation}
+%
+with $s_d$ the sample standard deviation of the differences. Student's $t$ is
+used rather than a normal approximation because the seed counts are small
+enough for the difference to be material. Seed counts are fixed in advance of
+each comparison and are not extended after inspecting an interval.
+
+Communication, latency, reliability and energy are reported as defined in
+Section~\ref{sec:method:instr}, with every network quantity measured on a round
+in which the payload traversed the simulated topology.
+
+\subsection{Experimental Protocol}
+
+The proposed system is compared against differentially private federated
+averaging in three configurations, each isolating one design decision. The
+first trains the full parameter vector under the privacy budget, which is the
+conventional application of DP-SGD to a federated model. The second restricts
+private optimisation to the fusion head over randomly initialised frozen
+encoders, isolating the effect of reducing the privatised dimensionality alone.
+The third restricts private optimisation to the fusion head over
+\emph{pretrained} frozen encoders, and is included specifically as a confound
+control: without it the benefit of parameter-efficient private training cannot
+be distinguished from the benefit of the pretrained representation on which it
+happens to sit. A non-private reference trained under an otherwise identical
+recipe supplies the reference point for the accuracy cost of the budget. All
+arms share the partition, the schedule, the compression settings and the
+evaluation procedure, differing only in the factor under test.
+
+A single canonical protocol is applied to every arm. The checkpoint attaining
+the highest validation performance is retained and carried forward; no
+test-subset information influences that selection. Each retained checkpoint is
+evaluated once on the held-out test subset, and every metric is computed from
+the same predictions under the same aggregation. Applying one procedure to
+every arm ensures that reported differences reflect the mechanisms rather than
+differences in measurement.
+
+The privacy guarantee is audited rather than reported from its parameters
+alone. Membership inference is mounted at the level of the individual under the
+two attacks of Section~\ref{sec:method:mia}, and every attack is additionally
+applied to a configuration known to memorise --- non-private training of the
+same head over the same frozen encoders --- which serves as a positive control.
+The control is a precondition of the audit rather than a supplementary
+experiment: an attack that finds nothing is indistinguishable from an attack
+incapable of finding anything, so no negative result is admitted unless the
+same procedure registers clearly elevated leakage on the control.
+
+A further experiment separates the two mechanisms through which the choice of
+unit imposes a cost. Moving the guarantee from the record to the individual both
+reduces the number of units available to be sampled at each step and bounds the
+summed contribution of an individual, and the aggregate comparison cannot
+attribute the cost between them. The number of units drawn per step is therefore
+held equal in the two arms, which removes the first mechanism by construction
+and leaves only the clipping geometry, and the number of records retained per
+patient in training, $k$, is varied over $\{1, 2, 4, 8\}$ at three seeds under
+$\varepsilon = 1$. Subsampling is applied to the training partition alone;
+validation and test are left whole, so every point is evaluated against the same
+held-out data. Reducing $k$ also shrinks the training set, so absolute utility
+falls with $k$ and the levels are not comparable across $k$; the quantity of
+interest is the paired difference between the arms at each $k$, where both arms
+see the same data, the same partition and the same seed. The design is
+falsifiable at $k = 1$, where an individual contributing one record is a record
+and the two arms must therefore agree.
+
+The following section reports these experiments: first the system-level
+objectives on both deployments, then the utility and privacy comparisons
+against the baselines, and finally the membership-inference audit.

@@ -1,0 +1,180 @@
+{
+  "dataset": "wear",
+  "stages": {
+    "verify_data": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.5,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/verify_data.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/tests/verify_datasets.py",
+        "--dataset",
+        "wear"
+      ],
+      "finished": "2026-08-04T20:06:00"
+    },
+    "pretrain_encoders": {
+      "status": "cached",
+      "returncode": 0,
+      "seconds": 612.7,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/pretrain_encoders.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/model/training/pretrain_encoders.py",
+        "--dataset",
+        "wear",
+        "--epochs",
+        "30",
+        "--batch_size",
+        "64",
+        "--seed",
+        "42",
+        "--deterministic",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt"
+      ],
+      "finished": "2026-08-04T02:38:10"
+    },
+    "baselines": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 2266.5,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/baselines.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/model/training/baselines.py",
+        "--dataset",
+        "wear",
+        "--rounds",
+        "10",
+        "--local_epochs",
+        "1",
+        "--batch_size",
+        "64",
+        "--epsilon",
+        "1.0",
+        "--seed",
+        "42",
+        "--b0_epochs",
+        "5",
+        "--b1_epochs",
+        "10",
+        "--max_physical_batch_size",
+        "16",
+        "--pretrained_encoders",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt"
+      ],
+      "finished": "2026-08-04T20:43:47"
+    },
+    "proposed": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 612.3,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/proposed.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/model/training/hfl_trainer.py",
+        "--dataset",
+        "wear",
+        "--rounds",
+        "10",
+        "--tau_e",
+        "5",
+        "--batch_size",
+        "64",
+        "--epsilon",
+        "1.0",
+        "--seed",
+        "42",
+        "--freeze_encoders",
+        "--pretrained_encoders",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt",
+        "--save_checkpoint",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/best_wear.pt",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/proposed_wear.csv"
+      ],
+      "finished": "2026-08-04T20:53:59"
+    },
+    "ablation": {
+      "status": "cached"
+    },
+    "epsilon_sweep": {
+      "status": "failed",
+      "returncode": 1,
+      "seconds": 60.2,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/epsilon_sweep.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/model/training/epsilon_sweep.py",
+        "--dataset",
+        "wear",
+        "--rounds",
+        "10",
+        "--local_epochs",
+        "1",
+        "--batch_size",
+        "64",
+        "--epsilons",
+        "0.5",
+        "1.0",
+        "2.0",
+        "4.0",
+        "8.0",
+        "inf",
+        "--seeds",
+        "42",
+        "--pretrained_encoders",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt",
+        "--resume"
+      ],
+      "finished": "2026-08-04T20:54:59"
+    }
+  },
+  "config": {
+    "dataset": "wear",
+    "stages": null,
+    "skip": [],
+    "force": false,
+    "force_stage": [],
+    "dry_run": false,
+    "continue_on_error": false,
+    "list": false,
+    "seed": 42,
+    "rounds": 10,
+    "local_epochs": 1,
+    "tau_e": 5,
+    "batch_size": 64,
+    "epsilon": 1.0,
+    "pretrain_epochs": 30,
+    "b0_epochs": 5,
+    "b1_epochs": 10,
+    "max_physical_batch_size": 16,
+    "ablation_epochs": 8,
+    "ablation_seeds": [
+      42,
+      43
+    ],
+    "sweep_seeds": [
+      42
+    ],
+    "epsilons": [
+      "0.5",
+      "1.0",
+      "2.0",
+      "4.0",
+      "8.0",
+      "inf"
+    ],
+    "bench_runs": 200,
+    "provider": "cpu"
+  },
+  "started": "2026-08-04T20:06:00",
+  "finished": "2026-08-04T20:54:59"
+}

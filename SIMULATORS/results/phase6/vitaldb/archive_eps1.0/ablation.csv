@@ -1,0 +1,4 @@
+arm,label,removes,adds,test_accuracy,test_macro_auc,test_auprc,test_case_auc,epsilon_spent,uplink_mb,selected_round,best_val,seconds,source,incomplete
+A0,full system,—,,0.8324728260869565,0.8460074830139608,0.5998077553408497,0.8528334947860278,0.9983,251.973,,,,ckpt_A0.pt (pre-sidecar run),
+A5,no C5 — unimodal,C5,,0.7339673913043478,0.8282875824791756,0.5280871112857336,,,,,,,modality_ablation.json (arm 'a'),
+A6,+ ASWA aggregation,—,C6,0.8282608695652174,0.8464726567774898,0.6027617493043351,0.8535457860846771,0.9983,251.973,,,,ckpt_A6.pt (pre-sidecar run),

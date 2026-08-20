@@ -1,0 +1,6 @@
+arm,floor,best_attack,best_auc,margin
+vitaldb/head_nodp,0.5626,lira_offline,0.6254,0.0627
+vitaldb/head_nodp_1round_20260816_104329,0.5626305555555555,,,
+vitaldb/patient,0.5167,loss,0.5224,0.0057
+vitaldb/sample,0.5252,lira_offline,0.5477,0.0226
+eps16.0/sample,0.5743,loss,0.5465,-0.0278

@@ -1,0 +1,20 @@
+metric,value,source
+round_uplink_time_s,33.973,phase5_ns3_integration
+round_downlink_time_s,26.845,phase5_ns3_integration
+round_comm_time_total_s,60.818,phase5_ns3_integration
+comm_reduction_pct,93.67,phase5_ns3_integration
+energy_saving_pct,93.67,phase5_ns3_integration
+update_reliability_pct,99.8001,phase5_ns3_integration
+run_reliability_all_rounds_pct,96.077,phase5_ns3_integration
+throughput_mbps,25.137,phase5_ns3_integration
+capacity_mbps,45.0,phase5_ns3_integration
+uplink_bytes_per_device,2359243,phase5_ns3_integration
+total_uplink_bytes_all_rounds,424663740,phase5_ns3_integration
+comm_source,measured,phase5_compression
+comm_uplink_bytes_per_round,21233187,phase5_compression
+comm_downlink_bytes_per_round,67112172,phase5_compression
+comm_baseline_bytes_per_round,335560860,phase5_compression
+comm_comm_reduction_pct,93.67,phase5_compression
+O1 Comm reduction ≥ 50%,93.67%,PASS
+O4 Energy saving ≥ 20%,93.67%,PASS
+Update reliability > 99%,99.8001%,PASS

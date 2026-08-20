@@ -1,0 +1,104 @@
+{
+  "dataset": "wear",
+  "source_document": "document/Research Problem Statements for Multimodal.pdf",
+  "problem_statement": "Problem Statement 1 \u2014 Federated Multimodal Edge-Cloud Learning for Low-Latency, Privacy-Preserving IoT",
+  "objectives": {
+    "O1": {
+      "name": "Uplink traffic reduction",
+      "target": 50.0,
+      "unit": "%",
+      "cmp": ">=",
+      "source": "NS-3 / proposed run communication accounting",
+      "measured": 96.0816262732396,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "uplink_measured_wear.json: measured compressor (head-only), indices included"
+    },
+    "O1b": {
+      "name": "FL round latency reduction",
+      "target": 0.0,
+      "unit": "%",
+      "cmp": ">",
+      "source": "NS-3 per-round end-to-end round latency (packet-level)",
+      "measured": 21.675813801444555,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "ns3_results_wear.csv: L_total_ms 104.5->81.8 ms/round"
+    },
+    "O2a": {
+      "name": "Privacy budget",
+      "target": 1.0,
+      "unit": "eps",
+      "cmp": "<=",
+      "source": "proposed run privacy accountant",
+      "measured": 0.9656259638947442,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "privacy_total_wear.json: TOTAL = training 0.7656 + conformal 0.2000 (basic composition)"
+    },
+    "O2b": {
+      "name": "Accuracy loss under DP",
+      "target": 2.0,
+      "unit": "pp",
+      "cmp": "<=",
+      "source": "proposed run at eps vs no-DP reference",
+      "measured": 1.9668286145082938,
+      "verdict": "INCONCLUSIVE",
+      "ci_low": 1.7603608426794581,
+      "ci_high": 2.1732963863371295,
+      "n_seeds": 15,
+      "evidence": "wear/wear: 15 paired seeds, eps=1 vs eps=inf (head recipe)"
+    },
+    "O3a": {
+      "name": "Inference latency (P95)",
+      "target": 100.0,
+      "unit": "ms",
+      "cmp": "<",
+      "source": "ONNX Runtime inference benchmark",
+      "measured": 1.218,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "latency_wear.json:total_ms.p95_ms (CPU provider)"
+    },
+    "O3b": {
+      "name": "Successful model updates",
+      "target": 99.0,
+      "unit": "%",
+      "cmp": ">",
+      "source": "NS-3 per-update reliability",
+      "measured": 99.9438,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "ns3_results_wear.csv: reliability_pct, HFL_Proposed, per-update"
+    },
+    "O4": {
+      "name": "Energy saving per round",
+      "target": 20.0,
+      "unit": "%",
+      "cmp": ">=",
+      "source": "CloudSim Plus energy model",
+      "measured": 76.84082624544351,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "cloudsim_results_wear.csv: total_energy_J 3086.2->714.8 J/round"
+    }
+  },
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "inconclusive": 1,
+    "not_measured": 0
+  }
+}

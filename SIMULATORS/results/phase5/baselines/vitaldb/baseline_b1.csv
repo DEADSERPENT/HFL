@@ -1,0 +1,2 @@
+baseline,test_accuracy,test_macro_auc,test_auprc,std_auc,n_devices_undefined_auc
+B1_LocalOnly,0.8157388986064373,0.78725984535602,0.5354410941183295,0.0828992529178131,0

@@ -1,12 +1,36 @@
 """
-Baseline Suite — Phase 5
-B0: Centralized (upper bound, no privacy)
-B1: Local Only   (lower bound, no federation)
-B2: FedAvg       (McMahan et al., 2017)
-B3: FedProx      (Li et al., 2020, proximal regularization)
-B4: DP-FedAvg    (Geyer et al., 2017, DP + flat FL)
-B5: MOON         (Li et al., 2021, model-contrastive FL)
-All run on identical PTB-XL + CheXpert healthcare data splits.
+Baseline Suite — Phase 5.  Dataset-agnostic (driven by the dataset registry).
+
+The research question this suite exists to answer is a PRIVACY question:
+what does a fixed privacy budget cost, and how much of that cost is avoidable?
+The arms are therefore chosen to decompose that cost, not merely to list prior
+work:
+
+  NON-PRIVATE REFERENCES  (establish the ceiling and the FL penalty)
+    B0  Centralized        pooled data, no federation, no DP   → upper bound
+    B1  Local Only         no federation at all                → lower bound
+    B2  FedAvg             McMahan et al., 2017                → FL, no privacy
+    B3  FedProx            Li et al., 2020                     → + heterogeneity
+    B5  MOON               Li et al., 2021                     → + contrastive
+
+  PRIVATE ARMS            (same eps, same data, same model — only the recipe moves)
+    B4  DP-FedAvg          flat FL + DP-SGD on the WHOLE model, RANDOM init
+                           (Geyer et al., 2017)
+    B7  DP-FedAvg-Pre      flat FL + DP-SGD on the WHOLE model, PRETRAINED init
+    B6  DP-FedAvg-Head     flat FL + DP-SGD on the FUSION HEAD only, PRETRAINED
+                           init, encoders frozen
+
+B6 is not from the literature; it exists to remove a confound. The proposed
+system changes TWO things at once relative to B4 — it adds the edge tier AND it
+restricts DP to the head over frozen encoders. Comparing only B4 against the
+proposed model cannot say which change earned the result. With B6 in between:
+
+    B4 -> B6    isolates the value of head-only DP  (recipe)
+    B6 -> HFL   isolates the value of the edge tier (topology)
+
+Every arm is trained and evaluated on the SAME partition files, so the dataset's
+leakage controls (case-level for VitalDB, (subject,activity)-temporal for WEAR)
+apply identically to baselines and to the proposed model.
 """
 
 import os
@@ -14,9 +38,8 @@ import sys
 import copy
 import json
 import argparse
-import time
 import csv
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 
 # Allow running from any working directory. model/ is split into subfolders
 # by concern (privacy/architecture/training/deploy/utils) — add them all so
@@ -33,705 +56,768 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset, ConcatDataset
 import numpy as np
 
-from device_utils import get_device, optimize_gpu, get_dataloader_kwargs
+from device_utils import get_device, optimize_gpu, get_dataloader_kwargs, set_seed
+from datasets import get_spec
+# Reuse the trainer's metric code rather than reimplementing it: a baseline
+# scored by a different function than the proposed model is not a comparison.
+from hfl_trainer import _compute_metrics
 
 
-def evaluate(model: nn.Module, loader: DataLoader,
-             device: torch.device, n_classes: int = 5) -> Dict:
-    """Compute accuracy and macro-AUC on loader."""
-    from sklearn.metrics import roc_auc_score
+# ─────────────────────────────────────────────────────────────────────
+# Shared evaluation
+# ─────────────────────────────────────────────────────────────────────
+
+def evaluate(model: nn.Module, loader: DataLoader, device: torch.device,
+             group_ids: Optional[np.ndarray] = None) -> Dict:
+    """Accuracy + macro AUROC + AUPRC (+ case-level metrics when grouped)."""
     model.eval()
-    all_logits, all_labels = [], []
+    logits, labels = [], []
     with torch.no_grad():
-        for batch in loader:
-            ecg, cxr, _tab, labels = batch
-            logits = model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
-            all_logits.append(logits.cpu())
-            all_labels.append(labels.cpu())
-
-    logits = torch.cat(all_logits)
-    labels = torch.cat(all_labels).numpy()
-    probs = torch.softmax(logits, dim=-1).numpy()
-    preds = logits.argmax(dim=-1).numpy()
-
-    acc = float((preds == labels).mean())
-    unique_classes = np.unique(labels)
-    if len(unique_classes) < 2:
-        # Degenerate test set — only 1 class present, AUC undefined
-        print(f"[AUC WARNING] Only {len(unique_classes)} class(es) in test set: {unique_classes}. "
-              f"Using a global/pooled test set is required for valid AUC.")
-        auc = float("nan")  # use accuracy as proxy
-    else:
-        try:
-            auc = float(roc_auc_score(
-                labels, probs, multi_class="ovr", average="macro",
-                labels=list(range(n_classes))
-            ))
-        except Exception as e:
-            print(f"[AUC ERROR] {e} | unique labels: {unique_classes} | "
-                  f"probs shape: {probs.shape} | labels shape: {labels.shape}")
-            auc = 0.0
-
-    return {"accuracy": acc, "macro_auc": auc}
+        for xa, xb, _tab, y in loader:
+            logits.append(model(xa.to(device, non_blocking=True),
+                                xb.to(device, non_blocking=True)).cpu())
+            labels.append(y.cpu())
+    probs = torch.softmax(torch.cat(logits), dim=-1).numpy()
+    return _compute_metrics(torch.cat(labels).numpy(), probs, group_ids)
 
 
-def weighted_fedavg(global_state: dict,
-                    client_states: List[dict],
+def _sel(metrics: Dict, key: str) -> float:
+    """Model-selection scalar. NaN sorts below everything, never above."""
+    v = metrics.get("auprc" if key == "auprc" else "macro_auc", float("nan"))
+    return -np.inf if (v is None or np.isnan(v)) else float(v)
+
+
+def weighted_fedavg(global_state: dict, client_states: List[dict],
                     client_sizes: List[int]) -> dict:
-    """Federated Averaging: weighted mean of client model states."""
+    """Federated Averaging: sample-count-weighted mean of client states."""
     total = sum(client_sizes)
-    avg_state = {}
-    for key in global_state:
-        avg_state[key] = sum(
-            (n / total) * state[key].float()
-            for n, state in zip(client_sizes, client_states)
-        )
-    return avg_state
+    return {k: sum((n / total) * s[k].float()
+                   for n, s in zip(client_sizes, client_states))
+            for k in global_state}
+
+
+def _trainable(model: nn.Module):
+    """Optimiser must not receive frozen params — Opacus rejects them, and
+    Adam would otherwise allocate state for tensors that never get a grad."""
+    return [p for p in model.parameters() if p.requires_grad]
 
 
 # ─────────────────────────────────────────────────────────────────────
-# B0: Centralized Training
+# B0: Centralized
 # ─────────────────────────────────────────────────────────────────────
 
-def run_centralized(model_fn, full_dataset, n_classes: int = 5,
-                    epochs: int = 30, lr: float = 1e-3,
-                    device: torch.device = None,
-                    output_path: str = None) -> dict:
-    """B0: Train on pooled data from all devices. Upper bound."""
-    if device is None:
-        device = get_device(verbose=False)
-        optimize_gpu()
+def run_centralized(model_fn, loaders, n_classes, epochs=30, lr=1e-3,
+                    device=None, output_path=None, class_weight=None,
+                    select_on="auc", group_ids=None) -> dict:
+    """
+    B0: train on the pooled data of every device. Upper bound.
 
+    Splits come from the POOLED PARTITION FILES, not from slicing the raw
+    dataset by index range. The previous version used range(0, 0.7n) etc.,
+    which ignored the partition files entirely — on VitalDB that scatters
+    windows of one operation across train and test, and on WEAR it destroys
+    the temporal boundary gap. Either way B0 reports an inflated ceiling that
+    no federated arm can reach, for reasons that have nothing to do with
+    federation. "Centralized" means pooled DATA, not abandoned SPLITS.
+    """
+    device = device or get_device(verbose=False)
     model = model_fn().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-    loss_fn = nn.CrossEntropyLoss()
+    opt = torch.optim.Adam(_trainable(model), lr=lr)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
+    loss_fn = nn.CrossEntropyLoss(
+        weight=class_weight.to(device) if class_weight is not None else None)
 
-    n = len(full_dataset)
-    n_train = int(0.70 * n)
-    n_val = int(0.15 * n)
-    train_ds = Subset(full_dataset, range(n_train))
-    val_ds = Subset(full_dataset, range(n_train, n_train + n_val))
-    test_ds = Subset(full_dataset, range(n_train + n_val, n))
-
-    train_loader = DataLoader(train_ds, batch_size=64, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_ds, batch_size=128, num_workers=0)
-    test_loader = DataLoader(test_ds, batch_size=128, num_workers=0)
-
-    best_auc, best_state = 0.0, None
-    for epoch in range(epochs):
+    best, best_state = -np.inf, None
+    for ep in range(epochs):
         model.train()
-        for batch in train_loader:
-            ecg, cxr, _tab, labels = batch
-            optimizer.zero_grad()
-            loss = loss_fn(model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)), labels.to(device, non_blocking=True))
-            loss.backward()
-            optimizer.step()
-        scheduler.step()
-
-        val_metrics = evaluate(model, val_loader, device)
-        if val_metrics["macro_auc"] > best_auc:
-            best_auc = val_metrics["macro_auc"]
-            best_state = copy.deepcopy(model.state_dict())
-
-        print(f"[B0 Centralized] Epoch {epoch+1}/{epochs} | "
-              f"Val AUC={val_metrics['macro_auc']:.4f} | "
-              f"Val Acc={val_metrics['accuracy']:.4f}")
+        for xa, xb, _t, y in loaders["train"]:
+            opt.zero_grad()
+            loss_fn(model(xa.to(device, non_blocking=True),
+                          xb.to(device, non_blocking=True)),
+                    y.to(device, non_blocking=True)).backward()
+            opt.step()
+        sched.step()
+        m = evaluate(model, loaders["val"], device)
+        if _sel(m, select_on) > best:
+            best, best_state = _sel(m, select_on), copy.deepcopy(model.state_dict())
+        print(f"[B0 Centralized] Epoch {ep+1}/{epochs} | "
+              f"val AUC={m['macro_auc']:.4f} AUPRC={m['auprc']:.4f} "
+              f"acc={m['accuracy']:.4f}", flush=True)
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    test_metrics = evaluate(model, test_loader, device)
-    result = {"baseline": "B0_Centralized",
-              "test_accuracy": test_metrics["accuracy"],
-              "test_macro_auc": test_metrics["macro_auc"],
-              "epochs": epochs}
-    print(f"[B0] Test AUC={result['test_macro_auc']:.4f}, Acc={result['test_accuracy']:.4f}")
+    t = evaluate(model, loaders["test"], device, group_ids)
+    r = {"baseline": "B0_Centralized", "epochs": epochs, **_pack(t)}
+    print(f"[B0] {_fmt(r)}")
     if output_path:
-        _save_csv(result, output_path)
-    return result
+        _save_csv(r, output_path)
+    return r
 
 
 # ─────────────────────────────────────────────────────────────────────
 # B1: Local Only
 # ─────────────────────────────────────────────────────────────────────
 
-def run_local_only(model_fn, device_loaders: List[Dict],
-                   n_classes: int = 5, epochs: int = 20, lr: float = 1e-3,
-                   device: torch.device = None,
-                   output_path: str = None) -> dict:
-    """B1: Each device trains independently. Lower bound."""
-    if device is None:
-        device = get_device(verbose=False)
-        optimize_gpu()
+def run_local_only(model_fn, device_loaders, n_classes, epochs=20, lr=1e-3,
+                   device=None, output_path=None, class_weight=None) -> dict:
+    """B1: each device trains alone on its own shard. Lower bound.
 
-    device_aucs, device_accs = [], []
-    for dev_id, loaders in enumerate(device_loaders):
+    Scored per-device on that device's own test split — pooling would be
+    meaningless here since there is no single model to pool onto."""
+    device = device or get_device(verbose=False)
+    aucs, aps, accs = [], [], []
+    for i, dl in enumerate(device_loaders):
         model = model_fn().to(device)
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        loss_fn = nn.CrossEntropyLoss()
+        opt = torch.optim.Adam(_trainable(model), lr=lr)
+        loss_fn = nn.CrossEntropyLoss(
+            weight=class_weight.to(device) if class_weight is not None else None)
         for ep in range(epochs):
             model.train()
-            for batch in loaders["train"]:
-                ecg, cxr, _tab, labels = batch
-                optimizer.zero_grad()
-                loss = loss_fn(model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)), labels.to(device, non_blocking=True))
-                loss.backward()
-                optimizer.step()
-            if (ep + 1) % 5 == 0 or ep == 0:
-                print(f"  [B1] Device {dev_id+1}/{len(device_loaders)} | Epoch {ep+1}/{epochs}")
-        metrics = evaluate(model, loaders["test"], device)
-        device_aucs.append(metrics["macro_auc"])
-        device_accs.append(metrics["accuracy"])
-        print(f"  [B1] Device {dev_id+1} done | AUC={metrics['macro_auc']:.4f} | Acc={metrics['accuracy']:.4f}")
+            for xa, xb, _t, y in dl["train"]:
+                opt.zero_grad()
+                loss_fn(model(xa.to(device, non_blocking=True),
+                              xb.to(device, non_blocking=True)),
+                        y.to(device, non_blocking=True)).backward()
+                opt.step()
+        m = evaluate(model, dl["test"], device)
+        aucs.append(m["macro_auc"]); aps.append(m["auprc"]); accs.append(m["accuracy"])
+        print(f"  [B1] device {i+1}/{len(device_loaders)} | "
+              f"AUC={m['macro_auc']:.4f} AUPRC={m['auprc']:.4f}", flush=True)
 
-    _auc = float(np.nanmean(device_aucs))
-    _std = float(np.nanstd(device_aucs))
-    _acc = float(np.nanmean(device_accs))
-    result = {"baseline": "B1_LocalOnly",
-              "test_accuracy": _acc,
-              "test_macro_auc": _auc,
-              "std_auc": _std}
-    _nan_count = sum(1 for a in device_aucs if isinstance(a, float) and np.isnan(a))
-    if _nan_count:
-        print(f"[B1] {_nan_count}/{len(device_aucs)} devices had single-class test sets "
-              f"(AUC undefined) — excluded from average.")
-    print(f"[B1] Avg Test AUC={_auc:.4f}±{_std:.4f}")
+    n_nan = int(np.sum(np.isnan(aucs)))
+    if n_nan:
+        print(f"[B1] {n_nan}/{len(aucs)} devices had a single-class test split "
+              f"(AUC undefined) — excluded from the mean.")
+    r = {"baseline": "B1_LocalOnly",
+         "test_accuracy": float(np.nanmean(accs)),
+         "test_macro_auc": float(np.nanmean(aucs)),
+         "test_auprc": float(np.nanmean(aps)),
+         "std_auc": float(np.nanstd(aucs)),
+         "n_devices_undefined_auc": n_nan}
+    print(f"[B1] {_fmt(r)} (±{r['std_auc']:.4f} across devices)")
     if output_path:
-        _save_csv(result, output_path)
-    return result
+        _save_csv(r, output_path)
+    return r
 
 
 # ─────────────────────────────────────────────────────────────────────
-# B2: FedAvg
+# B2 / B3 / B5 — non-private federated arms
 # ─────────────────────────────────────────────────────────────────────
 
-def run_fedavg(model_fn, device_loaders: List[Dict],
-               rounds: int = 20, local_epochs: int = 1, lr: float = 1e-3,
-               device: torch.device = None,
-               output_path: str = None) -> dict:
-    """B2: Standard FedAvg, no DP, no hierarchy."""
-    if device is None:
-        device = get_device(verbose=False)
-        optimize_gpu()
+def _fl_loop(name, model_fn, device_loaders, pooled, rounds, local_epochs, lr,
+             device, class_weight, select_on, group_ids, local_step, on_round=None):
+    """
+    Shared FedAvg driver for the non-private arms.
 
+    `local_step(local_model, global_state, dev_id, batch) -> loss` is the only
+    thing that differs between FedAvg / FedProx / MOON, so the round structure,
+    the aggregation, the per-round pooled-val model selection and the final
+    scoring are guaranteed identical across the three. Selection on a pooled
+    VAL split (never test) matches how the proposed model is chosen; taking the
+    last round instead, as this file used to, penalises whichever arm happens
+    to oscillate and is not a fair comparison.
+    """
     global_model = model_fn().to(device)
-    loss_fn = nn.CrossEntropyLoss()
-    round_aucs = []
+    loss_fn = nn.CrossEntropyLoss(
+        weight=class_weight.to(device) if class_weight is not None else None)
+    best, best_state, history = -np.inf, None, []
 
     for r in range(rounds):
         global_state = copy.deepcopy(global_model.state_dict())
-        client_states, client_sizes = [], []
-
-        for loaders in device_loaders:
-            local_model = model_fn().to(device)
-            local_model.load_state_dict(global_state)
-            optimizer = torch.optim.Adam(local_model.parameters(), lr=lr)
-            local_model.train()
-            n_samples = 0
+        states, sizes = [], []
+        for dev_id, dl in enumerate(device_loaders):
+            local = model_fn().to(device)
+            local.load_state_dict(global_state)
+            opt = torch.optim.Adam(_trainable(local), lr=lr)
+            local.train()
+            n = 0
             for _ in range(local_epochs):
-                for batch in loaders["train"]:
-                    ecg, cxr, _tab, labels = batch
-                    optimizer.zero_grad()
-                    loss = loss_fn(local_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
-                                   labels.to(device, non_blocking=True))
+                for batch in dl["train"]:
+                    opt.zero_grad()
+                    loss = local_step(local, global_model, global_state,
+                                      dev_id, batch, loss_fn, device)
                     loss.backward()
-                    optimizer.step()
-                    n_samples += len(labels)
-            client_states.append(copy.deepcopy(local_model.state_dict()))
-            client_sizes.append(n_samples)
+                    opt.step()
+                    n += len(batch[3])
+            states.append(copy.deepcopy(local.state_dict())); sizes.append(n)
+        global_model.load_state_dict(weighted_fedavg(global_state, states, sizes))
+        if on_round:
+            on_round(global_state)
 
-        global_model.load_state_dict(weighted_fedavg(global_state, client_states, client_sizes))
+        m = evaluate(global_model, pooled["val"], device)
+        history.append(round(float(m["macro_auc"]), 4))
+        if _sel(m, select_on) > best:
+            best, best_state = _sel(m, select_on), copy.deepcopy(global_model.state_dict())
+        print(f"  [{name}] round {r+1}/{rounds} | val AUC={m['macro_auc']:.4f} "
+              f"AUPRC={m['auprc']:.4f}", flush=True)
 
-        if (r + 1) % 5 == 0:
-            # Evaluate on pooled global test set (all devices) for valid multi-class AUC
-            global_test_ds = ConcatDataset([dl["test"].dataset for dl in device_loaders])
-            global_test_loader = DataLoader(global_test_ds, batch_size=128, num_workers=0)
-            m = evaluate(global_model, global_test_loader, device)
-            round_aucs.append(m["macro_auc"])
-            print(f"[B2 FedAvg] Round {r+1}/{rounds} | AUC={m['macro_auc']:.4f}")
+    if best_state is not None:
+        global_model.load_state_dict(best_state)
+    return global_model, evaluate(global_model, pooled["test"], device, group_ids), history
 
-    global_test_ds = ConcatDataset([dl["test"].dataset for dl in device_loaders])
-    global_test_loader = DataLoader(global_test_ds, batch_size=128, num_workers=0)
-    final_m = evaluate(global_model, global_test_loader, device)
-    result = {"baseline": "B2_FedAvg",
-              "test_accuracy": final_m["accuracy"],
-              "test_macro_auc": final_m["macro_auc"],
-              "rounds": rounds,
-              "convergence_auc": round_aucs}
+
+def run_fedavg(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
+               lr=1e-3, device=None, output_path=None, class_weight=None,
+               select_on="auc", group_ids=None) -> dict:
+    """B2: standard FedAvg — no DP, no hierarchy."""
+    device = device or get_device(verbose=False)
+
+    def step(local, _gm, _gs, _d, batch, loss_fn, dev):
+        xa, xb, _t, y = batch
+        return loss_fn(local(xa.to(dev, non_blocking=True),
+                             xb.to(dev, non_blocking=True)), y.to(dev, non_blocking=True))
+
+    _, t, hist = _fl_loop("B2 FedAvg", model_fn, device_loaders, pooled, rounds,
+                          local_epochs, lr, device, class_weight, select_on,
+                          group_ids, step)
+    r = {"baseline": "B2_FedAvg", "rounds": rounds, **_pack(t), "val_auc_history": hist}
+    print(f"[B2] {_fmt(r)}")
     if output_path:
-        _save_csv(result, output_path)
-    return result
+        _save_csv(r, output_path)
+    return r
 
 
-# ─────────────────────────────────────────────────────────────────────
-# B3: FedProx
-# ─────────────────────────────────────────────────────────────────────
+def run_fedprox(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
+                lr=1e-3, mu=0.01, device=None, output_path=None,
+                class_weight=None, select_on="auc", group_ids=None) -> dict:
+    """B3: FedProx — adds mu/2 * ||w - w_global||^2 to the local objective."""
+    device = device or get_device(verbose=False)
 
-def run_fedprox(model_fn, device_loaders: List[Dict],
-                rounds: int = 20, local_epochs: int = 1,
-                lr: float = 1e-3, mu: float = 0.01,
-                device: torch.device = None,
-                output_path: str = None) -> dict:
-    """B3: FedProx — adds proximal term μ/2 ||w - w_global||² to local loss."""
-    if device is None:
-        device = get_device(verbose=False)
-        optimize_gpu()
+    def step(local, _gm, gs, _d, batch, loss_fn, dev):
+        xa, xb, _t, y = batch
+        ce = loss_fn(local(xa.to(dev, non_blocking=True),
+                           xb.to(dev, non_blocking=True)), y.to(dev, non_blocking=True))
+        prox = sum(((p - gs[n].to(dev)) ** 2).sum()
+                   for n, p in local.named_parameters()
+                   if n in gs and p.requires_grad)
+        return ce + (mu / 2.0) * prox
 
-    global_model = model_fn().to(device)
-    loss_fn = nn.CrossEntropyLoss()
-
-    for r in range(rounds):
-        global_state = copy.deepcopy(global_model.state_dict())
-        client_states, client_sizes = [], []
-
-        for loaders in device_loaders:
-            local_model = model_fn().to(device)
-            local_model.load_state_dict(global_state)
-            optimizer = torch.optim.Adam(local_model.parameters(), lr=lr)
-            local_model.train()
-            n_samples = 0
-            for _ in range(local_epochs):
-                for batch in loaders["train"]:
-                    ecg, cxr, _tab, labels = batch
-                    optimizer.zero_grad()
-                    ce_loss = loss_fn(local_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
-                                      labels.to(device, non_blocking=True))
-                    # Proximal term
-                    prox = sum(
-                        ((p - global_state[n].to(device)) ** 2).sum()
-                        for n, p in local_model.named_parameters()
-                        if n in global_state
-                    )
-                    loss = ce_loss + (mu / 2.0) * prox
-                    loss.backward()
-                    optimizer.step()
-                    n_samples += len(labels)
-            client_states.append(copy.deepcopy(local_model.state_dict()))
-            client_sizes.append(n_samples)
-
-        global_model.load_state_dict(weighted_fedavg(global_state, client_states, client_sizes))
-        print(f"  [B3 FedProx] Round {r+1}/{rounds} done")
-
-    global_test_ds = ConcatDataset([dl["test"].dataset for dl in device_loaders])
-    global_test_loader = DataLoader(global_test_ds, batch_size=128, num_workers=0)
-    final_m = evaluate(global_model, global_test_loader, device)
-    result = {"baseline": "B3_FedProx",
-              "test_accuracy": final_m["accuracy"],
-              "test_macro_auc": final_m["macro_auc"],
-              "mu": mu, "rounds": rounds}
-    print(f"[B3] FedProx AUC={final_m['macro_auc']:.4f}")
+    _, t, hist = _fl_loop("B3 FedProx", model_fn, device_loaders, pooled, rounds,
+                          local_epochs, lr, device, class_weight, select_on,
+                          group_ids, step)
+    r = {"baseline": "B3_FedProx", "rounds": rounds, "mu": mu, **_pack(t),
+         "val_auc_history": hist}
+    print(f"[B3] {_fmt(r)}")
     if output_path:
-        _save_csv(result, output_path)
-    return result
+        _save_csv(r, output_path)
+    return r
+
+
+def run_moon(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
+             lr=1e-3, mu=5.0, temperature=0.5, device=None, output_path=None,
+             class_weight=None, select_on="auc", group_ids=None) -> dict:
+    """B5: MOON — contrastive term pulls the local representation toward the
+    global model and away from the client's previous one (Li et al., 2021)."""
+    device = device or get_device(verbose=False)
+    prev = [model_fn().to(device) for _ in device_loaders]
+
+    def step(local, global_model, _gs, dev_id, batch, loss_fn, dev):
+        xa, xb, _t, y = batch
+        xa, xb, y = (xa.to(dev, non_blocking=True), xb.to(dev, non_blocking=True),
+                     y.to(dev, non_blocking=True))
+        ce = loss_fn(local(xa, xb), y)
+        with torch.no_grad():
+            ga, gb = global_model.encode(xa, xb)
+            pa, pb = prev[dev_id].encode(xa, xb)
+        ca, cb = local.encode(xa, xb)
+        z, zg, zp = (torch.cat([ca, cb], -1), torch.cat([ga, gb], -1),
+                     torch.cat([pa, pb], -1))
+        s_g = F.cosine_similarity(z, zg, dim=-1) / temperature
+        s_p = F.cosine_similarity(z, zp, dim=-1) / temperature
+        # Numerically stable -log(e^a/(e^a+e^b)) = softplus(b-a).
+        return ce + mu * F.softplus(s_p - s_g).mean()
+
+    def after_round(global_state):
+        for m in prev:
+            m.load_state_dict(copy.deepcopy(global_state))
+
+    _, t, hist = _fl_loop("B5 MOON", model_fn, device_loaders, pooled, rounds,
+                          local_epochs, lr, device, class_weight, select_on,
+                          group_ids, step, on_round=after_round)
+    r = {"baseline": "B5_MOON", "rounds": rounds, "mu": mu,
+         "temperature": temperature, **_pack(t), "val_auc_history": hist}
+    print(f"[B5] {_fmt(r)}")
+    if output_path:
+        _save_csv(r, output_path)
+    return r
 
 
 # ─────────────────────────────────────────────────────────────────────
-# B4: DP-FedAvg (flat, no hierarchy)
+# B4 / B6 — private federated arms
 # ─────────────────────────────────────────────────────────────────────
 
-def run_dp_fedavg(model_fn, device_loaders: List[Dict],
-                  rounds: int = 20, local_epochs: int = 1,
-                  lr: float = 1e-3, epsilon: float = 1.0,
-                  delta: float = 1e-5, max_grad_norm: float = 1.0,
-                  device: torch.device = None,
-                  output_path: str = None) -> dict:
+def run_dp_fedavg(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
+                  lr=1e-3, epsilon=1.0, delta=1e-5, max_grad_norm=1.0,
+                  device=None, output_path=None, class_weight=None,
+                  select_on="auc", group_ids=None, head_only=False,
+                  max_physical_batch_size: int = 0,
+                  label="B4_DP_FedAvg") -> dict:
     """
-    B4: DP-FedAvg — flat topology + DP-SGD (no 2-tier hierarchy).
+    Flat FL + DP-SGD. `head_only` switches between the two private arms:
 
-    Fixed 2026-07-13: this previously had no `for r in range(rounds)` loop —
-    it ran exactly ONE communication round (every device trains once, one
-    FedAvg aggregation) while still calibrating sigma via
-    make_dp_model(..., epochs=local_epochs*rounds) as if `rounds` rounds of
-    composed training were about to happen. The live accountant then
-    correctly reported the true epsilon spent by the single epoch that
-    actually ran, which is far less than the target — that mismatch is why
-    baseline_b4.csv recorded epsilon_spent=0.209 against a target of 1.0.
-    Now runs `rounds` real communication rounds with ONE sigma precomputed
-    for the whole budget and ONE persistent PrivacyEngine per device reused
-    every round — same pattern as hfl_trainer.py's local_dp_train, for the
-    same reason: a fresh engine/target_epsilon call each round silently
-    drops cross-round privacy composition (see that function's docstring).
+      head_only=False -> B4, DP-SGD over the whole model (Geyer et al., 2017)
+      head_only=True  -> B6, encoders pretrained + frozen, DP-SGD on the head
 
-    (A parallel fix — reusing one wrapped dp_model per device via manual
-    state_dict resync instead of a fresh model each round — was also
-    committed independently; this version was kept because it matches
-    hfl_trainer.py's already-verified pattern and is what produced the
-    currently-published baseline_b4.csv numbers.)
+    Both consume the SAME (epsilon, delta) and the same number of rounds, so
+    any difference between them is attributable to the recipe and not to the
+    budget. Note that sigma is IDENTICAL for the two arms — it depends on
+    eps/steps/sampling-rate, never on parameter count. Freezing does not buy a
+    smaller noise scale; it changes the optimisation geometry so that the same
+    noise scale is survivable. That distinction is the whole claim, so the code
+    must not be read as though freezing reduced the noise.
+
+    One sigma is precomputed for the entire budget and ONE persistent
+    PrivacyEngine per device is reused across rounds. Calling target_epsilon
+    afresh each round would silently drop cross-round composition and report a
+    budget far smaller than the one actually spent.
     """
-    if device is None:
-        device = get_device(verbose=False)
-        optimize_gpu()
-
+    device = device or get_device(verbose=False)
     from dp_engine import (make_dp_model, get_epsilon_spent,
-                           compute_fl_noise_multiplier, new_device_privacy_engines)
+                           compute_fl_noise_multiplier_multidevice,
+                           new_device_privacy_engines)
 
     global_model = model_fn().to(device)
-    n_devices = len(device_loaders)
-    min_n_train = min(len(dl["train"].dataset) for dl in device_loaders)
-    batch_size = device_loaders[0]["train"].batch_size
-    noise_multiplier = compute_fl_noise_multiplier(
-        target_epsilon=epsilon, target_delta=delta,
-        n_fl_calls=rounds, n_samples=min_n_train,
-        batch_size=batch_size, local_epochs=local_epochs,
-    )
-    device_privacy_engines = new_device_privacy_engines(n_devices)
-    loss_fn = nn.CrossEntropyLoss()
-    total_eps = 0.0
+    n_trainable = sum(p.numel() for p in _trainable(global_model))
+    n_total = sum(p.numel() for p in global_model.parameters())
+    min_n = min(len(dl["train"].dataset) for dl in device_loaders)
+    bs = device_loaders[0]["train"].batch_size
+    # Calibrate against EVERY client. Using the smallest client as a stand-in,
+    # with floor(n/B) for the step count, under-provisioned noise and made every
+    # sweep point breach its own budget: 0.5->0.511, 1->1.018, 2->2.044,
+    # 4->4.082, 8->8.163. A privacy result that exceeds the epsilon it claims is
+    # not a weaker result, it is an invalid one.
+    _dev_n = [len(dl["train"].dataset) for dl in device_loaders]
+    sigma = compute_fl_noise_multiplier_multidevice(
+        target_epsilon=epsilon, target_delta=delta, n_fl_calls=rounds,
+        device_n_train=_dev_n, batch_size=bs, local_epochs=local_epochs)
+    print(f"  [{label}] sigma={sigma:.4f} | DP-trained params "
+          f"{n_trainable:,}/{n_total:,} ({100*n_trainable/n_total:.1f}%)")
+
+    engines = new_device_privacy_engines(len(device_loaders))
+    loss_fn = nn.CrossEntropyLoss(
+        weight=class_weight.to(device) if class_weight is not None else None)
+    eps_spent, best, best_state, history = 0.0, -np.inf, None, []
 
     for r in range(rounds):
         global_state = copy.deepcopy(global_model.state_dict())
-        client_states, client_sizes = [], []
+        states, sizes = [], []
+        for dev_id, dl in enumerate(device_loaders):
+            local = model_fn().to(device)
+            local.load_state_dict(global_state)
+            # requires_grad is not part of state_dict, so a load can leave the
+            # freeze intact but a rebuild+load must be re-checked explicitly.
+            if head_only:
+                from hfl_mm_model import freeze_encoders
+                freeze_encoders(local)
+            opt = torch.optim.Adam(_trainable(local), lr=lr)
+            dp_model, dp_opt, dp_loader, pe = make_dp_model(
+                local, opt, dl["train"], noise_multiplier=sigma,
+                max_grad_norm=max_grad_norm, privacy_engine=engines[dev_id])
+            dp_model.train()
+            n = 0
 
-        for dev_idx, loaders in enumerate(device_loaders):
-            local_model = model_fn().to(device)
-            local_model.load_state_dict(global_state)
-            optimizer = torch.optim.Adam(local_model.parameters(), lr=lr)
+            # Opacus materialises a PER-SAMPLE gradient for every trainable
+            # parameter, so peak memory is batch_size x n_params x 4 bytes. On
+            # the full-model arm that is ~1 GB per tensor set at batch 64 and
+            # the run dies with a CUDA OOM inside capture_backprops_hook.
+            #
+            # BatchMemoryManager splits the batch PHYSICALLY while keeping the
+            # LOGICAL batch — and therefore the sampling rate and the privacy
+            # accounting — unchanged. Simply lowering batch_size would also fix
+            # the memory but would silently change the guarantee being measured.
+            from contextlib import nullcontext
             try:
-                dp_model, dp_opt, dp_loader, pe = make_dp_model(
-                    local_model, optimizer, loaders["train"],
-                    noise_multiplier=noise_multiplier,
-                    max_grad_norm=max_grad_norm,
-                    privacy_engine=device_privacy_engines[dev_idx],
-                )
-                dp_model.train()
-                n_samples = 0
+                from opacus.utils.batch_memory_manager import BatchMemoryManager
+                if max_physical_batch_size and max_physical_batch_size > 0:
+                    _ctx = BatchMemoryManager(
+                        data_loader=dp_loader,
+                        max_physical_batch_size=max_physical_batch_size,
+                        optimizer=dp_opt)
+                else:
+                    _ctx = nullcontext(dp_loader)
+            except Exception:
+                _ctx = nullcontext(dp_loader)
+
+            with _ctx as _loader:
                 for _ in range(local_epochs):
-                    for batch in dp_loader:
-                        ecg, cxr, _tab, labels = batch
+                    for xa, xb, _t, y in _loader:
+                        if len(y) == 0:
+                            continue          # Poisson sampling can yield empty
                         dp_opt.zero_grad()
-                        loss = loss_fn(dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
-                                       labels.to(device, non_blocking=True))
-                        loss.backward()
+                        loss_fn(dp_model(xa.to(device, non_blocking=True),
+                                         xb.to(device, non_blocking=True)),
+                                y.to(device, non_blocking=True)).backward()
                         dp_opt.step()
-                        n_samples += len(labels)
-                total_eps = max(total_eps, get_epsilon_spent(pe, delta))
-                client_states.append(copy.deepcopy(local_model.state_dict()))
-                client_sizes.append(n_samples)
-            except Exception as e:
-                raise RuntimeError(f"[B4] DP-SGD setup failed: {e}") from e
+                        n += len(y)
+            eps_spent = max(eps_spent, get_epsilon_spent(pe, delta))
+            states.append(copy.deepcopy(local.state_dict())); sizes.append(n)
 
-        global_model.load_state_dict(weighted_fedavg(global_state, client_states, client_sizes))
-        print(f"  [B4 DP-FedAvg] Round {r+1}/{rounds} done | ε_spent={total_eps:.4f}")
+        global_model.load_state_dict(weighted_fedavg(global_state, states, sizes))
+        m = evaluate(global_model, pooled["val"], device)
+        history.append(round(float(m["macro_auc"]), 4))
+        if _sel(m, select_on) > best:
+            best, best_state = _sel(m, select_on), copy.deepcopy(global_model.state_dict())
+        print(f"  [{label}] round {r+1}/{rounds} | val AUC={m['macro_auc']:.4f} "
+              f"AUPRC={m['auprc']:.4f} | eps={eps_spent:.4f}", flush=True)
 
-        if total_eps >= epsilon:
-            print(f"  [B4 DP-FedAvg] Privacy budget exhausted at round {r+1}. Stopping.")
+        if eps_spent >= epsilon:
+            print(f"  [{label}] privacy budget exhausted at round {r+1}. Stopping.")
             break
 
-    global_test_ds = ConcatDataset([dl["test"].dataset for dl in device_loaders])
-    global_test_loader = DataLoader(global_test_ds, batch_size=128, num_workers=0)
-    final_m = evaluate(global_model, global_test_loader, device)
-    result = {"baseline": "B4_DP_FedAvg",
-              "test_accuracy": final_m["accuracy"],
-              "test_macro_auc": final_m["macro_auc"],
-              "epsilon_target": epsilon,
-              "epsilon_spent": total_eps,
-              "rounds": rounds}
-    print(f"[B4] DP-FedAvg AUC={final_m['macro_auc']:.4f} | ε_spent={total_eps:.4f}")
+    if best_state is not None:
+        global_model.load_state_dict(best_state)
+    t = evaluate(global_model, pooled["test"], device, group_ids)
+    r_out = {"baseline": label, "rounds": rounds, "epsilon_target": epsilon,
+             "epsilon_spent": eps_spent, "delta": delta, "sigma": sigma,
+             "head_only": head_only, "dp_trained_params": n_trainable,
+             "total_params": n_total, **_pack(t), "val_auc_history": history}
+    print(f"[{label}] {_fmt(r_out)} | eps_spent={eps_spent:.4f}")
     if output_path:
-        _save_csv(result, output_path)
-    return result
+        _save_csv(r_out, output_path)
+    return r_out
 
 
 # ─────────────────────────────────────────────────────────────────────
-# B5: MOON (Model-Contrastive FL)
+# Reporting helpers
 # ─────────────────────────────────────────────────────────────────────
 
-def run_moon(model_fn, device_loaders: List[Dict],
-             rounds: int = 20, local_epochs: int = 1,
-             lr: float = 1e-3, mu: float = 5.0, temperature: float = 0.5,
-             device: torch.device = None,
-             output_path: str = None) -> dict:
-    """
-    B5: MOON — Model-Contrastive FL.
-    Contrastive loss pulls current model toward global, pushes from previous.
-    Li et al., 2021. cos_sim(z_cur, z_global) > cos_sim(z_cur, z_prev)
-    """
-    if device is None:
-        device = get_device(verbose=False)
-        optimize_gpu()
+def _pack(m: Dict) -> Dict:
+    """Flatten an evaluate() dict into CSV columns with a test_ prefix."""
+    out = {"test_accuracy": m.get("accuracy"),
+           "test_macro_auc": m.get("macro_auc"),
+           "test_auprc": m.get("auprc")}
+    for k in ("case_accuracy", "case_auc", "case_auprc", "n_groups"):
+        if k in m:
+            out[f"test_{k}"] = m[k]
+    return out
 
-    global_model = model_fn().to(device)
-    prev_models = [model_fn().to(device) for _ in device_loaders]
-    loss_fn = nn.CrossEntropyLoss()
 
-    for r in range(rounds):
-        global_state = copy.deepcopy(global_model.state_dict())
-        client_states, client_sizes = [], []
-
-        for dev_id, loaders in enumerate(device_loaders):
-            local_model = model_fn().to(device)
-            local_model.load_state_dict(global_state)
-            optimizer = torch.optim.Adam(local_model.parameters(), lr=lr)
-            local_model.train()
-            n_samples = 0
-
-            for _ in range(local_epochs):
-                for batch in loaders["train"]:
-                    ecg, cxr, _tab, labels = batch
-                    ecg, cxr, labels = ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True), labels.to(device, non_blocking=True)
-                    optimizer.zero_grad()
-
-                    logits = local_model(ecg, cxr)
-                    ce_loss = loss_fn(logits, labels)
-
-                    # Contrastive term (MOON)
-                    with torch.no_grad():
-                        z_global_a, z_global_b = global_model.encode(ecg, cxr)
-                        z_prev_a, z_prev_b = prev_models[dev_id].encode(ecg, cxr)
-
-                    z_cur_a, z_cur_b = local_model.encode(ecg, cxr)
-                    z_cur = torch.cat([z_cur_a, z_cur_b], dim=-1)
-                    z_global = torch.cat([z_global_a, z_global_b], dim=-1)
-                    z_prev = torch.cat([z_prev_a, z_prev_b], dim=-1)
-
-                    sim_global = F.cosine_similarity(z_cur, z_global, dim=-1) / temperature
-                    sim_prev = F.cosine_similarity(z_cur, z_prev, dim=-1) / temperature
-
-                    # Numerically stable form of -log(e^a / (e^a + e^b))
-                    # = log(1 + e^(b - a)) = softplus(b - a).
-                    # Avoids overflow on large similarities.
-                    contrastive_loss = F.softplus(sim_prev - sim_global).mean()
-
-                    loss = ce_loss + mu * contrastive_loss
-                    loss.backward()
-                    optimizer.step()
-                    n_samples += len(labels)
-
-            prev_models[dev_id].load_state_dict(copy.deepcopy(global_state))
-            client_states.append(copy.deepcopy(local_model.state_dict()))
-            client_sizes.append(n_samples)
-
-        global_model.load_state_dict(weighted_fedavg(global_state, client_states, client_sizes))
-        print(f"  [B5 MOON] Round {r+1}/{rounds} done")
-
-    global_test_ds = ConcatDataset([dl["test"].dataset for dl in device_loaders])
-    global_test_loader = DataLoader(global_test_ds, batch_size=128, num_workers=0)
-    final_m = evaluate(global_model, global_test_loader, device)
-    result = {"baseline": "B5_MOON",
-              "test_accuracy": final_m["accuracy"],
-              "test_macro_auc": final_m["macro_auc"],
-              "mu": mu, "temperature": temperature, "rounds": rounds}
-    print(f"[B5] MOON AUC={final_m['macro_auc']:.4f}")
-    if output_path:
-        _save_csv(result, output_path)
-    return result
+def _fmt(r: Dict) -> str:
+    s = (f"AUC={r.get('test_macro_auc', float('nan')):.4f} "
+         f"AUPRC={r.get('test_auprc', float('nan')):.4f} "
+         f"acc={r.get('test_accuracy', float('nan')):.4f}")
+    if "test_case_auc" in r:
+        s += (f" | case AUC={r['test_case_auc']:.4f} "
+              f"AUPRC={r['test_case_auprc']:.4f}")
+    return s
 
 
 def _save_csv(result: dict, path: str):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    # Serialize list/dict values so csv.DictWriter doesn't choke
-    serialized = {k: json.dumps(v) if isinstance(v, (list, dict)) else v
-                  for k, v in result.items()}
+    ser = {k: json.dumps(v) if isinstance(v, (list, dict)) else v
+           for k, v in result.items()}
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=serialized.keys())
-        writer.writeheader()
-        writer.writerow(serialized)
+        w = csv.DictWriter(f, fieldnames=list(ser.keys()))
+        w.writeheader()
+        w.writerow(ser)
     print(f"Saved: {path}")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Data assembly
+# ─────────────────────────────────────────────────────────────────────
+
+def build_loaders(spec, batch_size: int, device):
+    """Per-device train/val/test loaders + pooled val/test, all from the
+    dataset's own partition files."""
+    full_ds = spec.build_full(spec.data_dir)
+    with open(os.path.join(spec.partition_dir, "partition_meta.json")) as f:
+        meta = json.load(f)
+    n_dev = meta["n_devices"]
+    dl_kw = get_dataloader_kwargs(device)
+
+    device_loaders, pools = [], {"train": [], "val": [], "test": []}
+    for d in range(n_dev):
+        per = {}
+        for split in ("train", "val", "test"):
+            idx = np.load(os.path.join(spec.partition_dir,
+                                       f"device_{d:02d}_{split}.npy"))
+            sub = Subset(full_ds, idx.tolist())
+            pools[split].append((sub, idx))
+            per[split] = DataLoader(
+                sub, batch_size=batch_size if split == "train" else batch_size * 2,
+                shuffle=(split == "train"), **dl_kw)
+        device_loaders.append(per)
+
+    pooled, order = {}, {}
+    for split in ("train", "val", "test"):
+        subs = [s for s, _ in pools[split]]
+        pooled[split] = DataLoader(
+            ConcatDataset(subs),
+            batch_size=batch_size if split == "train" else batch_size * 2,
+            shuffle=(split == "train"), **dl_kw)
+        order[split] = np.concatenate([i for _, i in pools[split]])
+
+    # Case ids let VitalDB be scored per OPERATION, not per 10-minute window.
+    gpath = os.path.join(spec.data_dir, "meta", "case_ids.npy")
+    group_test = np.load(gpath)[order["test"]] if os.path.exists(gpath) else None
+    return full_ds, n_dev, device_loaders, pooled, order, group_test
+
+
+def compute_class_weight(full_ds, train_idx, n_classes) -> torch.Tensor:
+    """n / (K * count_k) — the same rule the trainer uses, so a baseline is
+    never handed a different class prior than the proposed model."""
+    y = np.array([int(full_ds[int(i)][3]) for i in train_idx])
+    cnt = np.bincount(y, minlength=n_classes).astype(np.float64)
+    return torch.tensor(len(y) / (n_classes * np.maximum(cnt, 1)),
+                        dtype=torch.float32)
+
+
+# ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    # ─── Paths ────────────────────────────────────────────────────────
-    _model_dir = os.path.dirname(os.path.abspath(__file__))       # model/training/
-    _sim_dir   = os.path.dirname(os.path.dirname(_model_dir))     # SIMULATORS/
+    _sim_dir = os.path.dirname(_MODEL_ROOT)                    # SIMULATORS/
 
-    parser = argparse.ArgumentParser(description="Run all FL baselines B0–B5")
-    parser.add_argument("--data_dir",      default=os.path.join(_sim_dir, "data", "processed", "healthcare"))
-    parser.add_argument("--partition_dir", default=os.path.join(_sim_dir, "data", "processed", "partitions", "healthcare"))
-    parser.add_argument("--output_dir",    default=os.path.join(_sim_dir, "results", "phase5", "baselines"),
-                        help="B0-B5 results only — kept separate from the proposed model's own results.")
-    parser.add_argument("--b0_epochs",     type=int,   default=5,   help="B0 centralized training epochs")
-    parser.add_argument("--b1_epochs",     type=int,   default=10,  help="B1 local-only epochs per device")
-    parser.add_argument("--rounds",        type=int,   default=10,  help="FL rounds for B2–B5")
-    parser.add_argument("--local_epochs",  type=int,   default=1,   help="Local epochs per FL round")
-    parser.add_argument("--batch_size",    type=int,   default=16)
-    parser.add_argument("--lr",            type=float, default=1e-3)
-    parser.add_argument("--epsilon",       type=float, default=1.0, help="DP epsilon for B4")
-    parser.add_argument("--skip",          nargs="*",  default=[],
-                        help="Baselines to skip, e.g. --skip b4 b5")
-    args = parser.parse_args()
+    p = argparse.ArgumentParser(description="FL baselines B0–B6",
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--dataset", required=True,
+                   choices=["wear", "vitaldb"])
+    p.add_argument("--data_dir", default=None, help="override registry path")
+    p.add_argument("--partition_dir", default=None, help="override registry path")
+    p.add_argument("--output_dir", default=None,
+                   help="default: results/phase5/baselines/<dataset>")
+    p.add_argument("--b0_epochs", type=int, default=5)
+    p.add_argument("--b1_epochs", type=int, default=10)
+    p.add_argument("--rounds", type=int, default=10)
+    p.add_argument("--local_epochs", type=int, default=1)
+    p.add_argument("--batch_size", type=int, default=16)
+    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--epsilon", type=float, default=1.0)
+    p.add_argument("--delta", type=float, default=1e-5)
+    p.add_argument("--max_grad_norm", type=float, default=1.0)
+    p.add_argument("--max_physical_batch_size", type=int, default=0,
+                   help="Physical micro-batch for the DP arms; 0 = no splitting. "
+                        "The LOGICAL batch (and thus the privacy accounting) is "
+                        "unchanged either way — this only bounds per-sample-gradient "
+                        "memory. Set it ONLY when a run actually OOMs: splitting 64 "
+                        "into micro-batches of 8 measured 425 s/round against "
+                        "77 s/round unsplit.")
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--class_weight", choices=["none", "balanced", "auto"],
+                   default="auto",
+                   help="auto = balanced for binary tasks, none otherwise")
+    p.add_argument("--select_on", choices=["auc", "auprc"], default="auto",
+                   nargs="?", const="auto",
+                   help="auto = auprc for binary tasks, auc otherwise")
+    p.add_argument("--pretrained_encoders", default=None,
+                   help="checkpoint for B6's frozen encoders (required for B6)")
+    p.add_argument("--only", nargs="*", default=[],
+                   help="run only these, e.g. --only b4 b6")
+    p.add_argument("--skip", nargs="*", default=[])
+    args = p.parse_args()
 
-    os.makedirs(args.output_dir, exist_ok=True)
+    spec = get_spec(args.dataset)
+    # DatasetSpec is frozen; overrides must produce a new spec or build_loaders
+    # would keep reading the registry paths and silently ignore the flags.
+    if args.data_dir or args.partition_dir:
+        import dataclasses
+        spec = dataclasses.replace(
+            spec,
+            data_dir=args.data_dir or spec.data_dir,
+            partition_dir=args.partition_dir or spec.partition_dir)
+    out_dir = args.output_dir or os.path.join(_sim_dir, "results", "phase5",
+                                              "baselines", args.dataset)
+    os.makedirs(out_dir, exist_ok=True)
 
-    # ─── Imports ──────────────────────────────────────────────────────
-    from preprocess_healthcare import HealthcareDataset
-    from hfl_mm_model import build_hfl_mm_hc
+    if args.select_on == "auto":
+        args.select_on = "auprc" if spec.n_classes == 2 else "auc"
+    use_cw = (args.class_weight == "balanced" or
+              (args.class_weight == "auto" and spec.n_classes == 2))
 
-    # ─── Load data once (shared across all baselines) ─────────────────
-    print("=" * 65)
-    print("BASELINE SUITE — Phase 5 Healthcare FL")
-    print("=" * 65)
-    print(f"\nLoading healthcare data from:\n  {args.data_dir}")
-
-    ecg_signals   = np.load(os.path.join(args.data_dir, "ecg", "ecg_signals.npy"),   mmap_mode="r")
-    ecg_labels    = np.load(os.path.join(args.data_dir, "ecg", "ecg_labels.npy"))
-    cxr_images    = np.load(os.path.join(args.data_dir, "cxr", "cxr_images.npy"),    mmap_mode="r")
-    cxr_labels    = np.load(os.path.join(args.data_dir, "cxr", "cxr_labels.npy"))
-    tabular_feats = np.load(os.path.join(args.data_dir, "tabular", "tabular_features.npy"))
-
-    print(f"  ECG  : {ecg_signals.shape}  labels: {np.unique(ecg_labels, return_counts=True)[1].tolist()}")
-    print(f"  CXR  : {cxr_images.shape}")
-    print(f"  Tab  : {tabular_feats.shape}")
-
-    print("\nBuilding HealthcareDataset (pairs ECG+CXR+tabular)...")
-    full_ds = HealthcareDataset(ecg_signals, ecg_labels,
-                                cxr_images, cxr_labels,
-                                tabular_feats)
-    print(f"  Full dataset: {len(full_ds)} samples")
-
-    # ─── Load partition metadata ───────────────────────────────────────
-    meta_path = os.path.join(args.partition_dir, "partition_meta.json")
-    with open(meta_path) as _f:
-        meta = json.load(_f)
-    n_devices = meta["n_devices"]
-    print(f"  Partitions  : {n_devices} devices loaded from {args.partition_dir}")
-
-    # ─── Per-device DataLoaders (train + test) ─────────────────────────
-    device_loaders = []
-    for dev_id in range(n_devices):
-        _train_idx = np.load(os.path.join(args.partition_dir, f"device_{dev_id:02d}_train.npy"))
-        _test_idx  = np.load(os.path.join(args.partition_dir, f"device_{dev_id:02d}_test.npy"))
-        _train_ds  = Subset(full_ds, _train_idx.tolist())
-        _test_ds   = Subset(full_ds, _test_idx.tolist())
-        device_loaders.append({
-            "train": DataLoader(_train_ds, batch_size=args.batch_size,
-                                shuffle=True, num_workers=0),
-            "test":  DataLoader(_test_ds,  batch_size=args.batch_size * 2,
-                                num_workers=0),
-        })
-
-    # ─── Device + model factory ───────────────────────────────────────
+    set_seed(args.seed)
     _device = get_device()
     optimize_gpu()
-
     import warnings
-    warnings.filterwarnings("ignore", category=UserWarning)   # suppress opacus/sklearn noise
+    warnings.filterwarnings("ignore", category=UserWarning)
+
+    print("=" * 70)
+    print(f"BASELINE SUITE — {args.dataset.upper()}")
+    print("=" * 70)
+    print(spec)
+    print(f"  pairing      : {spec.pairing}")
+    print(f"  select_on    : {args.select_on}   class_weight: {use_cw}")
+    print(f"  output       : {out_dir}")
+
+    full_ds, n_dev, device_loaders, pooled, order, group_test = build_loaders(
+        spec, args.batch_size, _device)
+    print(f"  samples      : train={len(order['train']):,} "
+          f"val={len(order['val']):,} test={len(order['test']):,} "
+          f"across {n_dev} devices")
+    if group_test is not None:
+        print(f"  case-level   : {len(np.unique(group_test))} cases in test")
+
+    cw = compute_class_weight(full_ds, order["train"], spec.n_classes) if use_cw else None
+    if cw is not None:
+        print(f"  class weights: {[round(float(x), 3) for x in cw]}")
+
+    from hfl_mm_model import build_hfl_mm_hc, freeze_encoders, load_pretrained_encoders
+
+    _kw = {"n_channels_a": spec.n_channels_a}
+    if spec.modality_b != "image":
+        _kw.update(modality_b="features", feat_b_dim=spec.feat_b_dim)
 
     def model_fn():
-        return build_hfl_mm_hc(n_classes=5)
+        return build_hfl_mm_hc(n_classes=spec.n_classes, **_kw)
 
-    all_results = []
+    def pretrained_full_model_fn():
+        """B7: same starting weights as B6, but NOTHING is frozen — DP-SGD is
+        applied to the whole network. This is the arm that separates 'the
+        encoders were already good' from 'training only the head is what
+        survives the noise'."""
+        m = build_hfl_mm_hc(n_classes=spec.n_classes, **_kw)
+        if args.pretrained_encoders:
+            load_pretrained_encoders(m, args.pretrained_encoders)
+        return m                      # deliberately NOT frozen
 
-    # ──────────────────────────────────────────────────────────────────
-    # B0: Centralized  (upper bound — no DP, no federation)
-    # ──────────────────────────────────────────────────────────────────
-    if "b0" not in [s.lower() for s in args.skip]:
-        print("\n" + "=" * 65)
-        print(f"B0 CENTRALIZED  |  epochs={args.b0_epochs}  |  batch={args.batch_size}")
-        print("=" * 65)
-        r = run_centralized(
-            model_fn, full_ds,
-            epochs=args.b0_epochs, lr=args.lr,
-            device=_device,
-            output_path=os.path.join(args.output_dir, "baseline_b0.csv"),
-        )
-        all_results.append(r)
+    def head_only_model_fn():
+        m = build_hfl_mm_hc(n_classes=spec.n_classes, **_kw)
+        if args.pretrained_encoders:
+            load_pretrained_encoders(m, args.pretrained_encoders)
+        return freeze_encoders(m)
 
-    # ──────────────────────────────────────────────────────────────────
-    # B1: Local Only  (lower bound)
-    # ──────────────────────────────────────────────────────────────────
-    if "b1" not in [s.lower() for s in args.skip]:
-        print("\n" + "=" * 65)
-        print(f"B1 LOCAL ONLY   |  epochs={args.b1_epochs}  |  batch={args.batch_size}")
-        print("=" * 65)
-        r = run_local_only(
-            model_fn, device_loaders,
-            epochs=args.b1_epochs, lr=args.lr,
-            device=_device,
-            output_path=os.path.join(args.output_dir, "baseline_b1.csv"),
-        )
-        all_results.append(r)
+    _only = [s.lower() for s in args.only]
+    _skip = [s.lower() for s in args.skip]
 
-    # ──────────────────────────────────────────────────────────────────
-    # B2: FedAvg
-    # ──────────────────────────────────────────────────────────────────
-    if "b2" not in [s.lower() for s in args.skip]:
-        print("\n" + "=" * 65)
-        print(f"B2 FEDAVG       |  rounds={args.rounds}  local_epochs={args.local_epochs}  |  batch={args.batch_size}")
-        print("=" * 65)
-        r = run_fedavg(
-            model_fn, device_loaders,
-            rounds=args.rounds, local_epochs=args.local_epochs, lr=args.lr,
-            device=_device,
-            output_path=os.path.join(args.output_dir, "baseline_b2.csv"),
-        )
-        all_results.append(r)
+    def want(b):
+        return (not _only or b in _only) and b not in _skip
 
-    # ──────────────────────────────────────────────────────────────────
-    # B3: FedProx
-    # ──────────────────────────────────────────────────────────────────
-    if "b3" not in [s.lower() for s in args.skip]:
-        print("\n" + "=" * 65)
-        print(f"B3 FEDPROX      |  rounds={args.rounds}  local_epochs={args.local_epochs}  |  batch={args.batch_size}")
-        print("=" * 65)
-        r = run_fedprox(
-            model_fn, device_loaders,
-            rounds=args.rounds, local_epochs=args.local_epochs, lr=args.lr,
-            device=_device,
-            output_path=os.path.join(args.output_dir, "baseline_b3.csv"),
-        )
-        all_results.append(r)
+    results = []
+    common = dict(device=_device, class_weight=cw, select_on=args.select_on,
+                  group_ids=group_test)
 
-    # ──────────────────────────────────────────────────────────────────
-    # B4: DP-FedAvg  (flat FL + differential privacy)
-    # ──────────────────────────────────────────────────────────────────
-    if "b4" not in [s.lower() for s in args.skip]:
-        print("\n" + "=" * 65)
-        print(f"B4 DP-FEDAVG    |  rounds={args.rounds}  ε={args.epsilon}  |  batch={args.batch_size}")
-        print("=" * 65)
-        try:
-            r = run_dp_fedavg(
-                model_fn, device_loaders,
-                rounds=args.rounds, local_epochs=args.local_epochs,
-                lr=args.lr, epsilon=args.epsilon,
-                device=_device,
-                output_path=os.path.join(args.output_dir, "baseline_b4.csv"),
-            )
-            all_results.append(r)
-        except Exception as _e:
-            print(f"[B4 SKIPPED] DP-FedAvg failed: {_e}")
-            all_results.append({"baseline": "B4_DP_FedAvg",
-                                 "test_accuracy": float("nan"),
-                                 "test_macro_auc": float("nan"),
-                                 "error": str(_e)})
+    if want("b0"):
+        print("\n" + "=" * 70 + f"\nB0 CENTRALIZED | epochs={args.b0_epochs}\n" + "=" * 70)
+        results.append(run_centralized(
+            model_fn, pooled, spec.n_classes, epochs=args.b0_epochs, lr=args.lr,
+            output_path=os.path.join(out_dir, "baseline_b0.csv"), **common))
 
-    # ──────────────────────────────────────────────────────────────────
-    # B5: MOON  (Model-Contrastive FL)
-    # ──────────────────────────────────────────────────────────────────
-    if "b5" not in [s.lower() for s in args.skip]:
-        print("\n" + "=" * 65)
-        print(f"B5 MOON         |  rounds={args.rounds}  local_epochs={args.local_epochs}  |  batch={args.batch_size}")
-        print("=" * 65)
-        r = run_moon(
-            model_fn, device_loaders,
-            rounds=args.rounds, local_epochs=args.local_epochs, lr=args.lr,
-            device=_device,
-            output_path=os.path.join(args.output_dir, "baseline_b5.csv"),
-        )
-        all_results.append(r)
+    if want("b1"):
+        print("\n" + "=" * 70 + f"\nB1 LOCAL ONLY | epochs={args.b1_epochs}\n" + "=" * 70)
+        results.append(run_local_only(
+            model_fn, device_loaders, spec.n_classes, epochs=args.b1_epochs,
+            lr=args.lr, device=_device, class_weight=cw,
+            output_path=os.path.join(out_dir, "baseline_b1.csv")))
 
-    # ──────────────────────────────────────────────────────────────────
-    # Summary table + combined CSV
-    # ──────────────────────────────────────────────────────────────────
-    summary_path = os.path.join(args.output_dir, "baselines_summary.csv")
-    _summary_fields = ["baseline", "test_accuracy", "test_macro_auc"]
-    with open(summary_path, "w", newline="") as _f:
-        _w = csv.DictWriter(_f, fieldnames=_summary_fields, extrasaction="ignore")
-        _w.writeheader()
-        for _r in all_results:
-            _w.writerow({k: _r.get(k, "") for k in _summary_fields})
-    print(f"\nSummary CSV saved: {summary_path}")
+    if want("b2"):
+        print("\n" + "=" * 70 + f"\nB2 FEDAVG | rounds={args.rounds}\n" + "=" * 70)
+        results.append(run_fedavg(
+            model_fn, device_loaders, pooled, rounds=args.rounds,
+            local_epochs=args.local_epochs, lr=args.lr,
+            output_path=os.path.join(out_dir, "baseline_b2.csv"), **common))
 
-    print("\n" + "=" * 65)
-    print("BASELINE COMPARISON SUMMARY")
-    print("=" * 65)
-    print(f"{'Baseline':<28}  {'Accuracy':>9}  {'Macro-AUC':>10}")
-    print("-" * 55)
-    for _r in all_results:
-        _name = _r.get("baseline", "?")
-        _acc  = _r.get("test_accuracy", float("nan"))
-        _auc  = _r.get("test_macro_auc", float("nan"))
-        _acc_s = f"{_acc:.4f}" if isinstance(_acc, float) and not np.isnan(_acc) else "  N/A"
-        _auc_s = f"{_auc:.4f}" if isinstance(_auc, float) and not np.isnan(_auc) else "  N/A"
-        print(f"{_name:<28}  {_acc_s:>9}  {_auc_s:>10}")
-    print("=" * 65)
-    print("\nDone. Scores above establish baselines B0–B5 for Phase 5 comparison.")
+    if want("b3"):
+        print("\n" + "=" * 70 + f"\nB3 FEDPROX | rounds={args.rounds}\n" + "=" * 70)
+        results.append(run_fedprox(
+            model_fn, device_loaders, pooled, rounds=args.rounds,
+            local_epochs=args.local_epochs, lr=args.lr,
+            output_path=os.path.join(out_dir, "baseline_b3.csv"), **common))
+
+    if want("b4"):
+        print("\n" + "=" * 70 +
+              f"\nB4 DP-FEDAVG (full model) | rounds={args.rounds} eps={args.epsilon}\n"
+              + "=" * 70)
+        results.append(run_dp_fedavg(
+            model_fn, device_loaders, pooled, rounds=args.rounds,
+            local_epochs=args.local_epochs, lr=args.lr, epsilon=args.epsilon,
+            delta=args.delta, max_grad_norm=args.max_grad_norm, head_only=False,
+            label="B4_DP_FedAvg",
+            max_physical_batch_size=args.max_physical_batch_size,
+            output_path=os.path.join(out_dir, "baseline_b4.csv"), **common))
+
+    if want("b7"):
+        if not args.pretrained_encoders:
+            print("\n[B7 SKIPPED] --pretrained_encoders is required: the arm is "
+                  "'PRETRAINED encoders + full-model DP'. Without the checkpoint "
+                  "it would be identical to B4 and would isolate nothing.")
+        else:
+            print("\n" + "=" * 70 +
+                  f"\nB7 DP-FEDAVG (pretrained init, FULL model) | rounds={args.rounds} "
+                  f"eps={args.epsilon}\n" + "=" * 70)
+            results.append(run_dp_fedavg(
+                pretrained_full_model_fn, device_loaders, pooled, rounds=args.rounds,
+                local_epochs=args.local_epochs, lr=args.lr, epsilon=args.epsilon,
+                delta=args.delta, max_grad_norm=args.max_grad_norm, head_only=False,
+                label="B7_DP_FedAvg_Pretrained",
+                max_physical_batch_size=args.max_physical_batch_size,
+                output_path=os.path.join(out_dir, "baseline_b7.csv"), **common))
+
+    if want("b5"):
+        print("\n" + "=" * 70 + f"\nB5 MOON | rounds={args.rounds}\n" + "=" * 70)
+        results.append(run_moon(
+            model_fn, device_loaders, pooled, rounds=args.rounds,
+            local_epochs=args.local_epochs, lr=args.lr,
+            output_path=os.path.join(out_dir, "baseline_b5.csv"), **common))
+
+    if want("b6"):
+        if not args.pretrained_encoders:
+            # Without pretrained encoders B6 DP-trains a head over RANDOM
+            # features — that measures nothing, and would understate the very
+            # recipe the thesis proposes. Refuse rather than emit a number.
+            print("\n[B6 SKIPPED] --pretrained_encoders is required: the arm is "
+                  "'frozen PRETRAINED encoders + DP head', and freezing random "
+                  "encoders would report a meaningless floor.")
+        else:
+            print("\n" + "=" * 70 +
+                  f"\nB6 DP-FEDAVG (head only) | rounds={args.rounds} eps={args.epsilon}\n"
+                  + "=" * 70)
+            results.append(run_dp_fedavg(
+                head_only_model_fn, device_loaders, pooled, rounds=args.rounds,
+                local_epochs=args.local_epochs, lr=args.lr, epsilon=args.epsilon,
+                delta=args.delta, max_grad_norm=args.max_grad_norm, head_only=True,
+                label="B6_DP_FedAvg_HeadOnly",
+            max_physical_batch_size=args.max_physical_batch_size,
+                output_path=os.path.join(out_dir, "baseline_b6.csv"), **common))
+
+    # ── summary ──────────────────────────────────────────────────────
+    fields = ["baseline", "test_accuracy", "test_macro_auc", "test_auprc",
+              "test_case_auc", "test_case_auprc", "epsilon_target", "epsilon_spent"]
+    spath = os.path.join(out_dir, "baselines_summary.csv")
+    with open(spath, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w.writeheader()
+        for r in results:
+            w.writerow({k: r.get(k, "") for k in fields})
+
+    print("\n" + "=" * 70)
+    print(f"BASELINE SUMMARY — {args.dataset}")
+    print("=" * 70)
+    hdr = f"{'Baseline':<26}{'Acc':>8}{'AUROC':>9}{'AUPRC':>9}"
+    if group_test is not None:
+        hdr += f"{'caseAUC':>10}{'caseAP':>9}"
+    hdr += f"{'eps':>8}"
+    print(hdr)
+    print("-" * len(hdr))
+    for r in results:
+        def g(k):
+            v = r.get(k)
+            return f"{v:.4f}" if isinstance(v, float) and not np.isnan(v) else "   —"
+        line = (f"{r.get('baseline', '?'):<26}{g('test_accuracy'):>8}"
+                f"{g('test_macro_auc'):>9}{g('test_auprc'):>9}")
+        if group_test is not None:
+            line += f"{g('test_case_auc'):>10}{g('test_case_auprc'):>9}"
+        e = r.get("epsilon_spent")
+        line += f"{f'{e:.3f}' if isinstance(e, float) else '   —':>8}"
+        print(line)
+    print("=" * 70)
+    print(f"\nSummary CSV: {spath}")
+    def _find(pfx):
+        return next((r for r in results if r.get("baseline", "").startswith(pfx)), None)
+
+    b4, b6, b7, b2 = _find("B4"), _find("B6"), _find("B7"), _find("B2")
+    if b4 and b6:
+        print(f"\nDECOMPOSITION at eps={args.epsilon} (AUROC):")
+        print(f"  B4 full-model DP, random init      {b4['test_macro_auc']:.4f}")
+        if b7:
+            print(f"  B7 full-model DP, pretrained init  {b7['test_macro_auc']:.4f}"
+                  f"   ({b7['test_macro_auc']-b4['test_macro_auc']:+.4f} = value of PRETRAINING)")
+        print(f"  B6 head-only DP, pretrained init   {b6['test_macro_auc']:.4f}"
+              + (f"   ({b6['test_macro_auc']-b7['test_macro_auc']:+.4f} = value of HEAD-ONLY)"
+                 if b7 else "   (B7 absent: recipe NOT separable from pretraining)"))
+        if not b7:
+            print("\n  WARNING: without B7 the B4->B6 gap conflates two changes "
+                  "and must NOT be reported as the value of head-only DP.")
+        if b2 and b6 and b6["test_macro_auc"] > b2["test_macro_auc"]:
+            print(f"\n  NOTE: B6 ({b6['test_macro_auc']:.4f}) exceeds the NON-PRIVATE "
+                  f"B2 ({b2['test_macro_auc']:.4f}). A private arm beating its own "
+                  f"non-private counterpart indicates the pretrained encoders carry "
+                  f"an advantage B2 never received — and, in PROXY mode, that they "
+                  f"saw the training data non-privately. Interpret accordingly.")

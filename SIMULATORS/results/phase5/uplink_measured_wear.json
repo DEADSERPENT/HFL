@@ -1,0 +1,45 @@
+{
+  "dataset": "wear",
+  "n_devices": 22,
+  "n_edges": 2,
+  "sparsity": 0.2,
+  "quant_bits": 8,
+  "rounds_averaged": 20,
+  "arms": {
+    "full_model": {
+      "index_bytes": 3536220.0,
+      "value_bytes": 884055.0,
+      "header_bytes": 608.0,
+      "total_bytes": 4420883.0,
+      "n_tensors": 76.0,
+      "n_coords": 884055.0,
+      "dense_fp32_bytes": 15703500,
+      "compression_ratio": 3.5521184342584955,
+      "mb_per_client_round": 4.216082572937012,
+      "dense_mb": 14.976024627685547
+    },
+    "head_only": {
+      "index_bytes": 451172.0,
+      "value_bytes": 112793.0,
+      "header_bytes": 80.0,
+      "total_bytes": 564045.0,
+      "n_tensors": 10.0,
+      "n_coords": 112793.0,
+      "dense_fp32_bytes": 15703500,
+      "compression_ratio": 27.840863760870143,
+      "mb_per_client_round": 0.5379152297973633,
+      "dense_mb": 14.976024627685547
+    }
+  },
+  "centralized_mb_per_round": 329.47254180908203,
+  "system": {
+    "full_model": {
+      "mb_per_round": 101.18598175048828,
+      "reduction_pct": 69.28849330056704
+    },
+    "head_only": {
+      "mb_per_round": 12.909965515136719,
+      "reduction_pct": 96.0816262732396
+    }
+  }
+}

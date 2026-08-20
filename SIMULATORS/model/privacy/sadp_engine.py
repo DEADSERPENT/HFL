@@ -1,15 +1,11 @@
 """
 SADP — Sensitivity-Adaptive Differential Privacy (PHANTOM-FL Innovation I2).
 
-Fixed per-layer-depth noise allocation: trainable parameters are split into
-3 depth groups by their position in named_parameters() order (which matches
-forward-pass depth for HFLMMHC: encoder_a -> encoder_b -> fusion, since
-__init__ registers submodules in that order and forward() calls them in the
-same order). Each group gets its own clip norm and its own noise multiplier,
-so classifier-head parameters (highest sensitivity — map straight to labels)
-get full noise while early feature-extractor parameters get a fraction of it.
-The ratios are a fixed rule, not measured from live per-round gradients, so
-determining them costs no privacy budget.
+Trainable parameters are split into 3 depth groups by module semantics
+(HFLMMHC: encoder_a -> encoder_b -> fusion, see assign_depth_groups). Each
+group gets its own clip norm and its own noise multiplier, sized from its
+own slice of the (epsilon, delta) privacy budget rather than one shared
+noise level for the whole model.
 
 This corrects two problems in the original PHANTOM-FL sketch
 (OVERALL PROJECT OUTPUT/01_PHANTOM_FL_Novel_Model.txt, Section 3.3):
@@ -26,18 +22,30 @@ This corrects two problems in the original PHANTOM-FL sketch
    clip+noise directly against GradSampleModule's raw p.grad_sample.
 
 2. That sketch composes privacy as "Total ε = Σ_l ε_l" (sum plain
-   epsilons). Valid (basic composition) but looser than necessary. Since
-   clip-to-C_l then noise sigma_l*C_l makes each group's release its own
-   sampled-Gaussian mechanism depending only on sigma_l and the sample
-   rate (the clip norm C_l cancels out of the RDP formula — sensitivity
-   and noise-std scale together), the per-group RDP curves can be SUMMED
-   at each order (Mironov 2017's RDP composition theorem applies to any
-   sequence of mechanisms over the same data, including releasing them
-   "simultaneously" as one vector — that's a restricted case of adaptive
-   composition, still covered by the theorem) and converted to (eps,
-   delta) ONCE at the end — see compute_sadp_noise_multiplier() and
-   SADPPrivacyTracker below. This is both correct and tighter than the
-   sum-of-epsilons approach.
+   epsilons) — basic composition, valid but loose. An EARLIER version of
+   this module instead fixed per-group NOISE-MULTIPLIER ratios (e.g.
+   group σ_l = σ_base * ratio_l for ratios (0.3, 0.7, 1.0)) and summed
+   the per-group RDP curves to solve for one shared σ_base. That is
+   tighter on paper, but empirically inflated σ_base by ~sqrt(Σ 1/ratio_l²)
+   (≈3.76x for those ratios) relative to naive single-mechanism DP-SGD,
+   because splitting one mechanism into N independently-composed ones is
+   itself privacy-expensive — see git history / project memory
+   "phase5_dp_collapse" update 2026-07-23 for the empirical trace (σ_base
+   came out 42.5 vs. a naive 11.33, and because the classifier head's
+   ratio was 1.0 it absorbed that entire inflation, collapsing the model
+   to near-random accuracy).
+
+   This version instead allocates each group its OWN (epsilon_l, delta_l)
+   slice of the total budget up front (basic composition: Total ε = Σ ε_l,
+   Total δ = Σ δ_l — see EPSILON_GROUP_FRACTIONS) and sizes each group's σ_l
+   independently via the same single-mechanism RDP search
+   dp_engine.compute_fl_noise_multiplier uses. This is looser per-bit than
+   summing RDP curves across groups, but no group's σ pays a tax for the
+   OTHER groups' composition — each group's own σ is exactly what a plain
+   (non-SADP) DP-SGD run would need for THAT group's own (epsilon_l,
+   delta_l), so a group given a generous epsilon_l fraction is guaranteed
+   to end up no noisier than naive DP-SGD at that fraction, which the old
+   ratio-based scheme could not guarantee for any group.
 """
 
 from typing import Dict, List, Optional, Tuple
@@ -46,15 +54,24 @@ import torch
 import torch.nn as nn
 
 from opacus.accountants.analysis.rdp import compute_rdp, get_privacy_spent
+from opacus.accountants.utils import get_noise_multiplier
 from opacus.grad_sample import GradSampleModule
 
 from dp_engine import EXTENDED_RDP_ALPHAS
 
-# Fixed depth-group noise ratios (PHANTOM-FL Sec 3.3 examples): early
-# feature-extractor layers get 30% of the base noise, mid layers 70%, the
-# classifier head gets 100%.
-DEPTH_GROUP_RATIOS: Tuple[float, ...] = (0.3, 0.7, 1.0)
-N_GROUPS = len(DEPTH_GROUP_RATIOS)
+# Per-group epsilon-budget split (encoder, fusion, head — matches
+# assign_depth_groups' group indices 0/1/2). The classifier head gets the
+# LARGEST slice (loosest privacy / least noise): it has the fewest
+# parameters and the most direct effect on utility (maps straight to class
+# logits), so it tolerates noise worst — this is the group that collapsed
+# the model under the old ratio-based scheme. The encoders get the
+# SMALLEST slice (tightest privacy / most noise): they hold >90% of all
+# trainable parameters, so a given epsilon buys much less noise reduction
+# per parameter there, and they're the layers most existing DP-SGD schemes
+# (including this project's own non-SADP baseline) already protect with
+# uniform full-strength noise.
+EPSILON_GROUP_FRACTIONS: Tuple[float, ...] = (0.15, 0.25, 0.60)
+N_GROUPS = len(EPSILON_GROUP_FRACTIONS)
 
 
 def assign_depth_groups(model: nn.Module) -> Dict[str, int]:
@@ -100,88 +117,98 @@ def _flat_grad_sample(p: torch.Tensor) -> torch.Tensor:
     return torch.cat(gs, dim=0)
 
 
-def compute_sadp_noise_multiplier(target_epsilon: float, target_delta: float,
-                                   n_fl_calls: int, n_samples: int,
-                                   batch_size: int, local_epochs: int = 1,
-                                   ratios: Tuple[float, ...] = DEPTH_GROUP_RATIOS,
-                                   tolerance: float = 0.01) -> float:
+def compute_sadp_group_sigmas(target_epsilon: float, target_delta: float,
+                               n_fl_calls: int, n_samples: int,
+                               batch_size: int, local_epochs: int = 1,
+                               epsilon_fractions: Tuple[float, ...] = EPSILON_GROUP_FRACTIONS
+                               ) -> Tuple[List[float], List[float]]:
     """
-    Binary-search sigma_base such that summing the per-depth-group RDP
-    curves (each group's own sigma_l = sigma_base * ratios[l], same
-    sample_rate/steps as dp_engine.compute_fl_noise_multiplier) and
-    converting once at the end hits target_epsilon.
+    Size each depth group's own noise multiplier INDEPENDENTLY by splitting
+    the (epsilon, delta) budget across groups (basic composition) instead of
+    fixing noise-multiplier ratios and solving for one shared sigma_base
+    (see module docstring for why the ratio scheme inflates noise).
 
-    Mirrors opacus.accountants.utils.get_noise_multiplier's own binary
-    search, but for a multi-noise-level combined mechanism that Opacus's
-    accountant can't express directly (it hardcodes one noise_multiplier
-    for the whole model).
+    delta is split evenly across the N groups (so Σ delta_l == target_delta
+    exactly); epsilon is split per epsilon_fractions (so Σ eps_l ==
+    target_epsilon exactly, since the fractions sum to 1). Each group's
+    sigma_l is then the single-mechanism sigma opacus.get_noise_multiplier
+    would compute for THAT group's own (eps_l, delta_l) alone — identical
+    to dp_engine.compute_fl_noise_multiplier, just called once per group.
+
+    Returns (sigmas, deltas), both length N_GROUPS and index-aligned with
+    epsilon_fractions — callers must keep `deltas` around (e.g. in
+    SADPPrivacyTracker) to report cumulative epsilon consistently with how
+    sigma was sized.
     """
     steps_per_call = max(n_samples // batch_size, 1)
     total_steps = n_fl_calls * local_epochs * steps_per_call
     sample_rate = min(batch_size / max(n_samples, 1), 1.0)
 
-    def combined_epsilon(sigma_base: float) -> float:
-        total_rdp = None
-        for ratio in ratios:
-            rdp = compute_rdp(q=sample_rate, noise_multiplier=sigma_base * ratio,
-                               steps=total_steps, orders=EXTENDED_RDP_ALPHAS)
-            total_rdp = rdp if total_rdp is None else [a + b for a, b in zip(total_rdp, rdp)]
-        eps, _ = get_privacy_spent(orders=EXTENDED_RDP_ALPHAS, rdp=total_rdp,
-                                   delta=target_delta)
-        return eps
+    n = len(epsilon_fractions)
+    deltas = [target_delta / n] * n
+    sigmas = []
+    for frac, delta_l in zip(epsilon_fractions, deltas):
+        eps_l = target_epsilon * frac
+        sigma_l = get_noise_multiplier(
+            target_epsilon=eps_l,
+            target_delta=delta_l,
+            sample_rate=sample_rate,
+            steps=total_steps,
+            alphas=EXTENDED_RDP_ALPHAS,
+        )
+        sigmas.append(sigma_l)
 
-    sigma_low, sigma_high = 0.0, 10.0
-    eps_high = float("inf")
-    while eps_high > target_epsilon:
-        sigma_high *= 2
-        eps_high = combined_epsilon(sigma_high)
-        if sigma_high > 1e6:
-            raise ValueError("SADP: privacy budget too low even at maximum searched sigma_base.")
-
-    while target_epsilon - eps_high > tolerance:
-        sigma_mid = (sigma_low + sigma_high) / 2
-        eps_mid = combined_epsilon(sigma_mid)
-        if eps_mid < target_epsilon:
-            sigma_high, eps_high = sigma_mid, eps_mid
-        else:
-            sigma_low = sigma_mid
-
-    group_sigmas = [round(sigma_high * r, 4) for r in ratios]
     print(f"[SADP-Engine] FL budget: ε={target_epsilon}, δ={target_delta}, "
           f"n_fl_calls={n_fl_calls}, total_steps={total_steps}, "
-          f"sample_rate={sample_rate:.4f} → σ_base={sigma_high:.4f} "
-          f"(group σ={group_sigmas})")
-    return sigma_high
+          f"sample_rate={sample_rate:.4f} → per-group ε="
+          f"{[round(target_epsilon * f, 4) for f in epsilon_fractions]}, "
+          f"δ={[round(d, 8) for d in deltas]}, σ={[round(s, 4) for s in sigmas]}")
+    return sigmas, deltas
 
 
 class SADPPrivacyTracker:
     """
     Per-device cumulative privacy tracker for SADP, analogous to reusing one
     Opacus PrivacyEngine per device (dp_engine.new_device_privacy_engines):
-    accumulates (sigma_base, sample_rate, steps) history across every call
+    accumulates (group_sigmas, sample_rate, steps) history across every call
     this device makes over the FL run, so get_epsilon() reports the TRUE
-    cumulative ε (summed RDP across every call AND every depth group),
-    not just the most recent call.
+    cumulative ε — per group, RDP-composed across every call this device has
+    made, then combined ACROSS groups via basic composition (Σ eps_l against
+    each group's own delta_l — see compute_sadp_group_sigmas), not just the
+    most recent call.
+
+    deltas must be the SAME per-group delta split the group sigmas were
+    originally sized against (compute_sadp_group_sigmas' second return
+    value) — mixing a tracker's deltas with sigmas sized for a different
+    split under-reports the true cumulative ε.
     """
 
-    def __init__(self, ratios: Tuple[float, ...] = DEPTH_GROUP_RATIOS):
-        self.ratios = ratios
-        self.history: List[Tuple[float, float, int]] = []  # (sigma_base, sample_rate, steps)
+    def __init__(self, deltas: Tuple[float, ...]):
+        self.deltas = tuple(deltas)
+        self.history: List[Tuple[List[float], float, int]] = []  # (group_sigmas, sample_rate, steps)
 
-    def record(self, sigma_base: float, sample_rate: float, steps: int):
-        self.history.append((sigma_base, sample_rate, steps))
+    def record(self, group_sigmas: List[float], sample_rate: float, steps: int):
+        self.history.append((list(group_sigmas), sample_rate, steps))
 
-    def get_epsilon(self, delta: float) -> float:
+    def get_epsilon(self, delta: Optional[float] = None) -> float:
+        """
+        `delta` is accepted (unused) only so call sites mirroring Opacus's
+        PrivacyEngine.get_epsilon(delta) API don't need a special case for
+        SADP — the per-group deltas fixed at construction already sum to
+        the delta the group sigmas were actually sized for.
+        """
         if not self.history:
             return 0.0
-        total_rdp = None
-        for sigma_base, sample_rate, steps in self.history:
-            for ratio in self.ratios:
-                rdp = compute_rdp(q=sample_rate, noise_multiplier=sigma_base * ratio,
+        total_eps = 0.0
+        for g, delta_l in enumerate(self.deltas):
+            group_rdp = None
+            for group_sigmas, sample_rate, steps in self.history:
+                rdp = compute_rdp(q=sample_rate, noise_multiplier=group_sigmas[g],
                                    steps=steps, orders=EXTENDED_RDP_ALPHAS)
-                total_rdp = rdp if total_rdp is None else [a + b for a, b in zip(total_rdp, rdp)]
-        eps, _ = get_privacy_spent(orders=EXTENDED_RDP_ALPHAS, rdp=total_rdp, delta=delta)
-        return eps
+                group_rdp = rdp if group_rdp is None else [a + b for a, b in zip(group_rdp, rdp)]
+            eps_g, _ = get_privacy_spent(orders=EXTENDED_RDP_ALPHAS, rdp=group_rdp, delta=delta_l)
+            total_eps += eps_g
+        return total_eps
 
 
 class SADPOptimizer:
@@ -196,21 +223,20 @@ class SADPOptimizer:
     """
 
     def __init__(self, gs_model: GradSampleModule, optimizer: torch.optim.Optimizer,
-                 group_of: Dict[str, int], sigma_base: float,
+                 group_of: Dict[str, int], group_sigmas: List[float],
                  max_grad_norm: float = 1.0,
-                 ratios: Tuple[float, ...] = DEPTH_GROUP_RATIOS,
                  expected_batch_size: Optional[int] = None):
         self.gs_model = gs_model
         self.optimizer = optimizer
-        self.ratios = ratios
-        self.sigma_base = sigma_base
+        self.group_sigmas = group_sigmas
         self.expected_batch_size = expected_batch_size
         # Split max_grad_norm across groups so the combined per-sample
         # sensitivity (sqrt(sum C_l^2)) matches max_grad_norm — same overall
         # clipping strictness as the uniform baseline, just reallocating how
         # much NOISE each group's own clip budget gets.
-        self.clip_norms = {i: max_grad_norm / (len(ratios) ** 0.5) for i in range(len(ratios))}
-        self.sigmas = {i: sigma_base * r for i, r in enumerate(ratios)}
+        n_groups = len(group_sigmas)
+        self.clip_norms = {i: max_grad_norm / (n_groups ** 0.5) for i in range(n_groups)}
+        self.sigmas = {i: s for i, s in enumerate(group_sigmas)}
 
         # named_parameters() on GradSampleModule are prefixed "_module." —
         # strip that to match assign_depth_groups(), which is computed
@@ -227,7 +253,7 @@ class SADPOptimizer:
 
     def step(self):
         batch_size = None
-        for group_idx in range(len(self.ratios)):
+        for group_idx in range(len(self.group_sigmas)):
             group_params = [(n, p) for n, p in self.named_params if self.group_of.get(n) == group_idx]
             if not group_params:
                 continue
@@ -253,7 +279,7 @@ class SADPOptimizer:
 
 
 def make_sadp_model(model: nn.Module, optimizer: torch.optim.Optimizer,
-                    sigma_base: float, max_grad_norm: float = 1.0,
+                    group_sigmas: List[float], max_grad_norm: float = 1.0,
                     group_of: Optional[Dict[str, int]] = None):
     """
     Wrap model + optimizer for SADP training. Returns (gs_model, sadp_optimizer).
@@ -265,6 +291,6 @@ def make_sadp_model(model: nn.Module, optimizer: torch.optim.Optimizer,
     if group_of is None:
         group_of = assign_depth_groups(model)
     gs_model = GradSampleModule(model)
-    sadp_opt = SADPOptimizer(gs_model, optimizer, group_of, sigma_base,
+    sadp_opt = SADPOptimizer(gs_model, optimizer, group_of, group_sigmas,
                              max_grad_norm=max_grad_norm)
     return gs_model, sadp_opt

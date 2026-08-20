@@ -907,9 +907,104 @@ Phase 6 will:
   6. Package full reproducible codebase
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  PHASE 5 STATUS: IN PROGRESS (2026-04-22)
-  Domain: Healthcare Exclusively | Model: HFL-MM-HC → PHANTOM-FL
-  Datasets: VitalDB (primary) + WEAR | IP-1 + IP-9 implemented;
-  cross-modal attention remains DESIGN ONLY and is not claimed
-  Baselines: B0–B5 | Venue: IEEE JBHI / npj Digital Medicine
+  5.15  PHASE 5 — COMPLETION RECORD  (2026-08-05)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ALL 17 PHASE-5 DELIVERABLES COMPLETE on both datasets.
+  Verify: python tests/traceability.py --dataset <ds> --phase 5
+
+    D5.1  dataset pipeline        D5.9   gradient compression
+    D5.2  FedMamba-HC encoder     D5.10  ONNX export      + D5.10a artifact
+    D5.3  FedConform-HC           D5.11  latency validator+ D5.11a artifact
+    D5.4  ClinicalCMGA (DESIGN)   D5.12  epsilon sweep    + D5.12a artifact
+    D5.5  HFL-MM model            D5.13  Phase 5 results
+    D5.6  baseline suite  + D5.6a artifacts
+    D5.7  HFL training engine     D5.8   DP-SGD integration
+
+5.15.1  MEASURED RESULTS
+
+  Baselines (vitaldb, AUROC) — B0-B7, all on identical partitions
+    B0 centralized 0.8612 | B1 local 0.7873 | B2 FedAvg 0.8173
+    B3 FedProx     0.8154 | B5 MOON  0.8431
+    B4 full-model DP   0.7347      <- prior art recipe
+    B7 pretrained+full DP 0.8470   <- confound control
+    B6 head-only DP    0.8589      <- proposed recipe
+
+  Privacy-utility curve (AUROC, head minus full)
+    eps   0.5     1       2       4       8      inf
+    vit  +0.1314 +0.1134 +0.0969 +0.0782 +0.0602 +0.0087
+    wear +0.3954 +0.3092 +0.2081 +0.1311 +0.0880 +0.0020
+
+    The gap widens monotonically as the budget tightens and nearly
+    vanishes at eps=inf. That was the pre-registered refutation
+    condition for the head-only claim, and it holds on both datasets.
+
+  Objectives (vitaldb 6/6 PASS; wear 5 PASS + 1 INCONCLUSIVE, 0 FAIL)
+    O1  uplink reduction   90.8 % / 96.1 %      measured compressor
+    O2a epsilon spent      0.963  / 0.989       <= 1
+    O2b accuracy loss      -0.916 / +1.967 pp   see 5.15.2
+    O3a P95 latency        2.99   / 1.22 ms     CPU provider
+    O3b update reliability 99.27  / 99.05 %     NS-3 packet level
+    O4  energy saving      72.3   / 76.8 %      CloudSim
+
+  Cost of a VALID guarantee (vitaldb): encoders pretrained on 874
+  patients disjoint from every client cost -0.0223 AUROC / -0.0424
+  AUPRC against the oracle upper bound. That delta is what makes the
+  epsilon a guarantee rather than a bound.
+
+5.15.2  WHAT IS *NOT* ESTABLISHED — read before writing the thesis
+
+  · wear O2b is INCONCLUSIVE, not a pass. Pre-registered n=15 paired
+    seeds: mean +1.967 pp, 95 % CI [+1.760, +2.173]. The interval spans
+    the 2 pp target. At n=5 the mean was 1.783 and looked like a pass;
+    it moved UP with more seeds. n was fixed in advance and is not
+    being extended — that would be optional stopping.
+
+  · PHANTOM-FL DID NOT RUN. Every reported result used dp_mode=uniform,
+    agg_mode=fedavg, edge_distill_epochs=0 and no personalisation. Of
+    its five innovations: CMGA is unbuilt (and conflicts architecturally
+    with head-only DP), SADP measured worse than uniform, FedKD-E is not
+    freeze-aware, pFAL showed no effect, ASWA is unablated. The system
+    evaluated here is HFL-MM, not PHANTOM-FL.
+
+  · Patient-level DP is IMPLEMENTED but UNMEASURED. The mechanism runs
+    (eps=0.9948 verified) and its noise cost is calibrated (1.77x sigma
+    vs window-level), but no full result exists. This is the most novel
+    component and it currently has no numbers.
+
+  · Single-seed everywhere except O2b. No interval can be placed on the
+    baseline or sweep differences yet.
+
+  · Not run: S3 (hierarchical WITHOUT DP), conformal coverage
+    validation, mask-channel ablation, all of Phase 6.
+
+5.15.3  DEFECTS FOUND AND FIXED DURING PHASE 5
+
+  Recorded because each produced plausible-but-wrong numbers silently:
+
+  1. EPSILON BREACH. Sigma was calibrated from the smallest client with
+     floor(n/batch) steps. Every DP arm exceeded its own budget
+     (0.5->0.511, 1->1.018, 8->8.163) — invalid, not merely weak.
+     Fixed by bisecting sigma against ALL clients with ceil(). All 25
+     DP points now inside budget.
+  2. STALE METADATA. partition_meta.json was not rewritten when the
+     public split was carved, so calibration used pre-split counts.
+     Calibration now reads the files and warns on drift.
+  3. B4->B6 CONFOUND. That contrast moved initialisation AND recipe at
+     once; B6 beat even non-private B2. B7 was added and shows ~90 % of
+     the apparent head-only gain was the pretrained encoders.
+  4. BROKEN eps=inf REFERENCE. The no-DP anchor used a random-init full
+     model, so it was not comparable to the head arm and O2b was
+     uncomputable. It now runs per recipe.
+  5. epsilon_spent READ FROM ROUND 1 (0.283) instead of the composed
+     final value (0.963).
+  6. inference_bench writes CSV into a .json file, so a measured
+     objective reported NOT MEASURED.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PHASE 5 STATUS: COMPLETE (2026-08-05)
+  Model evaluated: HFL-MM  (NOT PHANTOM-FL — see 5.15.2)
+  Datasets: VitalDB (primary) + WEAR | Baselines: B0-B7
+  Objectives: vitaldb 6/6 | wear 5 PASS + 1 INCONCLUSIVE, 0 FAIL
+  Phase 6 remains: joint eval, component ablation, statistics, figures
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,0 +1,94 @@
+{
+  "dataset": "vitaldb",
+  "pairing": "SAME PATIENT, SAME SECOND (Vital Recorder, one operation)",
+  "epochs": 8,
+  "seeds": [
+    42,
+    43
+  ],
+  "n_train": 34044,
+  "n_test": 7360,
+  "runs": {
+    "a": [
+      {
+        "acc": 0.7600543478260869,
+        "auroc": 0.8312003668207574,
+        "auprc": 0.5374941939236906,
+        "case_auroc": 0.8628198187930936,
+        "case_auprc": 0.6577056580661746,
+        "case_acc": 0.778247096092925,
+        "seed": 42,
+        "mode": "a",
+        "secs": 190.3
+      },
+      {
+        "acc": 0.7078804347826086,
+        "auroc": 0.8253747981375938,
+        "auprc": 0.5186800286477766,
+        "case_auroc": 0.855098581115733,
+        "case_auprc": 0.63150551796895,
+        "case_acc": 0.7243928194297783,
+        "seed": 43,
+        "mode": "a",
+        "secs": 191.1
+      }
+    ],
+    "b": [
+      {
+        "acc": 0.6898097826086956,
+        "auroc": 0.7715095608324962,
+        "auprc": 0.4999489052635989,
+        "case_auroc": 0.7727220924269189,
+        "case_auprc": 0.4927608109392487,
+        "case_acc": 0.6916578669482577,
+        "seed": 42,
+        "mode": "b",
+        "secs": 8.9
+      },
+      {
+        "acc": 0.6051630434782609,
+        "auroc": 0.7685025509118724,
+        "auprc": 0.5044088311123966,
+        "case_auroc": 0.7699512792751724,
+        "case_auprc": 0.4995230301302549,
+        "case_acc": 0.6061246040126715,
+        "seed": 43,
+        "mode": "b",
+        "secs": 8.7
+      }
+    ],
+    "both": [
+      {
+        "acc": 0.8230978260869565,
+        "auroc": 0.8694561831403039,
+        "auprc": 0.6328933139556341,
+        "case_auroc": 0.8879921932873669,
+        "case_auprc": 0.6735164394930511,
+        "case_acc": 0.8405491024287223,
+        "seed": 42,
+        "mode": "both",
+        "secs": 192.6
+      },
+      {
+        "acc": 0.7605978260869565,
+        "auroc": 0.8694164696600573,
+        "auprc": 0.6357235156814998,
+        "case_auroc": 0.887016354208217,
+        "case_auprc": 0.6745278159360796,
+        "case_acc": 0.7634635691657867,
+        "seed": 43,
+        "mode": "both",
+        "secs": 190.7
+      }
+    ]
+  },
+  "fusion_gain_auroc": 0.04114874392100498,
+  "fusion_gain_auprc": 0.10622130353283332,
+  "verdict": {
+    "supports_gap1": true,
+    "reason": "significant",
+    "gain_over_sd": 14.126944907517418,
+    "best_unimodal_auroc": 0.8282875824791756,
+    "text": "fusion HELPS \u2014 beats both unimodal arms by 14.1x seed-sd. Gap #1 demonstrated on this data."
+  }
+}

@@ -44,10 +44,18 @@ public class HFLCloudSimulation {
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/cloudsim/";
 
     // ── Simulation Config ─────────────────────────────────────────────────────
-    private static final int    NUM_DEVICES    = 20;
-    private static final int    NUM_EDGES      = 3;
-    private static final int    FL_ROUNDS      = 100;
-    private static final double MODEL_SIZE_MB  = 50.0;
+    // Overridable from the command line so the simulated topology matches the
+    // experiment that was actually trained. These were 20 devices / 3 edges /
+    // 100 rounds / 50 MB — a configuration that has never existed in this
+    // project. CONFIG_PATH above is declared but never read, so the JSON
+    // config could not correct them either.
+    //   wear    : 22 devices, 2 edges, 20 rounds, 15.70 MB
+    //   vitaldb :  9 devices, 2 edges, 20 rounds,  7.46 MB
+    private static int    NUM_DEVICES    = 20;
+    private static int    NUM_EDGES      = 3;
+    private static int    FL_ROUNDS      = 100;
+    private static double MODEL_SIZE_MB  = 50.0;
+    private static String DATASET        = "unset";
     private static final double COMPRESS_RATIO = 0.2;
 
     // ── Power Models (Watts) — used for energy calculation ────────────────────
@@ -75,8 +83,20 @@ public class HFLCloudSimulation {
     private final List<Map<String, String>> results = new ArrayList<>();
 
     public static void main(String[] args) throws Exception {
+        // usage: --dataset NAME --devices N --edges N --rounds N --model_mb X
+        for (int i = 0; i + 1 < args.length; i += 2) {
+            switch (args[i]) {
+                case "--dataset":  DATASET       = args[i + 1]; break;
+                case "--devices":  NUM_DEVICES   = Integer.parseInt(args[i + 1]); break;
+                case "--edges":    NUM_EDGES     = Integer.parseInt(args[i + 1]); break;
+                case "--rounds":   FL_ROUNDS     = Integer.parseInt(args[i + 1]); break;
+                case "--model_mb": MODEL_SIZE_MB = Double.parseDouble(args[i + 1]); break;
+                default: break;
+            }
+        }
         System.out.println("=".repeat(65));
         System.out.println("  HFL CloudSim Plus Simulation");
+        System.out.printf ("  Dataset: %s | Model: %.2f MB%n", DATASET, MODEL_SIZE_MB);
         System.out.printf ("  Devices: %d | Edges: %d | Rounds: %d%n",
                            NUM_DEVICES, NUM_EDGES, FL_ROUNDS);
         System.out.println("  GPU: NVIDIA RTX A2000 12GB (detected via device_utils.py)");
@@ -235,7 +255,9 @@ public class HFLCloudSimulation {
     // ── Save CSV ──────────────────────────────────────────────────────────────
     private void saveCSV() throws IOException {
         Files.createDirectories(Path.of(RESULTS_DIR));
-        String out = RESULTS_DIR + "cloudsim_results.csv";
+        String out = RESULTS_DIR + ("unset".equals(DATASET)
+                     ? "cloudsim_results.csv"
+                     : "cloudsim_results_" + DATASET + ".csv");
         try (PrintWriter pw = new PrintWriter(new FileWriter(out))) {
             pw.println(String.join(",", results.get(0).keySet()));
             for (var r : results) pw.println(String.join(",", r.values()));

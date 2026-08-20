@@ -1,0 +1,2 @@
+arm,label,removes,test_macro_auc,test_auprc,test_accuracy,source
+A5,no C5 — unimodal,C5,0.8282593726125667,0.5416608216436094,0.715054347826087,modality_ablation.json (arm 'a')

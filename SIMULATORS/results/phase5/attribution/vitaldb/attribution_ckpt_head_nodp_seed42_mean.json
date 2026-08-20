@@ -1,0 +1,11 @@
+{
+  "dataset": "vitaldb",
+  "checkpoint": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/mia_factorial/vitaldb/ckpt_head_nodp_seed42.pt",
+  "split": "test",
+  "n_windows": 512,
+  "baseline": "mean",
+  "steps": 64,
+  "target": "positive",
+  "missingness_share_pct": 15.974395128582941,
+  "completeness_rel_err": 0.031409904140296874
+}

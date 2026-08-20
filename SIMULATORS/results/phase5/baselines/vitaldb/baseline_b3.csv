@@ -1,0 +1,2 @@
+baseline,rounds,mu,test_accuracy,test_macro_auc,test_auprc,test_case_accuracy,test_case_auc,test_case_auprc,test_n_groups,val_auc_history
+B3_FedProx,10,0.01,0.7857336956521739,0.8153841120181432,0.524547975415168,0.7972544878563886,0.8200752179611375,0.5311237833315264,947,"[0.7551, 0.7776, 0.8102, 0.8043, 0.8242, 0.8088, 0.7716, 0.8022, 0.8259, 0.7906]"

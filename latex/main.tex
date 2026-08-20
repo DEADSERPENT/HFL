@@ -1,0 +1,77 @@
+%==============================================================================
+% IEEE journal manuscript — project skeleton (placeholder content).
+% Document class: IEEEtran (official). Body is migrated in a later phase.
+%
+% Build:  pdflatex main  ->  bibtex main  ->  pdflatex main  ->  pdflatex main
+% (see README.md for a one-line latexmk command and for IEEEtran.cls provenance)
+%==============================================================================
+\documentclass[journal]{IEEEtran}
+
+% ---- Packages -------------------- ------------------------------------------
+\usepackage[T1]{fontenc}             % proper glyphs for accented names
+\usepackage[utf8]{inputenc}          % input encoding (portable on older TeX)
+\usepackage{cite}                    % IEEE-style reference handling
+\usepackage{amsmath}                 % equations
+\usepackage{amssymb}                 % math symbols
+\usepackage{graphicx}                % figures
+\graphicspath{{figures/}}            % figure search path
+\usepackage{booktabs}                % professional tables (\toprule etc.)
+\usepackage{multirow}                % multi-row table cells
+\usepackage{subcaption}              % multi-panel figures (Figs. 3, 5, 6)
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}     % load last; internal/external links
+% Improve display equation spacing for IEEE two-column layout
+\setlength{\abovedisplayskip}{8pt plus 2pt minus 2pt}
+\setlength{\belowdisplayskip}{8pt plus 2pt minus 2pt}
+\setlength{\abovedisplayshortskip}{6pt plus 2pt minus 2pt}
+\setlength{\belowdisplayshortskip}{6pt plus 2pt minus 2pt}
+
+% ---- Front matter ----------------------------------------------------------
+\begin{document}
+
+\title{A Dual-Stream Spatial--Spectral Fusion Pathway for\\
+       Boundary Fidelity in Dermoscopic Skin Lesion Segmentation}
+
+\author{
+\begin{tabular}{c c}
+Samartha H V &  Shreyas J \\
+\textit{Manipal Institute of Technology Bengaluru,} &
+\textit{Manipal Institute of Technology Bengaluru,} \\
+\textit{Manipal Academy of Higher Education,} &
+\textit{Manipal Academy of Higher Education,} \\
+Manipal, India & Manipal, India \\
+samartha1.mitblr2025@learner.manipal.edu &
+shreyas.j@manipal.edu \\
+\end{tabular}
+}
+
+%\markboth{IEEE Transactions on Placeholder,~Vol.~XX, No.~XX, Month~2026}%
+{Author \MakeLowercase{\textit{et al.}}: Dual-Stream Spatial--Spectral Fusion for Dermoscopic Segmentation}
+
+\maketitle
+
+% ---- Abstract & keywords ---------------------------------------------------
+\input{sections/abstract}
+
+\begin{IEEEkeywords}
+Skin lesion segmentation, dermoscopy, boundary fidelity, frequency-domain
+representation, gated feature fusion, frozen foundation model, deep supervision,
+ISIC.
+\end{IEEEkeywords}
+
+\IEEEpeerreviewmaketitle
+
+% ---- Body (one file per section) -------------------------------------------
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/methodology}
+\input{sections/experiments}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+% ---- Bibliography ----------------------------------------------------------
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

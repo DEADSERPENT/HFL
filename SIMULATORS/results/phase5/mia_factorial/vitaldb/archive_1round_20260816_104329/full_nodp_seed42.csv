@@ -1,0 +1,2 @@
+global_round,val_accuracy,val_macro_auc,val_auprc,val_case_auc,val_case_auprc,epsilon_spent,q_global,round_time_s,uplink_bytes
+1,0.8147,0.8211,0.5047,0.829,0.5099,inf,0.9,136.2,106165935

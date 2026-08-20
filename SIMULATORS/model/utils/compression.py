@@ -32,6 +32,10 @@ class GradientCompressor:
 
         Returns:
             compressed: {param_name: {indices, values_uint8, g_min, g_max, shape}}
+            Tensors whose update is entirely zero are OMITTED from the dict —
+            see the nnz handling below. decompress() and the FL aggregation in
+            hfl_trainer.py both iterate over the keys actually present, so an
+            absent name correctly means "zero delta, leave the reference alone".
         """
         compressed = {}
         for name, grad in named_tensors.items():
@@ -43,9 +47,22 @@ class GradientCompressor:
                     self._error_feedback[name] = torch.zeros_like(flat)
                 flat = flat + self._error_feedback[name]
 
-            # Step A: Top-k sparsification
-            k = max(1, int(len(flat) * self.sparsity))
+            # Step A: Top-k sparsification.
+            # Cap k at the number of nonzeros: a fixed k transmits explicit
+            # zeros whenever the update is sparser than `sparsity`, which is
+            # pure wasted uplink. Under --freeze_encoders the frozen encoders'
+            # delta is exactly zero, so without this they still cost ~74% of
+            # every payload while carrying no information.
             abs_flat = flat.abs()
+            nnz = int(torch.count_nonzero(abs_flat).item())
+            if nnz == 0:
+                # Nothing to send. Residual is already zero (flat is zero), but
+                # assign explicitly so the accumulator stays well-formed.
+                if use_error_feedback:
+                    self._error_feedback[name] = torch.zeros_like(flat)
+                continue
+
+            k = min(max(1, int(len(flat) * self.sparsity)), nnz)
             _, topk_indices = torch.topk(abs_flat, k, sorted=False)
             topk_values = flat[topk_indices]
 
@@ -55,18 +72,38 @@ class GradientCompressor:
                 residual[topk_indices] = 0.0
                 self._error_feedback[name] = residual
 
-            # Step B: 8-bit quantization of top-k values
+            # Step B: quantization of top-k values.
+            #
+            # The payload dtype must follow quant_bits. It used to be uint8
+            # unconditionally, so any width above 8 wrapped modulo 256: at
+            # quant_bits=32 the code produced levels up to 4.29e9, cast them
+            # into a byte, and returned noise larger than the gradient. The
+            # "no quantization" ablation arm was therefore the noisiest arm in
+            # the study rather than the cleanest.
+            #
+            # At 32 bits the uniform-quantization arithmetic is itself the
+            # problem — a float32 scale cannot resolve 2^32 levels — so that
+            # width is treated as what it is meant to express: send the values
+            # unquantized. The 8-bit path below is unchanged, so results
+            # produced with the default settings remain exactly reproducible.
             g_min = topk_values.min().item()
             g_max = topk_values.max().item()
             if g_max == g_min:
                 g_max = g_min + 1e-8
-            scale = (g_max - g_min) / self.quant_levels
-            quantized = ((topk_values - g_min) / scale).round().clamp(0, self.quant_levels)
-            values_uint8 = quantized.to(torch.uint8)
+
+            if self.quant_bits >= 32:
+                payload = topk_values.cpu().numpy().astype(np.float32)
+            else:
+                scale = (g_max - g_min) / self.quant_levels
+                quantized = ((topk_values - g_min) / scale).round() \
+                                .clamp(0, self.quant_levels)
+                dtype = np.uint8 if self.quant_bits <= 8 else np.uint16
+                payload = quantized.cpu().numpy().astype(dtype)
 
             compressed[name] = {
                 "indices":      topk_indices.cpu().numpy().astype(np.int32),
-                "values_uint8": values_uint8.cpu().numpy(),
+                "values_uint8": payload,      # name kept: read by existing callers
+                "quant_bits":   self.quant_bits,
                 "g_min":        np.float32(g_min),
                 "g_max":        np.float32(g_max),
                 "shape":        tuple(grad.shape),
@@ -82,14 +119,21 @@ class GradientCompressor:
         decompressed = {}
         for name, data in compressed.items():
             indices    = torch.from_numpy(data["indices"]).long()
-            values_u8  = torch.from_numpy(data["values_uint8"]).float()
+            raw        = torch.from_numpy(data["values_uint8"]).float()
             g_min      = float(data["g_min"])
             g_max      = float(data["g_max"])
             shape      = data["shape"]
 
-            # Dequantize
-            scale = (g_max - g_min) / self.quant_levels
-            values = values_u8 * scale + g_min
+            # Dequantize using the width the payload was WRITTEN with, not the
+            # compressor's current setting: a decompressor configured
+            # differently from the sender would otherwise rescale by the wrong
+            # factor and silently return wrong gradients.
+            bits = int(data.get("quant_bits", self.quant_bits))
+            if bits >= 32:
+                values = raw                       # stored unquantized
+            else:
+                levels = 2 ** bits - 1
+                values = raw * ((g_max - g_min) / levels) + g_min
 
             # Reconstruct sparse → dense
             n_elements = 1
@@ -106,9 +150,13 @@ class GradientCompressor:
         """Calculate actual compression ratio achieved."""
         compressed_bytes = 0
         for data in compressed.values():
-            # indices (int32) + values (uint8) + 2 floats header
+            # indices (int32) + values (width depends on quant_bits) + header.
+            # The payload width must be read from the array rather than assumed
+            # to be one byte, or a float32 arm reports a quarter of the traffic
+            # it actually sends and the uplink saving is overstated fourfold.
+            vals = data["values_uint8"]
             compressed_bytes += len(data["indices"]) * 4
-            compressed_bytes += len(data["values_uint8"]) * 1
+            compressed_bytes += vals.nbytes if hasattr(vals, "nbytes") else len(vals)
             compressed_bytes += 8  # g_min, g_max as float32
 
         return original_bytes / max(compressed_bytes, 1)

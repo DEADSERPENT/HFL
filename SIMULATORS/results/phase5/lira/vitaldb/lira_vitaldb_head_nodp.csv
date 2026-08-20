@@ -1,0 +1,13 @@
+dataset,arm,attack,seed,attack_auc,tpr_at_1pct_fpr,tpr_at_0.1pct_fpr,n_shadows,n_members,n_nonmembers
+vitaldb,head_nodp,loss,42,0.5725388888888889,0.008333333333333333,nan,16,600,600
+vitaldb,head_nodp,lira_offline,42,0.6292222222222222,0.03166666666666667,nan,16,600,600
+vitaldb,head_nodp,lira_online,42,0.574636111111111,0.023333333333333334,nan,16,600,600
+vitaldb,head_nodp,lira_online_gv,42,0.5977694444444446,0.03333333333333333,nan,16,600,600
+vitaldb,head_nodp,loss,43,0.565736111111111,0.01,nan,16,600,600
+vitaldb,head_nodp,lira_offline,43,0.6112972222222222,0.028333333333333332,nan,16,600,600
+vitaldb,head_nodp,lira_online,43,0.5630444444444445,0.018333333333333333,nan,16,600,600
+vitaldb,head_nodp,lira_online_gv,43,0.6161166666666666,0.03,nan,16,600,600
+vitaldb,head_nodp,loss,44,0.5750097222222222,0.01,nan,16,600,600
+vitaldb,head_nodp,lira_offline,44,0.6285555555555555,0.03333333333333333,nan,16,600,600
+vitaldb,head_nodp,lira_online,44,0.5773,0.028333333333333332,nan,16,600,600
+vitaldb,head_nodp,lira_online_gv,44,0.5993888888888889,0.035,nan,16,600,600

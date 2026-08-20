@@ -1,0 +1,601 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>HFL Experiment Log</title>
+<style>
+@page { size: A4; margin: 15mm 13mm 14mm 13mm; }
+body { font-family: "Times New Roman", Times, serif; font-size: 9.5pt; line-height: 1.28;
+       color: #111; margin: 0; text-align: justify; }
+.cols { column-count: 2; column-gap: 6mm; }
+.full { column-span: all; -webkit-column-span: all; }
+.titleblock { column-span: all; text-align: center; border-bottom: 2.5pt solid #14375e;
+              padding-bottom: 6pt; margin-bottom: 10pt; }
+.titleblock h1 { font-size: 18pt; margin: 0 0 4pt 0; color: #14375e; line-height: 1.2; }
+.titleblock .sys { font-size: 10.5pt; font-style: italic; color: #444; margin-bottom: 6pt; }
+.titleblock .meta { font-size: 8.5pt; color: #333; line-height: 1.4; }
+h2.parthead { column-span: all; -webkit-column-span: all; font-size: 12pt;
+     background: #14375e; color: #fff; border: none; padding: 5pt 8pt; margin: 13pt 0 8pt 0;
+     letter-spacing: .8pt; }
+h3 { font-size: 10pt; color: #14375e; margin: 10pt 0 3pt 0; break-after: avoid;
+     border-bottom: 0.8pt solid #a8bdd2; padding-bottom: 1.5pt; }
+h3 .eid { background: #14375e; color: #fff; padding: 1pt 5pt; margin-right: 5pt;
+          font-size: 8.5pt; border-radius: 2pt; }
+p { margin: 0 0 4pt 0; }
+ul { margin: 0 0 5pt 0; padding-left: 13pt; }
+li { margin-bottom: 2pt; }
+table { border-collapse: collapse; width: 100%; font-size: 7.9pt; margin: 4pt 0 6pt 0;
+        break-inside: avoid; }
+table.full { font-size: 8.3pt; }
+th { background: #14375e; color: #fff; border: 0.5pt solid #14375e; padding: 3pt 4pt;
+     text-align: left; }
+td { border: 0.5pt solid #9bb0c4; padding: 2.6pt 4pt; vertical-align: top; }
+tr:nth-child(even) td { background: #f2f6fa; }
+td.c, th.c { text-align: center; }
+.pass { color: #14652f; font-weight: bold; }
+.fail { color: #9c1c1c; font-weight: bold; }
+.warn { color: #8a5a00; font-weight: bold; }
+.concl { border-left: 3pt solid #14652f; background: #edf6ef; padding: 4pt 7pt;
+         margin: 4pt 0 7pt 0; break-inside: avoid; font-size: 9pt; }
+.concl .lbl { font-variant: small-caps; font-weight: bold; color: #14652f;
+              letter-spacing: .5pt; margin-right: 4pt; }
+.concl.neg { border-left-color: #9c1c1c; background: #fbeeee; }
+.concl.neg .lbl { color: #9c1c1c; }
+.concl.mid { border-left-color: #8a5a00; background: #fdf6e8; }
+.concl.mid .lbl { color: #8a5a00; }
+.cfg { font-size: 8.2pt; color: #444; background: #f4f6f8; border-left: 2pt solid #c3d0dd;
+       padding: 3pt 6pt; margin: 3pt 0 5pt 0; }
+.caption { font-size: 7.7pt; color: #555; font-style: italic; margin: -3pt 0 6pt 0; }
+.small { font-size: 8.2pt; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="titleblock">
+  <h1>Complete Experiment Log</h1>
+  <div class="sys">Every Experiment Run &mdash; Configuration, Results and Conclusion</div>
+  <div class="meta">
+    Research Dossier Part 3 &middot; Hierarchical Federated Learning for Privacy-Aware,
+    Low-Latency Multimodal IoT Systems (PP-HFM)<br>
+    <b>Samartha H V</b> (251580130019) &middot; Guide: Dr. Shreyas J &middot; Industry: Mr. Tejas J<br>
+    Manipal Institute of Technology Bengaluru, MAHE &middot; 20 August 2026
+  </div>
+</div>
+
+<div class="cols">
+<p><b>How to read this document.</b> Experiments appear in the order they were run.
+Each entry states what was being tested, the configuration, the measured result, and
+the conclusion drawn. Conclusions are colour-coded: green where the experiment
+supported its hypothesis, red where it refuted it, amber where the outcome was
+inconclusive or mixed. Every number is traced to a file in
+<code>SIMULATORS/results/</code>. Section 6 lists experiments that have <i>not</i> been
+run, so the record is complete in both directions.</p>
+</div>
+
+<h2 class="parthead">1 &nbsp;&mdash;&nbsp; Phase 4: Simulation Infrastructure</h2>
+<div class="cols">
+
+<h3><span class="eid">E1</span>NS-3 Packet-Level Network Simulation</h3>
+<p><b>Tests:</b> whether the hierarchical topology actually reduces uplink traffic and
+round latency when payloads traverse a simulated network, rather than being computed
+analytically.</p>
+<div class="cfg">NS-3 v3.46.1 &middot; 9 IoT devices, 2 edge servers, 1 cloud &middot;
+device&rarr;edge 54 Mbps, edge&rarr;cloud 1 Gbps at 5 ms &middot; LogDistance propagation,
+5 Mbps background traffic &middot; artifacts <code>ns3_results_{vitaldb,wear}.csv</code>,
+<code>ns3_phase5_{vitaldb,wear}.csv</code></div>
+<table>
+<tr><th>Quantity</th><th class="c">VitalDB</th><th class="c">WEAR</th></tr>
+<tr><td>Round uplink time</td><td class="c">33.97 s</td><td class="c">&mdash;</td></tr>
+<tr><td>Round downlink time</td><td class="c">26.85 s</td><td class="c">&mdash;</td></tr>
+<tr><td>Round latency, flat &rarr; hierarchical</td><td class="c">90.5 &rarr; 75.2 ms</td><td class="c">104.5 &rarr; 81.8 ms</td></tr>
+<tr><td>Latency reduction</td><td class="c pass">16.93&thinsp;%</td><td class="c pass">21.68&thinsp;%</td></tr>
+<tr><td>Per-update reliability (2 hops)</td><td class="c pass">100&thinsp;%</td><td class="c pass">99.94&thinsp;%</td></tr>
+</table>
+<div class="concl"><span class="lbl">Conclusion</span> The edge tier reduces both traffic
+and round latency under packet-level measurement. Every network figure in this project
+comes from rounds where the payload actually traversed the topology &mdash; before this
+simulator was built, reported &ldquo;NS-3 results&rdquo; were the script's analytical
+fallback.</div>
+
+<h3><span class="eid">E2</span>CloudSim Plus Compute and Energy Simulation</h3>
+<p><b>Tests:</b> energy cost per training round for centralised versus hierarchical
+federated learning.</p>
+<div class="cfg">CloudSim Plus v8.5.6 &middot; IoT 300 MIPS / 512 MB / 1&ndash;3 W &middot;
+edge 8000 MIPS / 16 GB / 50&ndash;200 W &middot; GPU overhead modelled on edge servers only
+&middot; <code>cloudsim_results_{vitaldb,wear}.csv</code></div>
+<table>
+<tr><th>Scenario</th><th class="c">Total energy / round</th><th class="c">Uplink</th></tr>
+<tr><td>CentralizedFL</td><td class="c">1266.25 J</td><td class="c">73.85 MB</td></tr>
+<tr><td>HFL_Proposed</td><td class="c pass">&minus;72.3&thinsp;% (VitalDB)</td><td class="c">see E10</td></tr>
+<tr><td>HFL_Proposed</td><td class="c pass">&minus;76.8&thinsp;% (WEAR)</td><td class="c">see E10</td></tr>
+</table>
+<div class="concl"><span class="lbl">Conclusion</span> Energy saving of 72.3&thinsp;% and
+76.8&thinsp;% against a 20&thinsp;% target. <b>This is the energy figure to quote.</b> A
+second figure of 93.5&thinsp;% exists from a linear bytes&rarr;Joules proxy, but under
+that model it is arithmetically identical to communication reduction and is not an
+independent energy measurement.</div>
+
+</div>
+
+<h2 class="parthead">2 &nbsp;&mdash;&nbsp; Phase 5: Model, Privacy and Deployment</h2>
+<div class="cols">
+
+<h3><span class="eid">E3</span>Encoder Pretraining &mdash; Proxy vs Rigorous</h3>
+<p><b>Tests:</b> the cost of the disjointness condition that makes parameter-efficient
+private training valid. If encoders are pretrained on data the clients also train on,
+&epsilon; does not hold end-to-end.</p>
+<div class="cfg">30 epochs, <code>--deterministic</code> &middot; proxy mode = pooled FL
+train indices; rigorous mode = disjoint public split via <code>--public_data</code></div>
+<table>
+<tr><th>Mode</th><th class="c">Effect on AUROC</th><th class="c">Privacy validity</th></tr>
+<tr><td>Proxy / oracle</td><td class="c">baseline</td><td class="c fail">&epsilon; NOT valid end-to-end</td></tr>
+<tr><td>Rigorous public split</td><td class="c warn">&minus;0.022</td><td class="c pass">valid</td></tr>
+</table>
+<div class="concl mid"><span class="lbl">Conclusion</span> A valid end-to-end guarantee
+costs <b>0.022 AUROC</b>. That gap is the quantity to report &mdash; not the proxy number
+alone. Determinism was verified: with the flag two runs of a seed are byte-identical;
+without it they diverge (epoch-1 loss 1.5699 vs 1.5713), and checkpoint selection can
+land on a different epoch.</div>
+
+<h3><span class="eid">E4</span>Baseline Suite B0&ndash;B5</h3>
+<p><b>Tests:</b> where the proposed system sits against standard federated and
+centralised methods.</p>
+<div class="cfg">No frozen encoders, trained from scratch &middot;
+<code>baselines/baselines_summary.csv</code></div>
+</div>
+
+<table class="full">
+<tr><th>Baseline</th><th class="c">Test accuracy</th><th class="c">Test macro-AUC</th><th>Note</th></tr>
+<tr><td>B0 &mdash; Centralized</td><td class="c">0.5787</td><td class="c">0.8211</td><td>Upper reference for pooled data</td></tr>
+<tr><td>B1 &mdash; Local-Only</td><td class="c">0.4532</td><td class="c">0.7511</td><td>Lower reference, no collaboration</td></tr>
+<tr><td>B2 &mdash; FedAvg</td><td class="c">0.6543</td><td class="c">0.8795</td><td>Best non-private baseline</td></tr>
+<tr><td>B3 &mdash; FedProx</td><td class="c">0.6570</td><td class="c">0.8747</td><td>No advantage over FedAvg here</td></tr>
+<tr><td><b>B4 &mdash; DP-FedAvg</b> (&epsilon;&nbsp;&asymp;&nbsp;1)</td><td class="c fail">0.2159</td><td class="c fail">0.6443</td><td><b>Collapses.</b> The like-for-like DP reference</td></tr>
+<tr><td>B5 &mdash; MOON</td><td class="c">0.3934</td><td class="c">0.7418</td><td>Underperforms on this task</td></tr>
+</table>
+<p class="caption full">B4 is the critical row: applying DP the conventional way at the same budget destroys the model. That is what makes the head-only result in E5 meaningful. <b>These baselines are not a fair comparator for the &epsilon;=1 head-only number</b> &mdash; they train from scratch, while the proposed runs start from pretrained encoders. The only valid comparator is the &epsilon;=&infin; arm of the same architecture.</p>
+
+<div class="cols">
+
+<h3><span class="eid">E5</span>Head-Only DP Fine-Tuning &mdash; the &epsilon;=1 Collapse Fix</h3>
+<p><b>Tests:</b> whether freezing the encoders and privatising only the fusion head makes
+&epsilon;&nbsp;&le;&nbsp;1 usable, when end-to-end DP-SGD at the same budget produces a
+random model.</p>
+<div class="cfg">20 rounds, 5 edge rounds &middot; &delta;=1e-5, C=1.0 &middot; head =
+560,645 / 2,157,766 params (26.0&thinsp;%) &middot; 3 seeds</div>
+<table>
+<tr><th>Recipe</th><th class="c">&sigma;</th><th class="c">Test AUC</th><th class="c">Round time</th></tr>
+<tr><td>End-to-end DP-SGD</td><td class="c">11.3281</td><td class="c fail">0.562</td><td class="c">1046 s</td></tr>
+<tr><td><b>Head-only DP fine-tuning</b></td><td class="c">11.3281</td><td class="c pass">0.8742 &plusmn; 0.0072</td><td class="c">50 s</td></tr>
+</table>
+<div class="concl"><span class="lbl">Conclusion</span> <b>The noise was never the problem
+&mdash; &sigma; is identical in both rows.</b> What changed is optimisation geometry: a
+near-linear probe over frozen pretrained features tolerates &sigma;&asymp;11.3, while
+training from scratch does not. Also ~20&times; faster per round. This finding reframes
+the standard &ldquo;DP destroys utility&rdquo; complaint.
+<span class="small">(Figures from the legacy corpus later withdrawn &mdash; the mechanism
+transferred and is confirmed on VitalDB by E8.)</span></div>
+
+<h3><span class="eid">E6</span>&epsilon; Sweep &mdash; End-to-End Recipe <span class="small">(superseded)</span></h3>
+<p><b>Tests:</b> utility across budgets under the original end-to-end recipe.</p>
+<div class="concl neg"><span class="lbl">Conclusion</span> Characterises the <i>broken</i>
+recipe. Retained only as the &ldquo;without our fix&rdquo; arm. <b>Must not be presented
+as the proposed method</b> &mdash; see <code>epsilon_sweep/README</code>.</div>
+
+<h3><span class="eid">E7</span>&epsilon; Sweep &mdash; Rigorous Head Recipe</h3>
+<p><b>Tests:</b> where the utility floor actually lies, now that &epsilon;=1 costs nothing
+measurable. Swept downward as well as up.</p>
+<div class="cfg">&epsilon; &isin; {0.5, 1, 2, 4, 8, &infin;} &middot; 10 rounds, head recipe
+&middot; <code>epsilon_sweep_rigorous/vitaldb/</code></div>
+<table>
+<tr><th class="c">&epsilon;</th><th class="c">&sigma;</th><th class="c">AUROC</th><th class="c">AUPRC</th></tr>
+<tr><td class="c">0.5</td><td class="c">5.92</td><td class="c">0.8287</td><td class="c">0.5110</td></tr>
+<tr><td class="c">1</td><td class="c">3.24</td><td class="c">0.8319</td><td class="c">0.5464</td></tr>
+<tr><td class="c">2</td><td class="c">1.88</td><td class="c">0.8323</td><td class="c">0.5381</td></tr>
+<tr><td class="c">4</td><td class="c">1.21</td><td class="c">0.8356</td><td class="c">0.5590</td></tr>
+<tr><td class="c">8</td><td class="c">0.85</td><td class="c">0.8342</td><td class="c">0.5544</td></tr>
+<tr><td class="c">&infin;</td><td class="c">&mdash;</td><td class="c fail">0.8158</td><td class="c fail">0.5204</td></tr>
+</table>
+<div class="concl"><span class="lbl">Conclusion</span> Utility is <b>flat from
+&epsilon;=0.5 to &epsilon;=8</b>, and every private arm <i>beats</i> the non-private one.
+DP is acting as a regulariser on this task. The utility floor is below &epsilon;=0.5,
+i.e. lower than the budget the system actually ships at.</div>
+
+<h3><span class="eid">E8</span>Objective 2b &mdash; Multi-Seed Accuracy Cost</h3>
+<p><b>Tests:</b> the accuracy cost of &epsilon;=1 against a same-architecture non-private
+comparator, with enough seeds to put an interval on it.</p>
+<div class="cfg">30 rounds, head recipe, paired seeds &middot; VitalDB n=5, WEAR n=15
+(both pre-registered) &middot; <code>o2b_multiseed/</code></div>
+<table>
+<tr><th>Dataset</th><th class="c">Cost (pp)</th><th class="c">95&thinsp;% CI</th><th class="c">Verdict</th></tr>
+<tr><td>VitalDB</td><td class="c">&minus;0.92</td><td class="c">[&minus;2.82, +0.99]</td><td class="c pass">PASS</td></tr>
+<tr><td>WEAR</td><td class="c">1.967</td><td class="c">[1.760, 2.173]</td><td class="c warn">INCONCLUSIVE</td></tr>
+</table>
+<div class="concl mid"><span class="lbl">Conclusion</span> VitalDB: <b>no measurable
+cost</b> &mdash; the point estimate is slightly negative. The defensible claim is
+&ldquo;no measurable cost, bounded by the interval&rdquo;, not &ldquo;zero cost&rdquo;.
+WEAR: the interval <b>straddles the 2 pp threshold</b>, so the objective can be neither
+passed nor failed. The seed count was pre-registered at 15 and <b>deliberately not
+extended</b> &mdash; extending it after seeing the result would be p-hacking.</div>
+
+<h3><span class="eid">E9</span>SADP &mdash; Adaptive Per-Group Privacy Budget</h3>
+<p><b>Tests:</b> whether splitting the budget across groups beats a uniform allocation at
+equal total &epsilon;.</p>
+<div class="concl neg"><span class="lbl">Conclusion &mdash; NEGATIVE</span> It runs
+correctly and <b>underperforms uniform DP by construction</b>. The cross-group
+composition tax drives &sigma; from 11.3 to <b>70</b>. Retained as a characterised
+negative result, not a claimed contribution. The transferable lesson: splitting a budget
+across groups is paid for at a punitive rate under composition.</div>
+
+<h3><span class="eid">E10</span>Gradient Compression and Uplink Measurement</h3>
+<p><b>Tests:</b> actual bytes on the wire under top-<i>k</i> sparsification plus 8-bit
+quantisation with error feedback.</p>
+<div class="cfg">top-20&thinsp;% sparsity &times; 8-bit &rarr; 20&times; nominal &middot;
+error-feedback accumulator &middot; <code>uplink_measured_*.json</code></div>
+<table>
+<tr><th>Measurement</th><th class="c">Bytes / round</th></tr>
+<tr><td>Full-model FP32 FedAvg</td><td class="c">258,931,920</td></tr>
+<tr><td>Head-only, uncompressed</td><td class="c">67,277,400</td></tr>
+<tr><td><b>Observed, post-fix</b></td><td class="c pass"><b>16,821,300</b></td></tr>
+</table>
+<p class="small"><b>Defect found and fixed:</b> the compressor took a fixed
+<code>k = numel &times; sparsity</code> of <i>every</i> tensor, so frozen encoders &mdash;
+whose delta is exactly zero &mdash; contributed 20&thinsp;% of their elements as explicit
+zeros. Omitting all-zero tensors accounted for a 78.87&thinsp;% reduction on its own.</p>
+<div class="concl"><span class="lbl">Conclusion</span> Uplink reduction <b>90.82&thinsp;%
+(VitalDB)</b> and <b>96.08&thinsp;% (WEAR)</b> against a 50&thinsp;% target. The fix was
+proven not to alter learning: the dense path is <b>bit-identical</b> to the previous
+implementation over 5 rounds, and an isolated re-run moved AUC by 0.0001.</div>
+
+<h3><span class="eid">E11</span>ONNX Export and Inference Latency</h3>
+<p><b>Tests:</b> end-to-end serving latency of the deployable artifact, including the
+conformal prediction step.</p>
+<div class="cfg">1000 timed runs after 100 warmup, batch 1 &middot; path = preprocessing
+&rarr; ONNX forward &rarr; conformal set &rarr; serialise &middot;
+<code>inference_latency/latency_summary.csv</code></div>
+</div>
+
+<table class="full">
+<tr><th>Precision</th><th>Provider</th><th class="c">Model</th><th class="c">Inference P95</th><th class="c">Conformal</th><th class="c">Total P95</th><th class="c">QoS</th></tr>
+<tr><td>FP32</td><td>CPU</td><td class="c">10.64 MB</td><td class="c">13.259</td><td class="c">0.079</td><td class="c pass">16.363 ms</td><td class="c pass">PASS</td></tr>
+<tr><td>FP32</td><td>GPU (CUDA)</td><td class="c">10.64 MB</td><td class="c">20.088</td><td class="c">0.096</td><td class="c pass">22.476 ms</td><td class="c pass">PASS</td></tr>
+<tr><td>INT8</td><td>CPU</td><td class="c">6.55 MB</td><td class="c">27.877</td><td class="c">0.090</td><td class="c warn">31.028 ms</td><td class="c pass">PASS</td></tr>
+<tr><td>INT8</td><td>GPU (CUDA)</td><td class="c">6.55 MB</td><td class="c">70.020</td><td class="c">0.112</td><td class="c warn">73.150 ms</td><td class="c pass">PASS</td></tr>
+</table>
+<p class="caption full">All times ms. The headline objective figure of <b>4.58 ms P95 (VitalDB)</b> and <b>1.22 ms (WEAR)</b> comes from the final objective run on the current corpora; the table above is the four-way precision/provider comparison.</p>
+
+<div class="cols">
+<div class="concl"><span class="lbl">Conclusion</span> Objective 3 passes in every
+configuration. Two findings matter beyond the pass. <b>First, the privacy apparatus is
+free at serving time</b>: conformal occupies 0.68&thinsp;% of the path and the DP
+mechanism occupies none, because its noise is applied to gradients during training. The
+objection that privacy is too heavy for a latency-bound deployment is answered by
+measurement. <b>Second, INT8 is counterproductive</b> &mdash; see E12.</div>
+
+<h3><span class="eid">E12</span>INT8 Quantisation for Edge Deployment</h3>
+<p><b>Tests:</b> the prescribed INT8 export, expected to be faster and smaller.</p>
+<div class="concl neg"><span class="lbl">Conclusion &mdash; NEGATIVE</span> INT8 is
+<b>1.90&times; slower on CPU and 3.25&times; slower on GPU</b> than FP32, and misses the
+4 MB size target at 6.55 MB. Two independent causes were identified: dynamic quantisation
+only accelerates MatMul/Gemm, while this model's cost is dominated by convolutions and a
+recurrent path; and on CUDA the quantised ops have no GPU kernel and fall back to CPU
+&mdash; the runtime reports <b>3180 Memcpy nodes</b> inserted, which is exactly the
+3.25&times; penalty. <b>Deploy the FP32 artifact.</b> If size later matters more than
+latency, the correct lever is static/QDQ quantisation or quantisation-aware training.</div>
+
+<h3><span class="eid">E13</span>Patient-Level vs Record-Level DP</h3>
+<p><b>Tests:</b> the utility cost of stating the guarantee over patients rather than
+training records.</p>
+<div class="cfg">Both arms at matched budget &middot; 5 seeds &middot;
+<code>patient_dp/vitaldb/</code> &middot; VitalDB: 48,712 windows / 6,257 cases, mean 7.79
+windows per case, <b>100&thinsp;% of cases contribute more than one window</b></div>
+<div class="concl"><span class="lbl">Conclusion</span> The upgrade is priced at
+<b>1.77&times; &sigma;</b>. Because every patient contributes more than one record, a
+record-level and a patient-level guarantee are different statements for <i>every
+individual in the dataset</i> &mdash; this is the premise the whole project rests on, and
+it is measured, not assumed.</div>
+
+<h3><span class="eid">E14</span>Membership Inference &mdash; Loss Threshold Sweep</h3>
+<p><b>Tests:</b> the pre-registered hypothesis N-A, that record-level DP leaves patients
+exposed while patient-level DP defends them. Predicted &asymp;0.70 vs &asymp;0.50.</p>
+<div class="cfg">Patient-aggregated loss threshold &middot; &epsilon; &isin; {1, 4, 8}
+&middot; <code>mia_vitaldb*.csv</code></div>
+<table>
+<tr><th class="c">&epsilon;</th><th class="c">record-DP</th><th class="c">patient-DP</th><th class="c">gap</th></tr>
+<tr><td class="c">1</td><td class="c">0.5461</td><td class="c">0.5374</td><td class="c">+0.0087</td></tr>
+<tr><td class="c">4</td><td class="c">0.5512</td><td class="c">0.5417</td><td class="c">+0.0095</td></tr>
+<tr><td class="c">8</td><td class="c">0.5459</td><td class="c">0.5430</td><td class="c">+0.0030</td></tr>
+</table>
+<div class="concl neg"><span class="lbl">Conclusion</span> Against a predicted gap of
+&asymp;0.20, the measured gap is under 0.01 at every budget. But a loss threshold is the
+weakest attack in the literature and its AUC is only a <b>lower bound</b> on leakage, so
+this null was <b>not reportable on its own</b>. That is what motivated E16.</div>
+
+<h3><span class="eid">E15</span>MIA Factorial &mdash; Leakage by Recipe</h3>
+<p><b>Tests:</b> which training recipe leaks, independent of the privacy unit.</p>
+<table>
+<tr><th>Recipe</th><th class="c">Attack AUC</th><th class="c">member / non-member loss</th></tr>
+<tr><td>full-model, no DP</td><td class="c">0.5122</td><td class="c">1.81 / 2.31</td></tr>
+<tr><td><b>head-only, no DP</b></td><td class="c fail"><b>0.5847</b></td><td class="c">0.013 / 4.95</td></tr>
+<tr><td>full-model, DP</td><td class="c">0.5206</td><td class="c">6.93 / 7.46</td></tr>
+</table>
+<div class="concl mid"><span class="lbl">Conclusion &mdash; UNEXPECTED</span>
+<b>Leakage is a property of the recipe, not the task.</b> Head-only fine-tuning &mdash;
+<i>our own recipe</i> &mdash; memorises members far harder than full-model training
+(p=1e&minus;9, sd 0.0018 over 6 runs). This is a genuine caveat to the
+parameter-efficient DP fine-tuning literature and became claim N-A&prime; when N-A
+failed.</div>
+
+<h3><span class="eid">E16</span>LiRA &mdash; Likelihood-Ratio Attack at &epsilon;=1</h3>
+<p><b>Tests:</b> N-A again, under the strongest available attack, with a
+<b>pre-registered gate</b>: the attack had to exceed 0.5847 on a model known to memorise,
+or its nulls would be inadmissible.</p>
+<div class="cfg">3 arms &times; 16 shadow models &middot; per-patient IN/OUT Gaussians
+&middot; identical splits (<code>--split_seed 7</code>) &middot; 5 paired seeds &middot;
+600 members + 600 non-members</div>
+</div>
+
+<table class="full">
+<tr><th>Arm</th><th class="c">Best attack AUC (95&thinsp;% CI)</th><th class="c">Via</th><th class="c">Difficulty floor (E17)</th><th class="c">Margin</th></tr>
+<tr><td><b>Positive control</b> &mdash; head-only, no DP</td><td class="c"><b>0.6277</b> [0.5905, 0.6649]</td><td class="c">lira_offline</td><td class="c">0.5626</td><td class="c pass">+0.0627</td></tr>
+<tr><td>Record-level DP</td><td class="c">0.5477 [0.4876, 0.6079]</td><td class="c">lira_offline</td><td class="c">0.5252</td><td class="c">+0.0226</td></tr>
+<tr><td>Patient-level DP</td><td class="c">0.5224 [0.5175, 0.5274]</td><td class="c">loss threshold</td><td class="c">0.5167</td><td class="c">+0.0057</td></tr>
+</table>
+
+<table class="full">
+<tr><th>Attack variant</th><th class="c">Paired &Delta; (record &minus; patient)</th><th class="c">95&thinsp;% CI</th><th class="c">p</th></tr>
+<tr><td>loss threshold</td><td class="c">+0.0138</td><td class="c">[&minus;0.0034, +0.0310]</td><td class="c">0.090</td></tr>
+<tr><td>lira_offline</td><td class="c">+0.0325</td><td class="c">[&minus;0.0280, +0.0929]</td><td class="c">0.210</td></tr>
+<tr><td>lira_online</td><td class="c">+0.0034</td><td class="c">[&minus;0.0059, +0.0128]</td><td class="c">0.365</td></tr>
+<tr><td>lira_online_gv</td><td class="c">&minus;0.0211</td><td class="c">[&minus;0.0487, +0.0065]</td><td class="c">0.101</td></tr>
+</table>
+
+<div class="cols">
+<div class="concl neg"><span class="lbl">Conclusion &mdash; N-A REFUTED</span>
+<b>Every CI includes zero.</b> The control cleared its gate (+0.0513 over plain
+thresholding), so the null is a statement about the models, not a failing attack. State
+it precisely: <b>the large predicted effect (&Delta;&asymp;0.20) is refuted; a small
+effect is unresolved at n=5</b> (half-width &plusmn;0.060). Never write &ldquo;there is
+no effect&rdquo;. Supporting diagnostic: on the patient arm LiRA <i>adds nothing</i>
+(&minus;0.0071, plain loss wins) &mdash; the signature of a defence with no
+difficulty-confounded signal left.</div>
+
+<h3><span class="eid">E17</span>Difficulty Floor &mdash; Confound Control</h3>
+<p><b>Tests:</b> whether the MIA evaluation split is difficulty-balanced. Ranks patients
+by shadow-model difficulty alone, <b>using no target model at all</b>. Shadow membership
+is randomised over the whole patient universe, so a balanced split must score 0.5.</p>
+<div class="cfg">Added 2026-08-20 &middot; computed from shadow scores already on disk, no
+retraining &middot; <code>mia_difficulty_floor.py</code>,
+<code>mia_difficulty_floor_vitaldb.csv</code></div>
+<table>
+<tr><th>Arm</th><th class="c">Floor</th><th class="c">Attack</th><th class="c">Margin</th></tr>
+<tr><td>head_nodp (control)</td><td class="c">0.5626</td><td class="c">0.6254</td><td class="c pass">+0.0627</td></tr>
+<tr><td>record-DP, &epsilon;=1</td><td class="c">0.5252</td><td class="c">0.5477</td><td class="c">+0.0226</td></tr>
+<tr><td>patient-DP, &epsilon;=1</td><td class="c">0.5167</td><td class="c">0.5224</td><td class="c">+0.0057</td></tr>
+<tr><td>record-DP, &epsilon;=16</td><td class="c">0.5743</td><td class="c">0.5465</td><td class="c fail">&minus;0.0278</td></tr>
+</table>
+<div class="concl"><span class="lbl">Conclusion &mdash; METHODOLOGICAL</span>
+Members are drawn from released train patients and non-members from released test
+patients, and <b>those pools differ in intrinsic difficulty</b> (mean phi 10.25 vs 7.71).
+An attack is therefore rewarded for detecting difficulty, not membership. <b>Every MIA
+AUC must be read against its floor, not against 0.5.</b> The control still clears its
+floor, so the audit remains valid &mdash; but the refutation of N-A is <b>firmer</b> than
+first reported, because less of the apparent leakage was real. Floors differ per arm
+because better-fitting models separate easy from hard patients more sharply.</div>
+
+<h3><span class="eid">E18</span><i>k</i>-Scaling Law &mdash; the Headline Result</h3>
+<p><b>Tests:</b> whether the cost of a patient-level guarantee is a fixed penalty or a
+function of how many records each patient contributes.</p>
+<div class="cfg">All 24 configurations: <i>k</i> &isin; {1,2,4,8} &times; 3 seeds &times;
+2 arms &middot; per-step budget and units-per-step held constant &middot;
+<code>k_scaling/vitaldb/k_scaling_vitaldb.csv</code></div>
+</div>
+
+<table class="full">
+<tr><th class="c"><i>k</i></th><th class="c">Sample arm AUPRC</th><th class="c">Patient arm AUPRC</th><th class="c">Gap</th><th class="c">95&thinsp;% CI</th><th class="c">p</th></tr>
+<tr><td class="c">1</td><td class="c">0.5015</td><td class="c">0.5067</td><td class="c">&minus;0.0052</td><td class="c">[&minus;0.0664, +0.0561]</td><td class="c">0.75</td></tr>
+<tr><td class="c">2</td><td class="c">0.5590</td><td class="c">0.5084</td><td class="c pass">+0.0507</td><td class="c">[+0.0417, +0.0596]</td><td class="c">0.0017</td></tr>
+<tr><td class="c">4</td><td class="c">0.5924</td><td class="c">0.5092</td><td class="c pass">+0.0832</td><td class="c">[+0.0694, +0.0971]</td><td class="c">0.0015</td></tr>
+<tr><td class="c">8</td><td class="c">0.5955</td><td class="c">0.5089</td><td class="c pass">+0.0866</td><td class="c">[+0.0603, +0.1129]</td><td class="c">0.0049</td></tr>
+</table>
+
+<div class="cols">
+<div class="concl"><span class="lbl">Conclusion &mdash; THE CORE FINDING</span>
+The cost is <b>a curve in <i>k</i>, not a number</b>: zero at <i>k</i>=1, growing
+monotonically, saturating by <i>k</i>=8. <b>The experiment carries its own positive
+control</b>: at <i>k</i>=1 a patient <i>is</i> a record, so the two guarantees are
+identical and the arms must collapse &mdash; they do (p=0.75). The mechanism is
+<b>asymmetric and must be stated that way</b>: the patient arm is flat in <i>k</i>
+(0.4967&ndash;0.5176 throughout) while the sample arm rises (0.5015&rarr;0.5955). The
+widening gap is the sample arm improving, not the patient arm degrading &mdash; extra
+records per patient buy the patient arm nothing, because noise scales with the patient's
+total contribution.
+<br><br><b>Honest limits:</b> AUROC shows the same monotone shape (+0.0006 &rarr; +0.0094
+&rarr; +0.0133 &rarr; +0.0132) but <b>no <i>k</i> reaches significance</b>. Report AUPRC
+as the resolving metric and AUROC as directionally consistent but underpowered at n=3.
+Accuracy is pinned at 0.8005 in every patient row &mdash; an uncalibrated 0.5 threshold on
+imbalanced data, <b>do not quote it</b>.</div>
+
+<h3><span class="eid">E19</span>Modality Ablation &mdash; Does Fusion Help?</h3>
+<p><b>Tests:</b> whether combining two genuinely paired modalities beats the better single
+modality.</p>
+<div class="cfg">8 epochs &middot; VitalDB 5 seeds (34,044 train / 7,360 test), WEAR 2
+seeds &middot; <code>ablation_{vitaldb,wear}.json</code></div>
+<table>
+<tr><th>Arm</th><th class="c">VitalDB AUROC</th><th class="c">WEAR AUROC</th></tr>
+<tr><td>A only (signals / inertial)</td><td class="c">0.8283 &plusmn; 0.0062</td><td class="c">0.9976</td></tr>
+<tr><td>B only (clinical / video)</td><td class="c">0.7680 &plusmn; 0.0033</td><td class="c">0.9957</td></tr>
+<tr><td><b>Fused</b></td><td class="c pass">0.8653 &plusmn; 0.0052</td><td class="c">0.9980</td></tr>
+<tr><td>Gain over best unimodal</td><td class="c pass">+0.0370</td><td class="c fail">+0.0004</td></tr>
+</table>
+<div class="concl mid"><span class="lbl">Conclusion &mdash; MIXED</span>
+VitalDB: fusion beats the better modality by <b>5.9&times; the seed sd</b>. Gap #1
+demonstrated. <b>WEAR cannot corroborate it</b> &mdash; its best single modality already
+reaches 0.9976, so the task has no headroom and the script's own verdict reads
+&ldquo;CEILING&rdquo;. Reported as a finding rather than hidden: <b>on some IoT tasks one
+modality suffices, so multimodal FL is not universally motivated.</b>
+<br><br><b>Correction on record:</b> at 2 seeds the gain read +0.0411 AUROC / +0.1062
+AUPRC. At 5 seeds it is +0.0370 / +0.0671 &mdash; AUPRC fell <b>37&thinsp;%</b>. The
+conclusion holds but the 2-seed figure was seed-lucky. <b>Quote only the 5-seed
+numbers.</b></div>
+
+<h3><span class="eid">E20</span>Feature Attribution &mdash; What the Model Uses</h3>
+<p><b>Tests:</b> which inputs drive predictions, and whether privacy changes that.</p>
+<div class="cfg">Integrated gradients, midpoint rule, 64 steps, completeness
+6.06&thinsp;% &middot; 20 runs across 5 recipes &times; 2 baselines, plus a separate
+seed-stability check</div>
+<table>
+<tr><th>Recipe</th><th class="c">Mask share of attribution</th></tr>
+<tr><td>full_dp</td><td class="c">28.2&thinsp;%</td></tr>
+<tr><td>patient-DP</td><td class="c">22.0&thinsp;%</td></tr>
+<tr><td>sample-DP</td><td class="c">21.6&thinsp;%</td></tr>
+<tr><td>full_nodp</td><td class="c">19.9&thinsp;%</td></tr>
+<tr><td>head_nodp</td><td class="c">15.8&thinsp;%</td></tr>
+</table>
+<div class="concl"><span class="lbl">Conclusion</span> <b>Differential privacy shifts the
+model's attention toward missingness.</b> Under noise the model leans more on <i>which
+measurements exist</i> than on their values, monotonically with how much DP is applied.
+Rank correlation stays &rho;=0.95 head-only private vs not.
+<br><br><b>Evidence, not proof</b>, for the related claim N-7: masks carry 22.0&thinsp;%
+of attribution mass over 5 seeds and <code>ART_MBP_observed</code> is 4.99&thinsp;%
+&plusmn; 0.33, top-5 on 4 of 5 seeds. Say <b>&ldquo;consistently among the
+strongest&rdquo;, not &ldquo;#2&rdquo;</b>. Needs the mask ablation to become proof.</div>
+
+<h3><span class="eid">E21</span>Objective Verification O1&ndash;O4</h3>
+<p><b>Tests:</b> all quantified objectives, resolved from measured artifacts with no
+hardcoded values.</p>
+</div>
+
+<table class="full">
+<tr><th>Objective</th><th class="c">Target</th><th class="c">VitalDB</th><th class="c">WEAR</th></tr>
+<tr><td>O1 Uplink reduction</td><td class="c">&ge; 50&thinsp;%</td><td class="c pass">90.82&thinsp;% PASS</td><td class="c pass">96.08&thinsp;% PASS</td></tr>
+<tr><td>O1b Round latency reduction</td><td class="c">&gt; 0&thinsp;%</td><td class="c pass">16.93&thinsp;% PASS</td><td class="c pass">21.68&thinsp;% PASS</td></tr>
+<tr><td>O2a Privacy budget (training + conformal)</td><td class="c">&epsilon; &le; 1</td><td class="c pass">0.9705 PASS</td><td class="c pass">0.9656 PASS</td></tr>
+<tr><td>O2b Accuracy loss under DP</td><td class="c">&le; 2 pp</td><td class="c pass">&minus;0.92 pp PASS</td><td class="c warn">1.967 pp INCONCLUSIVE</td></tr>
+<tr><td>O3a Inference latency P95</td><td class="c">&lt; 100 ms</td><td class="c pass">4.58 ms PASS</td><td class="c pass">1.22 ms PASS</td></tr>
+<tr><td>O3b Successful updates</td><td class="c">&gt; 99&thinsp;%</td><td class="c pass">100&thinsp;% PASS</td><td class="c pass">99.94&thinsp;% PASS</td></tr>
+<tr><td>O4 Energy saving per round</td><td class="c">&ge; 20&thinsp;%</td><td class="c pass">72.30&thinsp;% PASS</td><td class="c pass">76.84&thinsp;% PASS</td></tr>
+</table>
+<p class="caption full">VitalDB 7/7 PASS. WEAR 6 PASS + 1 INCONCLUSIVE. O2a is a <b>composed</b> budget &mdash; training 0.7705 + conformal release 0.2000 &mdash; which is stricter than the common practice of reporting training only.</p>
+
+<h2 class="parthead">3 &nbsp;&mdash;&nbsp; Phase 6: Component Ablation and Stress Testing</h2>
+<div class="cols">
+<h3><span class="eid">E22</span>Component Ablation A0&ndash;A6</h3>
+<p><b>Tests:</b> which parts of the system actually contribute. Each arm removes one
+component from the full system.</p>
+<div class="cfg">3 seeds per arm &middot; VitalDB &middot;
+<code>phase6/vitaldb/ablation.csv</code> &middot; <b>Note:</b> A1&ndash;A4 had never
+produced a result until four silent defects were fixed on 2026-08-16 &mdash; a dead
+<code>--local_epochs</code> argument, a uint8-hardcoded quantiser, a summary reading
+<code>test_*</code> from a CSV holding only <code>val_*</code>, and a 1e-4 verdict
+threshold.</div>
+</div>
+
+<table class="full">
+<tr><th>Arm</th><th>Configuration</th><th class="c">AUROC</th><th class="c">AUPRC</th><th class="c">&epsilon;</th><th class="c">Uplink</th><th>Verdict</th></tr>
+<tr><td><b>A0</b></td><td>Full system</td><td class="c">0.8541 &plusmn; 0.0035</td><td class="c">0.5960</td><td class="c">0.7705</td><td class="c">251.97 MB</td><td>Reference</td></tr>
+<tr><td>A1</td><td>No C1 &mdash; flat tier (no edge)</td><td class="c">0.8484 &plusmn; 0.0057</td><td class="c">0.5911</td><td class="c">0.7704</td><td class="c">50.40 MB</td><td>Small utility cost; uplink not comparable (flat topology counts differently)</td></tr>
+<tr><td>A2</td><td>No C2 &mdash; no DP</td><td class="c fail">0.8307 &plusmn; 0.0060</td><td class="c fail">0.5136</td><td class="c">&infin;</td><td class="c">251.97 MB</td><td><b>Removing DP makes it WORSE</b> &mdash; DP regularises</td></tr>
+<tr><td>A3</td><td>No C3 &mdash; dense (no top-<i>k</i>)</td><td class="c">0.8553 &plusmn; 0.0015</td><td class="c">0.6037</td><td class="c">0.7705</td><td class="c fail">1259.75 MB</td><td>+0.0012 AUROC for <b>5&times; the traffic</b></td></tr>
+<tr><td>A4</td><td>No C4 &mdash; float32 (no quantisation)</td><td class="c">0.8543 &plusmn; 0.0036</td><td class="c">0.5959</td><td class="c warn">403.14 MB</td><td class="c"></td><td>+0.0002 AUROC for 1.6&times; the traffic</td></tr>
+<tr><td>A5</td><td>No C5 &mdash; unimodal</td><td class="c fail">0.8283</td><td class="c fail">0.5417</td><td class="c">&mdash;</td><td class="c">&mdash;</td><td>Fusion contributes (see E19)</td></tr>
+<tr><td>A6</td><td>+ ASWA aggregation</td><td class="c">0.8542 &plusmn; 0.0037</td><td class="c">0.6019</td><td class="c">0.7705</td><td class="c">251.97 MB</td><td class="fail">+0.0005 &mdash; no contribution</td></tr>
+</table>
+
+<div class="cols">
+<div class="concl"><span class="lbl">Conclusion</span> Three results matter.
+<b>(1) A2: removing DP makes the model worse</b> (0.8307 vs 0.8541), confirming E7 &mdash;
+DP is acting as a regulariser, not a tax, on this task. <b>(2) A3 and A4 justify the
+compressor</b>: dense transmission buys +0.0012 AUROC for 5&times; the traffic, and
+float32 buys +0.0002 for 1.6&times;. Both compression stages are earning their place.
+<b>(3) A6: ASWA contributes nothing</b> (+0.0005 AUROC, accuracy actually &minus;0.0042).
+It was a leftover from a scrapped earlier design and has been <b>deleted</b>.</div>
+
+<h3><span class="eid">E23</span>NS-3 Stress Tests</h3>
+<p><b>Tests:</b> behaviour as round count and packet error rate rise.</p>
+<div class="cfg">Round sweeps r30 / r50 / r70 / r90 / r105 / r120 / r250, plus packet-error
+sweeps &middot; both datasets &middot; <code>ns3/stress*.csv</code>, 17 files</div>
+<div class="concl"><span class="lbl">Conclusion</span> The system holds across round
+counts up to 250. This sweep also exposed a <b>definition defect</b>: update reliability
+had been computed as <code>hop_success ^ n_rounds</code> &mdash; the probability that
+<i>all</i> rounds succeed &mdash; which decays with round count, so <i>any</i> system
+fails a &ldquo;&gt;99&thinsp;%&rdquo; target for a long enough run. Per-update
+reliability is 99.8001&thinsp;%; the whole-run figure is still emitted under the distinct
+name <code>run_reliability_all_rounds_pct</code>.</div>
+</div>
+
+<h2 class="parthead">4 &nbsp;&mdash;&nbsp; In Flight</h2>
+<div class="cols">
+<h3><span class="eid">E24</span>LiRA at &epsilon;=16 &mdash; the Revival Gate</h3>
+<p><b>Tests:</b> whether N-A failed because &epsilon;=1 crushed both arms to chance,
+leaving no room for a gap. At &epsilon;=16 the noise is 13&times; lower
+(&sigma; 11.33 &rarr; 0.85), so membership signal should survive if it exists.</p>
+<div class="cfg">Started 2026-08-19 &middot; 6 targets + 32 shadows &middot;
+<code>mia_epsilon_lira.py</code> &middot; log
+<code>lira_eps16_gate.log</code></div>
+<table>
+<tr><th>Stage</th><th class="c">State</th></tr>
+<tr><td>Targets (both arms, 3 seeds)</td><td class="c pass">6/6 done</td></tr>
+<tr><td>Record arm, 16 shadows</td><td class="c pass">complete</td></tr>
+<tr><td>Patient arm, 16 shadows</td><td class="c warn">running</td></tr>
+</table>
+<p><b>Record arm result:</b> best attack <b>0.5465</b> (loss threshold), against
+0.5477 at &epsilon;=1 &mdash; essentially unchanged despite 13&times; less noise. Against
+its own difficulty floor of 0.5743 the margin is <b>&minus;0.0278</b>.</p>
+<div class="concl neg"><span class="lbl">Interim conclusion</span> The
+&ldquo;no room at &epsilon;=1&rdquo; explanation is <b>not holding</b>. Loosening the
+budget sixteenfold did not increase leakage at all, and the attack now sits <i>below</i>
+its confound floor &mdash; no membership signal whatsoever. The paired gap needs the
+patient arm before this is final, but expect this gate to <b>confirm the original
+refutation rather than overturn it</b>. Note also that even a positive result here would
+not revive the &epsilon;=1 claim; it would say the vulnerability exists only at budgets
+looser than the one the system ships at.</div>
+</div>
+
+<h2 class="parthead">5 &nbsp;&mdash;&nbsp; Not Yet Run</h2>
+<div class="cols">
+<p>Listed so the record is complete in both directions.</p>
+<table>
+<tr><th>Experiment</th><th>Why it matters</th></tr>
+<tr><td><b>N-D &mdash; normalised patient clipping</b></td><td>The only remaining candidate for an <i>original mechanism</i> rather than a measurement. A patient's gradient is summed over <i>k</i> windows then clipped to a fixed <i>C</i>, so long recordings are systematically down-weighted; normalising by <i>k</i> or &radic;<i>k</i> should fix it. Low effort, high upside.</td></tr>
+<tr><td><b>eICU-CRD external validation</b></td><td>Tests whether the <i>k</i>-law (E18) is structural or dataset-specific. Blocked on PhysioNet credentialing. The prediction must be frozen <b>before</b> access.</td></tr>
+<tr><td>Conformal coverage validation</td><td>The coverage guarantee is implemented and its &epsilon; cost is composed into O2a, but empirical coverage has not been measured.</td></tr>
+<tr><td>Mask-channel ablation</td><td>Would turn E20's attribution evidence into proof for N-7.</td></tr>
+<tr><td>S3 &mdash; hierarchical, no DP</td><td>Completes the topology axis alongside A1 and A2.</td></tr>
+<tr><td>Fig. 4 redraw from measured scores</td><td>The LiRA figure is still synthetic and captioned &ldquo;Illustrative&rdquo;. The measured per-patient IN/OUT distributions now exist in <code>shadows/*/scores.npz</code>; redrawing turns a teaching diagram into evidence.</td></tr>
+<tr><td>Multi-seed B4/B6/B7</td><td>Would put intervals on the baseline comparisons.</td></tr>
+</table>
+</div>
+
+<h2 class="parthead">6 &nbsp;&mdash;&nbsp; Summary of Outcomes</h2>
+
+<table class="full">
+<tr><th class="c">#</th><th>Experiment</th><th class="c">Outcome</th><th>One-line result</th></tr>
+<tr><td class="c">E1</td><td>NS-3 network simulation</td><td class="c pass">SUCCESS</td><td>16.9&ndash;21.7&thinsp;% round-latency reduction, packet-level</td></tr>
+<tr><td class="c">E2</td><td>CloudSim energy simulation</td><td class="c pass">SUCCESS</td><td>72.3&thinsp;% / 76.8&thinsp;% energy saving</td></tr>
+<tr><td class="c">E3</td><td>Encoder pretraining, proxy vs rigorous</td><td class="c warn">PRICED</td><td>A valid guarantee costs 0.022 AUROC</td></tr>
+<tr><td class="c">E4</td><td>Baselines B0&ndash;B5</td><td class="c pass">SUCCESS</td><td>Conventional DP (B4) collapses to 0.6443 AUC</td></tr>
+<tr><td class="c">E5</td><td>Head-only DP fine-tuning</td><td class="c pass">SUCCESS</td><td>0.562 &rarr; 0.8742 AUC at identical &sigma;</td></tr>
+<tr><td class="c">E6</td><td>&epsilon; sweep, end-to-end recipe</td><td class="c fail">SUPERSEDED</td><td>Characterises the broken recipe only</td></tr>
+<tr><td class="c">E7</td><td>&epsilon; sweep, rigorous recipe</td><td class="c pass">SUCCESS</td><td>Utility flat &epsilon;=0.5&rarr;8; DP beats no-DP</td></tr>
+<tr><td class="c">E8</td><td>O2b multi-seed accuracy cost</td><td class="c warn">MIXED</td><td>VitalDB &minus;0.92 pp PASS; WEAR inconclusive</td></tr>
+<tr><td class="c">E9</td><td>SADP adaptive privacy</td><td class="c fail">NEGATIVE</td><td>Composition tax drives &sigma; 11.3 &rarr; 70</td></tr>
+<tr><td class="c">E10</td><td>Gradient compression</td><td class="c pass">SUCCESS</td><td>90.8&thinsp;% / 96.1&thinsp;% uplink reduction</td></tr>
+<tr><td class="c">E11</td><td>Inference latency</td><td class="c pass">SUCCESS</td><td>4.58 ms / 1.22 ms P95, &gt;20&times; margin</td></tr>
+<tr><td class="c">E12</td><td>INT8 quantisation</td><td class="c fail">NEGATIVE</td><td>1.9&times; slower CPU, 3.25&times; slower GPU</td></tr>
+<tr><td class="c">E13</td><td>Patient-level vs record-level DP</td><td class="c pass">MEASURED</td><td>Unit upgrade priced at 1.77&times; &sigma;</td></tr>
+<tr><td class="c">E14</td><td>MIA loss-threshold sweep</td><td class="c fail">NULL</td><td>Gap &lt; 0.01 at &epsilon; = 1, 4, 8</td></tr>
+<tr><td class="c">E15</td><td>MIA factorial by recipe</td><td class="c warn">UNEXPECTED</td><td>Head-only memorises hardest: 0.5847 vs 0.5122</td></tr>
+<tr><td class="c">E16</td><td>LiRA at &epsilon;=1</td><td class="c fail">N-A REFUTED</td><td>All four &Delta; CIs include zero; control passed</td></tr>
+<tr><td class="c">E17</td><td>Difficulty floor control</td><td class="c pass">METHODOLOGICAL</td><td>Attacks must be read against 0.52&ndash;0.57, not 0.5</td></tr>
+<tr><td class="c">E18</td><td><b><i>k</i>-scaling law</b></td><td class="c pass"><b>CORE RESULT</b></td><td>Cost is a curve in <i>k</i>; zero at <i>k</i>=1 by construction</td></tr>
+<tr><td class="c">E19</td><td>Modality ablation</td><td class="c warn">MIXED</td><td>VitalDB +0.0370; WEAR at ceiling, +0.0004</td></tr>
+<tr><td class="c">E20</td><td>Feature attribution</td><td class="c pass">SUCCESS</td><td>DP shifts attention to missingness, 15.8&rarr;28.2&thinsp;%</td></tr>
+<tr><td class="c">E21</td><td>Objective verification</td><td class="c pass">SUCCESS</td><td>VitalDB 7/7; WEAR 6 + 1 inconclusive</td></tr>
+<tr><td class="c">E22</td><td>Component ablation A0&ndash;A6</td><td class="c pass">SUCCESS</td><td>DP helps; compression justified; ASWA deleted</td></tr>
+<tr><td class="c">E23</td><td>NS-3 stress tests</td><td class="c pass">SUCCESS</td><td>Holds to 250 rounds; found a definition defect</td></tr>
+<tr><td class="c">E24</td><td>LiRA at &epsilon;=16</td><td class="c warn">RUNNING</td><td>Record arm below its floor; patient arm pending</td></tr>
+</table>
+<p class="caption full">24 experiments run. 14 succeeded outright, 4 returned characterised negative results, 3 were mixed or inconclusive, 1 was superseded, 1 priced a cost, 1 is in flight. <b>Every negative and inconclusive outcome is reported rather than dropped</b> &mdash; that is what makes the positive results credible.</p>
+
+</body>
+</html>

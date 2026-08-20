@@ -96,6 +96,42 @@ def _package_versions() -> Dict[str, str]:
     return out
 
 
+def dataset_fingerprint(data_dir: str, partition_dir: str) -> Dict[str, Any]:
+    """
+    Identify WHICH data a run consumed, not just which directory it named.
+
+    `config` already records --dataset and the paths, but paths are stable
+    across re-preprocessing: rebuild a dataset with different window settings
+    and every stored metadata file still says "data/processed/wear". Hashing
+    the label array and the partition metadata pins the actual arrays, so a
+    result can be traced to the preprocessing run that produced it.
+    """
+    import hashlib
+    import glob
+    import json as _json
+
+    out: Dict[str, Any] = {"data_dir": data_dir, "partition_dir": partition_dir}
+    try:
+        lbl = (glob.glob(os.path.join(data_dir, "*", "labels.npy")) or
+               glob.glob(os.path.join(data_dir, "*", "*labels.npy")))
+        if lbl:
+            with open(lbl[0], "rb") as f:
+                out["labels_md5"] = hashlib.md5(f.read()).hexdigest()[:16]
+            out["labels_file"] = os.path.relpath(lbl[0], data_dir)
+        pm = os.path.join(partition_dir, "partition_meta.json")
+        if os.path.exists(pm):
+            raw = open(pm, "rb").read()
+            out["partition_meta_md5"] = hashlib.md5(raw).hexdigest()[:16]
+            m = _json.loads(raw)
+            for k in ("dataset", "n_devices", "n_edges", "n_classes",
+                      "total_samples", "split", "pairing", "seed"):
+                if k in m:
+                    out[k] = m[k]
+    except Exception as e:                       # never block a run on provenance
+        out["error"] = f"{type(e).__name__}: {e}"
+    return out
+
+
 def capture_metadata(config: Dict[str, Any],
                      seed: Optional[int] = None,
                      out_path: Optional[str] = None,
@@ -110,6 +146,11 @@ def capture_metadata(config: Dict[str, Any],
         "python": sys.version.split()[0],
         "argv": sys.argv,
         "config": config,
+        # Pin the actual arrays consumed, not just their path.
+        "dataset_fingerprint": (
+            dataset_fingerprint(config["data_dir"], config["partition_dir"])
+            if isinstance(config, dict) and config.get("data_dir")
+            and config.get("partition_dir") else None),
     }
     if extra:
         meta["extra"] = extra

@@ -1,0 +1,2 @@
+baseline,rounds,epsilon_target,epsilon_spent,delta,sigma,head_only,dp_trained_params,total_params,test_accuracy,test_macro_auc,test_auprc,test_case_accuracy,test_case_auc,test_case_auprc,test_n_groups,val_auc_history
+B7_DP_FedAvg_Pretrained,10,1.0,0.963441782468697,1e-05,2.97021484375,False,1864227,1864227,0.8082880434782609,0.8508380180210176,0.5820739931083555,0.8130939809926082,0.8565302866260186,0.5883198951263127,947,"[0.7698, 0.8008, 0.8144, 0.8253, 0.8299, 0.8354, 0.8366, 0.8361, 0.8359, 0.837]"

@@ -1,5 +1,5 @@
 # Phase 5 Results — HFL for Healthcare IoT
-# Generated:,2026-07-13 17:50:21
+# Generated:,2026-08-01 01:31:17
 
 ## SECTION 1: Accuracy Comparison (B0–B5 vs P1)
 system,accuracy,macro_auc,epsilon,rounds,source_file
@@ -9,16 +9,21 @@ B2 FedAvg,0.6543046357615894,0.8795423272702217,N/A,20,baseline_b2.csv
 B3 FedProx,0.6569536423841059,0.8746962717487164,N/A,20,baseline_b3.csv
 B4 DP-FedAvg,0.21589403973509932,0.6443013549124382,0.9568193816853424,15,baseline_b4.csv
 B5 MOON,0.3933774834437086,0.7417530559919455,N/A,20,baseline_b5.csv
-HFL-MM-HC (P1),0.2471,0.494,0.9211,20,hfl_mm_hc_results.csv
+HFL-MM-HC (P1),0.6146,0.8659,0.9965,20,eps1_headonly_dpft.csv
+HFL-MM-HC DP-off (ε=1000),0.6437,0.8731,1033.9038,20,eps1000_headonly_nodp.csv
 HFL-MM-HC ε=inf,0.5653,0.8199,inf,N/A,epsilon_sweep_summary.csv
 
-## SECTION 2: Inference Latency (ONNX INT8)
+## SECTION 2: Inference Latency (source: bench_fp32_cpu.csv)
 metric,value
+latency_p50_ms,15.532
+latency_p95_ms,16.363
+latency_p99_ms,17.438
+latency_mean_ms,15.575
 
 ## SECTION 3: QoS Target Validation
-qos_target,value,status
-Comm reduction ≥ 50%,95.0,PASS
-Energy saving ≥ 20%,N/A,N/A
-Update reliability > 99%,96.077%,FAIL
-Inference P95 < 100ms,N/A,N/A
-Accuracy loss ≤ 2% at ε=1,43.83%,FAIL
+qos_target,value,status,basis
+Comm reduction ≥ 50%,93.5,PASS,
+Energy saving ≥ 20%,93.5,PASS,
+Update reliability > 99%,99.8001%,PASS,
+Inference P95 < 100ms,16.363,PASS,
+Accuracy loss ≤ 2% at ε=1,0.82%,PASS,vs DP-off same-arch comparator (valid); single seed — 3-seed stats in RESULTS.md

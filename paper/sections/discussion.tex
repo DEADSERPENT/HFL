@@ -1,0 +1,134 @@
+%==============================================================================
+% discussion.tex — Discussion for PP-HFM
+% Self-contained \section{}; \input this into main.tex (never compile alone).
+%
+% STATUS: PARTIAL. Only the Limitations subsection is written. The interpretive
+% subsections are deliberately withheld until Results is complete, because
+% three of their arguments are still undetermined:
+%   - whether the cost of the privacy unit scales with records per individual
+%     (records-per-individual experiment, running)
+%   - whether every component earns its place (component ablation A1--A4,
+%     never run)
+%   - whether the fusion gain survives more seeds  [RESOLVED 2026-08-16: it
+%     does, at n=5, but shrank from +0.0411/+0.1062 to +0.0370/+0.0671 and
+%     from 14.1x to 5.9x seed-sd. Quote the five-seed figures only.]
+% Writing the interpretation against a half-populated Results guarantees a
+% rewrite. Every limitation below is settled and will not move.
+%==============================================================================
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Limitations}
+\label{sec:discussion:limits}
+
+The claims of this paper are bounded in ways that are worth stating precisely,
+because several of them constrain what may be generalised from the results
+rather than merely qualifying them.
+
+\textbf{The privacy-unit results are single-domain, for a structural reason.}
+The framework is evaluated on two corpora, but the measurements concerning the
+unit of the guarantee are reported only on the clinical one. This is not an
+oversight of scope. In the wearable corpus each client corresponds to exactly
+one participant, so client-level, user-level and individual-level guarantees
+coincide and the divergence the mechanism addresses cannot arise there. A
+second corpus exhibiting the same many-individuals-per-client structure --- a
+second clinical cohort, or an institutional deployment in another domain ---
+would be required to establish that the measured cost transfers, and its
+absence is the most predictable objection to this work.
+
+\textbf{The fusion result is single-domain, and the second corpus cannot
+corroborate it either.} The gain from combining the modalities is established
+on the clinical cohort, where it reaches $0.0370$ in area under the ROC curve
+over the better single modality across five seeds, or $5.9$ times the seed
+standard deviation. It is not established on the wearable cohort, and the
+reason is a property of that task rather than of the framework: its better
+single modality already attains $0.9976$, leaving a gain of $0.0004$ and no
+headroom in which fusion could demonstrate anything. This is worth reporting
+rather than omitting, because it qualifies the premise the framework is built
+on. Multimodal federated learning is not universally motivated; on tasks a
+single modality already solves, the second stream adds cost without adding
+information, and the case for fusion must be made per task rather than assumed
+from the presence of two sensors. Establishing that the measured gain transfers
+would require a second corpus that is both genuinely paired at source and
+difficult enough to leave room for the second modality to matter --- the same
+requirement, and the same absence, as for the privacy-unit results above.
+
+\textbf{Reported utilities come from the oracle encoder configuration.} As
+Section~\ref{sec:exp:impl} records, the encoders behind the reported results
+were pretrained on the pooled client training data, which does not carry a
+valid end-to-end guarantee. The deployable configuration costs $0.0322$ in
+area under the ROC curve, and every absolute utility in this paper should be
+read as an upper bound on what it attains. The differences between arms, on
+which the claims rest, are unaffected because every arm shares the same
+encoders; but a reader comparing these figures against a system that respected
+disjointness throughout would not be comparing like with like.
+
+\textbf{The membership-inference null bounds a large effect only.} The audit
+establishes that the difference in leakage between a record-level and an
+individual-level guarantee is not of the magnitude hypothesised. It does not
+establish that the difference is zero. At five paired seeds the half-width on
+the strongest attack is $\pm 0.060$ in area under the curve, three of the four
+attacks point in the predicted direction, and the strongest of them reaches
+$p = 0.090$; an effect below roughly six points would be invisible to this
+design. The result should be cited as a refutation of the predicted effect,
+never as evidence that the two guarantees are equivalent.
+
+\textbf{The audit rests on sixteen shadow models.} Per-individual in- and
+out-distributions are estimated from roughly eight observations each, which is
+few for a variance estimate and is the reason a pooled-variance variant is
+reported alongside the per-individual one. A larger shadow population would
+tighten those fits and is the first thing to increase if the audit were to be
+repeated. Relatedly, with $600$ non-members the receiver operating
+characteristic cannot resolve a $0.1\,\%$ false-positive rate, so the
+low-false-positive corner --- which is where a confident disclosure would
+appear --- is characterised only at $1\,\%$.
+
+\textbf{One objective is inconclusive and must remain so.} On the wearable
+deployment the accuracy cost under the budget is $1.967$ pp with an interval of
+$[1.760, 2.173]$, which spans the $2$ pp requirement. The seed count of fifteen
+was fixed in advance, and extending it until the interval fell on the
+favourable side of the threshold would convert a pre-registered test into a
+search. The objective is therefore reported as undetermined rather than as
+either met or failed.
+
+\textbf{Several supporting measurements rest on few seeds.} The privacy-budget
+sweep of Fig.~\ref{fig:epsilon} is single-seed at each point, so the claim it
+supports is the monotonicity of the trend rather than any individual value.
+The aggregation-rule comparison that led to a component being dropped was
+likewise decided on one seed; the effect was small enough that additional
+seeds were judged unlikely to change the decision, but that judgement is not a
+measurement.
+
+\textbf{The network model simulates the network only.} Communication delay,
+delivery reliability and traffic volume are measured on a packet-level
+simulation of the topology, but the compute terms that enter the end-to-end
+round latency --- sensing, preprocessing, inference and aggregation --- are
+modelled analytically and are common to every topology compared. The
+comparison between topologies is therefore sound, since the modelled terms
+cancel, but the absolute round latency is not a measurement of a deployed
+system and should not be read as one.
+
+\textbf{Interpretability evidence is associational.} The attribution analysis
+establishes that the model attends substantially to indicators of whether a
+measurement was taken, and that this reliance increases under the privacy
+mechanism. It does not establish that the model would lose accuracy without
+those indicators, which only their removal could show. The claim is therefore
+stated as evidence of reliance, not as a causal contribution to performance.
+
+%==============================================================================
+% PENDING SUBSECTIONS — write once Results is complete.
+%
+%   Interpretation of the privacy-unit cost
+%     needs : records-per-individual scaling law (running)
+%     turns on whether the cost is a constant of this cohort or a function of
+%     records per individual; the second is a far stronger statement
+%
+%   Necessity of the components
+%     needs : component ablation A1--A4 (never run)
+%
+%   Position against prior art
+%     needs : the above, plus the fusion ablation at more than two seeds
+%
+%   Practical implications for deployment
+%==============================================================================

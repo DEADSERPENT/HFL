@@ -1,0 +1,96 @@
+%==============================================================================
+% IEEE journal manuscript.
+% Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal
+% IoT Systems.  (System name used in the body: PP-HFM.)
+% Document class: IEEEtran (official).
+%
+% COMPILE THIS FILE. The files under sections/ are \section fragments: they
+% carry no \documentclass and no \begin{document}, so compiling one directly
+% gives "Undefined control sequence" at \section and a cascade of
+% "Missing \begin{document}".
+%   Overleaf: Menu -> Main document -> main.tex
+%
+% Build:  pdflatex main  ->  bibtex main  ->  pdflatex main  ->  pdflatex main
+% (see README.md for a one-line latexmk command)
+%==============================================================================
+\documentclass[journal]{IEEEtran}
+
+% ---- Packages --------------------------------------------------------------
+\usepackage[T1]{fontenc}             % proper glyphs for accented names
+\usepackage[utf8]{inputenc}          % input encoding (portable on older TeX)
+\usepackage{cite}                    % IEEE-style reference handling
+\usepackage{amsmath}                 % equations
+\usepackage{amssymb}                 % math symbols
+\usepackage{graphicx}                % figures
+\graphicspath{{figures/}}            % figure search path
+\usepackage{booktabs}                % professional tables (\toprule etc.)
+\usepackage{multirow}                % multi-row table cells
+\usepackage{algorithm}               % algorithm floats (Alg. 1, 2)
+\usepackage{algorithmic}             % \STATE, \FOR, \REQUIRE inside them
+\usepackage{stfloats}                % allow figure*/table* at page BOTTOM;
+                                     % without it a double-column float may
+                                     % only go to a page top, which is why
+                                     % figure* drifts past its reference
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}     % load last; internal/external links
+
+% Improve display equation spacing for IEEE two-column layout
+\setlength{\abovedisplayskip}{8pt plus 2pt minus 2pt}
+\setlength{\belowdisplayskip}{8pt plus 2pt minus 2pt}
+\setlength{\abovedisplayshortskip}{6pt plus 2pt minus 2pt}
+\setlength{\belowdisplayshortskip}{6pt plus 2pt minus 2pt}
+
+% ---- Front matter ----------------------------------------------------------
+\begin{document}
+
+\title{Hierarchical Federated Learning for Privacy-Aware,\\
+       Low-Latency Multimodal IoT Systems}
+
+\author{
+\begin{tabular}{c c}
+Samartha H V &  Shreyas J \\
+\textit{Manipal Institute of Technology Bengaluru,} &
+\textit{Manipal Institute of Technology Bengaluru,} \\
+\textit{Manipal Academy of Higher Education,} &
+\textit{Manipal Academy of Higher Education,} \\
+Manipal, India & Manipal, India \\
+samartha1.mitblr2025@learner.manipal.edu &
+shreyas.j@manipal.edu \\
+\end{tabular}
+}
+
+% Running head. \markboth takes TWO arguments; commenting out only the first
+% line leaves the second as ORDINARY BODY TEXT, which prints a stray line and
+% pushes the title onto page 2. Both lines are commented together, or neither.
+% Uncomment and set the journal name once the venue is fixed.
+%\markboth{IEEE Journal Name,~Vol.~XX, No.~XX, Month~2026}%
+%{Author \MakeLowercase{\textit{et al.}}: Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT Systems}
+
+\maketitle
+
+% ---- Abstract & keywords ---------------------------------------------------
+\input{sections/abstract}
+
+\begin{IEEEkeywords}
+Hierarchical federated learning, Internet of Things, differential privacy,
+user-level privacy, membership inference, multimodal learning, edge computing,
+quality of service, conformal prediction.
+\end{IEEEkeywords}
+
+\IEEEpeerreviewmaketitle
+
+% ---- Body (one file per section) -------------------------------------------
+% Sections not yet drafted are commented out; uncomment as each file lands.
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/method}
+\input{sections/experiments}
+\input{sections/results}
+%\input{sections/discussion}
+%\input{sections/conclusion}
+
+% ---- Bibliography ----------------------------------------------------------
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

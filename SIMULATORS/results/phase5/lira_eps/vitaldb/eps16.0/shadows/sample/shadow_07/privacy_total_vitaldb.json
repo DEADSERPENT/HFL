@@ -1,0 +1,10 @@
+{
+  "dataset": "vitaldb",
+  "epsilon_training": 15.13436293883491,
+  "epsilon_conformal": 0.2,
+  "calibrations_per_device": 1.0,
+  "epsilon_conf_per_call": 0.2,
+  "epsilon_TOTAL": 15.334362938834909,
+  "delta": 1e-05,
+  "composition": "basic"
+}

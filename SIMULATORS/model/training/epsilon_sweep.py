@@ -1,265 +1,280 @@
 """
-ε Sweep — Phase 5
-Privacy-accuracy trade-off: ε ∈ {0.1, 0.5, 1.0, 2.0, 5.0, ∞(no DP)}
-Generates the key publication figure: accuracy/AUC vs. ε curve.
+epsilon_sweep.py — the privacy–utility curve (deliverable D5.12).
+
+This is the central experiment of the thesis: how does utility move as the
+privacy budget tightens, and does the head-only recipe change the shape of that
+curve? For each eps it runs BOTH private recipes on identical data:
+
+    full   : DP-SGD over the whole model         (the B4 recipe / prior art)
+    head   : frozen pretrained encoders + DP-SGD on the fusion head only
+             (the proposed recipe)
+
+plus one eps=inf reference (no DP) so the curve has an anchor for "what does
+privacy cost at all". The interesting result is not either curve alone but the
+GAP between them as eps shrinks: if head-only DP is the contribution, that gap
+must widen as the budget tightens.
+
+Implementation note — this file deliberately contains no training loop. It
+delegates to baselines.run_dp_fedavg / run_fedavg so that the sweep, the
+baselines and the proposed model are scored by the same code on the same
+partitions. The previous version had its own loop that (a) re-sliced the raw
+dataset with range(0, 0.7n), bypassing the partition files and their leakage
+controls, (b) hardcoded n_devices=10 "for sweep speed" instead of the real
+topology, (c) never used a val split, so it reported the last round rather than
+the selected one, and (d) called roc_auc_score(multi_class="ovr") on a binary
+task, whose exception branch returned auc=0.0. Any curve it produced compared
+the sweep against itself, not against the rest of the pipeline.
 """
 
 import os
 import sys
-import copy
-import argparse
 import csv
+import json
 import time
+import argparse
 from pathlib import Path
-from typing import List, Dict
 
-import torch
-import torch.nn as nn
 import numpy as np
-from torch.utils.data import DataLoader, Subset
 
-# model/ is split into subfolders by concern (privacy/architecture/training/
-# deploy/utils) — add them all so flat imports ("from device_utils import
-# ...") keep resolving regardless of which subfolder a module lives in. Must
-# run BEFORE the device_utils import below: this file used to rely on
-# Python auto-adding its own script directory (model/) to sys.path, which
-# also contained device_utils.py as a sibling — that's no longer true now
-# that they live in different subfolders.
-_MODEL_ROOT = Path(__file__).parent.parent   # model/
+_MODEL_ROOT = Path(__file__).parent.parent
 for _sub in ("privacy", "architecture", "training", "deploy", "utils"):
     sys.path.insert(0, str(_MODEL_ROOT / _sub))
 sys.path.insert(0, str(_MODEL_ROOT.parent / "data" / "loaders"))
 
-from device_utils import get_device, optimize_gpu, get_dataloader_kwargs
+from device_utils import get_device, optimize_gpu, set_seed          # noqa: E402
+from datasets import get_spec                                        # noqa: E402
+from baselines import (build_loaders, compute_class_weight,          # noqa: E402
+                       run_dp_fedavg, run_fedavg, _save_csv)
 
 
-def fedavg_round(global_model, device_loaders, n_rounds, device,
-                 use_dp=False, epsilon=1.0, delta=1e-5,
-                 max_grad_norm=1.0, lr=1e-3, n_epochs=1, batch_size=32):
-    """
-    Run simplified FL for epsilon sweep (no edge hierarchy for speed).
-
-    DP path uses the SAME methodology as hfl_trainer.py: a single fixed σ
-    precomputed once for the full n_rounds budget, applied through one
-    PrivacyEngine per device that persists (and composes ε) across every
-    round. Recomputing target_epsilon fresh each round — the previous
-    version of this function — silently drops composition and reports an
-    ε far lower than what's actually spent (the same bug the "M7" fix
-    corrected in hfl_trainer.py). Do not revert to that pattern.
-    """
-    from hfl_mm_model import build_hfl_mm_hc
-    loss_fn = nn.CrossEntropyLoss()
-
-    noise_multiplier = None
-    privacy_engines = None
-    if use_dp:
-        from dp_engine import compute_fl_noise_multiplier, new_device_privacy_engines
-        min_n_samples = min(len(loaders["train"].dataset) for loaders in device_loaders)
-        noise_multiplier = compute_fl_noise_multiplier(
-            target_epsilon=epsilon, target_delta=delta,
-            n_fl_calls=n_rounds, n_samples=min_n_samples,
-            batch_size=batch_size, local_epochs=n_epochs,
-        )
-        privacy_engines = new_device_privacy_engines(len(device_loaders))
-
-    eps_spent = 0.0
-    for r in range(n_rounds):
-        global_state = {k: v.clone() for k, v in global_model.state_dict().items()}
-        client_states, client_sizes = [], []
-
-        for dev_idx, loaders in enumerate(device_loaders):
-            local = build_hfl_mm_hc().to(device)
-            local.load_state_dict(global_state)
-            opt = torch.optim.Adam(local.parameters(), lr=lr)
-
-            if use_dp:
-                from dp_engine import make_dp_model, get_epsilon_spent
-                # Keep `local` pointing at the ORIGINAL module. Opacus's
-                # GradSampleModule wraps it in a new object whose state_dict()
-                # keys are prefixed with "_module." (verified: wrapping is a
-                # container, not an in-place rename) — overwriting `local`
-                # with that wrapper, as this used to do, makes the later
-                # state_dict() used for FedAvg return "_module.*"-prefixed
-                # keys that don't match global_state's keys and KeyErrors
-                # during aggregation. Train through the wrapper, but read
-                # parameters back from the untouched `local` reference.
-                dp_model, opt, train_loader, pe = make_dp_model(
-                    local, opt, loaders["train"],
-                    noise_multiplier=noise_multiplier,
-                    max_grad_norm=max_grad_norm,
-                    privacy_engine=privacy_engines[dev_idx],
-                )
-            else:
-                dp_model = local
-                train_loader = loaders["train"]
-                pe = None
-
-            dp_model.train()
-            n_samples = 0
-            for _ in range(n_epochs):
-                for ecg, cxr, _tab, labels in train_loader:
-                    opt.zero_grad()
-                    loss = loss_fn(dp_model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True)),
-                                   labels.to(device, non_blocking=True))
-                    loss.backward()
-                    opt.step()
-                    n_samples += len(labels)
-
-            if use_dp:
-                eps_spent = max(eps_spent, get_epsilon_spent(pe, delta))
-
-            client_states.append(copy.deepcopy(local.state_dict()))
-            client_sizes.append(n_samples)
-
-        # FedAvg
-        total = sum(client_sizes)
-        for key in global_state:
-            if global_state[key].is_floating_point():
-                global_model.state_dict()[key].copy_(
-                    sum((n / total) * s[key].float()
-                        for n, s in zip(client_sizes, client_states))
-                )
-
-    return {"noise_multiplier": noise_multiplier, "epsilon_spent": eps_spent}
+def _parse_eps(tokens):
+    """Accept 'inf' anywhere in the list; keep it last so the reference row
+    is written after the private points."""
+    out = []
+    for t in tokens:
+        out.append(float("inf") if str(t).lower() in ("inf", "none", "nodp")
+                   else float(t))
+    return sorted(out, key=lambda e: (e == float("inf"), e))
 
 
-def run_epsilon_sweep(args):
-    """Run full sweep over ε values and save results."""
-    from hfl_mm_model import build_hfl_mm_hc
-    from sklearn.metrics import roc_auc_score
-    import json
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dataset", required=True,
+                    choices=["wear", "vitaldb"])
+    ap.add_argument("--data_dir", default=None)
+    ap.add_argument("--partition_dir", default=None)
+    ap.add_argument("--output_dir", default=None,
+                    help="default: results/phase5/epsilon_sweep/<dataset>")
+    ap.add_argument("--epsilons", nargs="+", default=["0.5", "1.0", "2.0", "4.0", "8.0", "inf"])
+    ap.add_argument("--recipes", nargs="+", default=["full", "head"],
+                    choices=["full", "head"],
+                    help="which private recipes to sweep")
+    ap.add_argument("--pretrained_encoders", default=None,
+                    help="required for the 'head' recipe; default resolves to "
+                         "checkpoints/pretrained_encoders_<dataset>.pt")
+    ap.add_argument("--rounds", type=int, default=10)
+    ap.add_argument("--local_epochs", type=int, default=1)
+    ap.add_argument("--batch_size", type=int, default=16)
+    ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--delta", type=float, default=1e-5)
+    ap.add_argument("--max_grad_norm", type=float, default=1.0)
+    ap.add_argument("--max_physical_batch_size", type=int, default=0,
+                    help="0 = no micro-batching. The full-model recipe holds a "
+                         "per-sample gradient for EVERY parameter, so on the "
+                         "larger model it OOMs at batch 64 and the whole sweep "
+                         "dies. Splitting keeps the LOGICAL batch — and the "
+                         "privacy accounting — unchanged.")
+    ap.add_argument("--seeds", type=int, nargs="+", default=[42])
+    ap.add_argument("--class_weight", choices=["none", "balanced", "auto"], default="auto")
+    ap.add_argument("--select_on", choices=["auc", "auprc", "auto"], default="auto")
+    ap.add_argument("--resume", action="store_true",
+                    help="skip (eps, recipe, seed) combinations already in the CSV")
+    args = ap.parse_args()
 
+    spec = get_spec(args.dataset)
+    if args.data_dir or args.partition_dir:
+        import dataclasses
+        spec = dataclasses.replace(
+            spec, data_dir=args.data_dir or spec.data_dir,
+            partition_dir=args.partition_dir or spec.partition_dir)
+
+    _sim = Path(_MODEL_ROOT).parent
+    out_dir = args.output_dir or str(_sim / "results" / "phase5" /
+                                     "epsilon_sweep" / args.dataset)
+    os.makedirs(out_dir, exist_ok=True)
+    if args.select_on == "auto":
+        args.select_on = "auprc" if spec.n_classes == 2 else "auc"
+    use_cw = (args.class_weight == "balanced" or
+              (args.class_weight == "auto" and spec.n_classes == 2))
+    ckpt = args.pretrained_encoders or str(
+        _sim / "checkpoints" / f"pretrained_encoders_{args.dataset}.pt")
+
+    if "head" in args.recipes and not os.path.exists(ckpt):
+        raise SystemExit(
+            f"[sweep][FATAL] the 'head' recipe needs pretrained encoders and none "
+            f"were found at:\n  {ckpt}\n"
+            f"Run:  python model/training/pretrain_encoders.py --dataset {args.dataset}\n"
+            f"Freezing RANDOM encoders would measure nothing, so this is fatal "
+            f"rather than a warning.")
+
+    epsilons = _parse_eps(args.epsilons)
     device = get_device()
     optimize_gpu()
-    os.makedirs(args.output_dir, exist_ok=True)
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning)
 
-    # Load data
-    import numpy as np
-    from preprocess_healthcare import HealthcareDataset
+    print("=" * 74)
+    print(f"EPSILON SWEEP — {args.dataset.upper()}")
+    print("=" * 74)
+    print(spec)
+    print(f"  epsilons : {['inf' if e == float('inf') else e for e in epsilons]}")
+    print(f"  recipes  : {args.recipes}   seeds: {args.seeds}   rounds: {args.rounds}")
+    print(f"  select_on: {args.select_on}   class_weight: {use_cw}")
+    print(f"  output   : {out_dir}")
 
-    ecg_signals = np.load(os.path.join(args.data_dir, "ecg", "ecg_signals.npy"),
-                          mmap_mode="r")
-    ecg_labels = np.load(os.path.join(args.data_dir, "ecg", "ecg_labels.npy"))
-    cxr_images = np.load(os.path.join(args.data_dir, "cxr", "cxr_images.npy"),
-                         mmap_mode="r")
-    # Prefer cxr_primary_labels.npy (single-label primary diagnosis) if a
-    # future data pipeline run produces it; fall back to the current
-    # cxr_labels.npy otherwise (that's all that exists as of this fix).
-    cxr_labels_path = os.path.join(args.data_dir, "cxr", "cxr_primary_labels.npy")
-    if not os.path.exists(cxr_labels_path):
-        cxr_labels_path = os.path.join(args.data_dir, "cxr", "cxr_labels.npy")
-    cxr_labels = np.load(cxr_labels_path)
-    tabular_feats = np.load(os.path.join(args.data_dir, "tabular",
-                                         "tabular_features.npy"))
+    full_ds, n_dev, device_loaders, pooled, order, group_test = build_loaders(
+        spec, args.batch_size, device)
+    cw = compute_class_weight(full_ds, order["train"], spec.n_classes) if use_cw else None
 
-    full_ds = HealthcareDataset(ecg_signals, ecg_labels, cxr_images, cxr_labels,
-                                tabular_feats)
-    n = len(full_ds)
-    n_train = int(0.70 * n)
-    n_val = int(0.15 * n)
-    train_ds = Subset(full_ds, list(range(n_train)))
-    test_ds = Subset(full_ds, list(range(n_train + n_val, n)))
+    from hfl_mm_model import (build_hfl_mm_hc, freeze_encoders,   # noqa: E402
+                              load_pretrained_encoders)
+    _kw = {"n_channels_a": spec.n_channels_a}
+    if spec.modality_b != "image":
+        _kw.update(modality_b="features", feat_b_dim=spec.feat_b_dim)
 
-    # Split into simulated devices for sweep
-    n_devices = 10  # reduced for sweep speed
-    device_size = n_train // n_devices
-    device_loaders = [
-        {"train": DataLoader(
-            Subset(train_ds, list(range(i * device_size, (i + 1) * device_size))),
-            batch_size=32, shuffle=True)}
-        for i in range(n_devices)
-    ]
-    test_loader = DataLoader(test_ds, batch_size=128)
+    def model_full():
+        return build_hfl_mm_hc(n_classes=spec.n_classes, **_kw)
 
-    epsilons = args.epsilons  # e.g., [0.1, 0.5, 1.0, 2.0, 5.0, float("inf")]
-    all_results = []
+    def model_head():
+        m = build_hfl_mm_hc(n_classes=spec.n_classes, **_kw)
+        load_pretrained_encoders(m, ckpt)
+        return freeze_encoders(m)
 
+    csv_path = os.path.join(out_dir, "epsilon_sweep.csv")
+    done = set()
+    rows = []
+    if args.resume and os.path.exists(csv_path):
+        with open(csv_path) as f:
+            for r in csv.DictReader(f):
+                rows.append(r)
+                done.add((r["epsilon"], r["recipe"], r["seed"]))
+        print(f"  resume   : {len(done)} combinations already recorded")
+
+    fields = ["dataset", "epsilon", "recipe", "seed", "rounds", "accuracy",
+              "macro_auc", "auprc", "case_auc", "case_auprc", "sigma",
+              "epsilon_spent", "dp_params", "total_params", "time_s"]
+
+    def flush():
+        with open(csv_path, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+            w.writeheader()
+            for r in rows:
+                w.writerow(r)
+
+    common = dict(device=device, class_weight=cw, select_on=args.select_on,
+                  group_ids=group_test)
+
+    for seed in args.seeds:
+        for eps in epsilons:
+            elab = "inf" if eps == float("inf") else f"{eps:g}"
+            # eps=inf is the no-DP reference, and it must be run ONCE PER
+            # RECIPE — not once overall.
+            #
+            # The reference exists to answer "what does privacy cost?", which
+            # is a PAIRED question: same architecture, same initialisation,
+            # DP on versus off. A single reference built from the full model
+            # with random init is not comparable to the head arm, which starts
+            # from pretrained encoders. Measured on VitalDB the mismatch made
+            # the no-DP reference (0.8149) score BELOW every head-only point
+            # (0.8457-0.8506) — i.e. "privacy improves accuracy", which is not
+            # a finding, it is a broken comparator. Objective 2 subtracts from
+            # this reference, so the whole accuracy-loss claim inherits it.
+            recipes = args.recipes if eps == float("inf") else args.recipes
+            for rec in recipes:
+                key = (elab, rec, str(seed))
+                if key in done:
+                    print(f"\n[skip] eps={elab} recipe={rec} seed={seed} (already done)")
+                    continue
+                print("\n" + "=" * 74)
+                print(f"  eps={elab}  recipe={rec}  seed={seed}")
+                print("=" * 74)
+                set_seed(seed)
+                t0 = time.time()
+
+                if eps == float("inf"):
+                    # Same model factory the private arm of this recipe uses,
+                    # so the only difference is DP on/off.
+                    _mf = model_head if rec == "head" else model_full
+                    r = run_fedavg(_mf, device_loaders, pooled,
+                                   rounds=args.rounds, local_epochs=args.local_epochs,
+                                   lr=args.lr, **common)
+                    r.update(sigma="", epsilon_spent="", dp_trained_params="",
+                             total_params="")
+                else:
+                    r = run_dp_fedavg(
+                        model_head if rec == "head" else model_full,
+                        device_loaders, pooled, rounds=args.rounds,
+                        local_epochs=args.local_epochs, lr=args.lr, epsilon=eps,
+                        delta=args.delta, max_grad_norm=args.max_grad_norm,
+                        head_only=(rec == "head"),
+                        max_physical_batch_size=args.max_physical_batch_size,
+                        label=f"eps{elab}-{rec}", **common)
+
+                rows.append({
+                    "dataset": args.dataset, "epsilon": elab, "recipe": rec,
+                    "seed": seed, "rounds": args.rounds,
+                    "accuracy": r.get("test_accuracy"),
+                    "macro_auc": r.get("test_macro_auc"),
+                    "auprc": r.get("test_auprc"),
+                    "case_auc": r.get("test_case_auc", ""),
+                    "case_auprc": r.get("test_case_auprc", ""),
+                    "sigma": r.get("sigma", ""),
+                    "epsilon_spent": r.get("epsilon_spent", ""),
+                    "dp_params": r.get("dp_trained_params", ""),
+                    "total_params": r.get("total_params", ""),
+                    "time_s": round(time.time() - t0, 1),
+                })
+                flush()          # written after every point — a crash mid-sweep
+                                 # must not lose the hours already spent
+
+    # ── curve summary ────────────────────────────────────────────────
+    print("\n" + "=" * 74)
+    print(f"PRIVACY–UTILITY CURVE — {args.dataset}")
+    print("=" * 74)
+    key = "auprc" if args.select_on == "auprc" else "macro_auc"
+
+    def mean_at(elab, rec):
+        v = [float(r[key]) for r in rows
+             if r["epsilon"] == elab and r["recipe"] == rec and r.get(key)
+             not in ("", None) and not np.isnan(float(r[key]))]
+        return float(np.mean(v)) if v else float("nan")
+
+    hdr = f"{'eps':>6}" + "".join(f"{r:>12}" for r in args.recipes) + f"{'gap':>10}"
+    print(hdr); print("-" * len(hdr))
     for eps in epsilons:
-        use_dp = (eps != float("inf"))
-        eps_label = str(eps) if eps != float("inf") else "inf"
-        print(f"\n{'='*50}")
-        print(f"Running ε = {eps_label}")
-        print(f"{'='*50}")
+        elab = "inf" if eps == float("inf") else f"{eps:g}"
+        if eps == float("inf"):
+            vals = [mean_at(elab, r) for r in args.recipes]
+            line = f"{elab:>6}" + "".join(f"{v:>12.4f}" for v in vals)
+            print(line + "   (no-DP reference, per recipe)")
+            continue
+        vals = [mean_at(elab, r) for r in args.recipes]
+        line = f"{elab:>6}" + "".join(f"{v:>12.4f}" for v in vals)
+        if len(vals) == 2 and not any(np.isnan(vals)):
+            line += f"{vals[1] - vals[0]:>+10.4f}"
+        print(line)
+    print(f"\n(metric = {key}; 'gap' = head-only minus full-model)")
+    print(f"CSV: {csv_path}")
 
-        model = build_hfl_mm_hc().to(device)
-        t0 = time.time()
-
-        dp_info = fedavg_round(model, device_loaders, n_rounds=args.rounds, device=device,
-                     use_dp=use_dp, epsilon=eps if use_dp else 1.0,
-                     delta=args.delta,
-                     max_grad_norm=getattr(args, "max_grad_norm", 1.0),
-                     lr=getattr(args, "lr", 1e-3), batch_size=32)
-
-        # Evaluate
-        model.eval()
-        all_logits, all_labels = [], []
-        with torch.no_grad():
-            for ecg, cxr, _tab, labels in test_loader:
-                logits = model(ecg.to(device, non_blocking=True), cxr.to(device, non_blocking=True))
-                all_logits.append(logits.cpu())
-                all_labels.append(labels)
-        logits = torch.cat(all_logits)
-        labels = torch.cat(all_labels).numpy()
-        probs = torch.softmax(logits, dim=-1).numpy()
-        preds = logits.argmax(dim=-1).numpy()
-        acc = float((preds == labels).mean())
-        try:
-            auc = float(roc_auc_score(labels, probs, multi_class="ovr", average="macro"))
-        except Exception:
-            auc = 0.0
-
-        elapsed = time.time() - t0
-
-        row = {
-            "epsilon": eps_label,
-            "accuracy": round(acc, 4),
-            "macro_auc": round(auc, 4),
-            "use_dp": str(use_dp),
-            "rounds": args.rounds,
-            "noise_multiplier": round(dp_info["noise_multiplier"], 4) if dp_info["noise_multiplier"] else "",
-            "epsilon_spent": round(dp_info["epsilon_spent"], 4) if use_dp else "",
-            "time_s": round(elapsed, 1),
-        }
-        all_results.append(row)
-        print(f"ε={eps_label}: AUC={auc:.4f}, Acc={acc:.4f}, "
-              f"σ={row['noise_multiplier']}, ε_spent={row['epsilon_spent']} ({elapsed:.1f}s)")
-
-        # Save per-epsilon CSV
-        per_eps_path = os.path.join(args.output_dir, f"eps_{eps_label}.csv")
-        with open(per_eps_path, "w", newline="") as f:
-            csv.DictWriter(f, fieldnames=row.keys()).writerow(row)
-
-    # Save summary CSV
-    summary_path = os.path.join(args.output_dir, "epsilon_sweep_summary.csv")
-    with open(summary_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=all_results[0].keys())
-        writer.writeheader()
-        writer.writerows(all_results)
-    print(f"\nSweep summary saved: {summary_path}")
-
-    # Print table
-    print("\n" + "="*65)
-    print(f"{'ε':<8} {'Accuracy':>10} {'Macro-AUC':>12} {'Δ vs ∞':>10}")
-    print("-"*65)
-    inf_auc = next((r["macro_auc"] for r in all_results if r["epsilon"] == "inf"), 1.0)
-    for r in all_results:
-        delta_auc = float(r["macro_auc"]) - inf_auc
-        print(f"{r['epsilon']:<8} {r['accuracy']:>10.4f} {r['macro_auc']:>12.4f} "
-              f"{delta_auc:>+10.4f}")
-    print("="*65)
-
-    return all_results
+    with open(os.path.join(out_dir, "sweep_meta.json"), "w") as f:
+        json.dump({"dataset": args.dataset, "epsilons": [
+            "inf" if e == float("inf") else e for e in epsilons],
+            "recipes": args.recipes, "seeds": args.seeds,
+            "rounds": args.rounds, "select_on": args.select_on,
+            "class_weight": use_cw, "pretrained_encoders": ckpt,
+            "n_devices": n_dev, "metric": key}, f, indent=2)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir",      default="data/processed/healthcare")
-    parser.add_argument("--output_dir",    default="results/phase5/epsilon_sweep")
-    parser.add_argument("--epsilons",      nargs="+", type=float,
-                        default=[0.1, 0.5, 1.0, 2.0, 5.0, float("inf")])
-    parser.add_argument("--rounds",        type=int,   default=20)
-    parser.add_argument("--delta",         type=float, default=1e-5)
-    parser.add_argument("--max_grad_norm", type=float, default=1.0)
-    parser.add_argument("--lr",            type=float, default=1e-3)
-    args = parser.parse_args()
-    run_epsilon_sweep(args)
+    main()

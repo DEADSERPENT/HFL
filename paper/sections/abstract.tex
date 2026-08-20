@@ -1,0 +1,46 @@
+%==============================================================================
+% abstract.tex
+%
+% PLACEHOLDER. The abstract is written LAST, once Results is complete, because
+% its headline numbers depend on findings that are still being measured. The
+% text below states only what has actually been established; do not quote a
+% number from it that does not appear in Results.
+%
+% SCOPE NOTE: the title promises privacy-awareness AND low latency. The
+% privacy half is drafted (Related Work, Methodology); the latency/QoS half is
+% measured but not yet written up. Keep the abstract's two halves in step with
+% what the body actually delivers.
+%==============================================================================
+
+\begin{abstract}
+Multimodal Internet-of-Things deployments in clinical settings generate
+heterogeneous data streams that cannot be centralised, because the records are
+governed by consent and by data-protection regimes that prohibit pooling.
+Federated learning removes that obstacle by communicating model updates rather
+than records, and a hierarchical organisation relieves the wide-area link that
+otherwise constrains it; neither, however, supplies a privacy guarantee, and the
+guarantee such systems do report is conventionally stated over training records
+while the guarantee a clinical setting requires concerns individuals. Where a
+single episode of care yields many records, the two differ for every
+participant. This paper presents a three-tier hierarchical federated framework
+in which the privacy unit is the patient by construction: gradients are grouped
+by individual before they are bounded, the noise scale is calibrated against
+every client simultaneously so that the interposition of the edge tier is
+reflected in the reported budget, and the cost of releasing a conformal
+calibration quantile is composed into that budget rather than omitted from it.
+Representation learning is separated from private adaptation, with encoders
+pretrained on a population disjoint from every client and frozen, so that only a
+compact fusion head is privatised. The framework is evaluated on a cohort of
+surgical cases in which both modalities originate from the same patient during
+the same operation, and the resulting guarantee is audited by mounting
+membership inference at the level of the individual, with every attack reported
+alongside a positive control on a configuration known to memorise. A further
+experiment shows that the price of the individual-level guarantee is not a fixed
+quantity but a function of how many records each individual contributes,
+vanishing when that number is one --- where the two units coincide by
+construction, so that the experiment controls itself --- and growing
+monotonically thereafter.
+\textbf{[Headline quantitative findings --- uplink reduction, privacy budget,
+inference latency, energy, and the membership-inference audit --- to be
+inserted once Results is complete.]}
+\end{abstract}

@@ -1,0 +1,2 @@
+baseline,rounds,test_accuracy,test_macro_auc,test_auprc,test_case_accuracy,test_case_auc,test_case_auprc,test_n_groups,val_auc_history
+B2_FedAvg,10,0.7972826086956522,0.8173120945409745,0.4972380210827264,0.8078141499472017,0.8254815089178871,0.5025106795772453,947,"[0.7306, 0.729, 0.7689, 0.7893, 0.7755, 0.8055, 0.7912, 0.7977, 0.7905, 0.8027]"

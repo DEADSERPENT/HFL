@@ -1,0 +1,45 @@
+{
+  "dataset": "vitaldb",
+  "n_devices": 9,
+  "n_edges": 2,
+  "sparsity": 0.2,
+  "quant_bits": 8,
+  "rounds_averaged": 20,
+  "arms": {
+    "full_model": {
+      "index_bytes": 1886908.0,
+      "value_bytes": 471727.0,
+      "header_bytes": 608.0,
+      "total_bytes": 2359243.0,
+      "n_tensors": 76.0,
+      "n_coords": 471727.0,
+      "dense_fp32_bytes": 7456908,
+      "compression_ratio": 3.160720620978848,
+      "mb_per_client_round": 2.2499494552612305,
+      "dense_mb": 7.111461639404297
+    },
+    "head_only": {
+      "index_bytes": 447888.0,
+      "value_bytes": 111972.0,
+      "header_bytes": 80.0,
+      "total_bytes": 559940.0,
+      "n_tensors": 10.0,
+      "n_coords": 111972.0,
+      "dense_fp32_bytes": 7456908,
+      "compression_ratio": 13.317334000071437,
+      "mb_per_client_round": 0.5340003967285156,
+      "dense_mb": 7.111461639404297
+    }
+  },
+  "centralized_mb_per_round": 64.00315475463867,
+  "system": {
+    "full_model": {
+      "mb_per_round": 24.749444007873535,
+      "reduction_pct": 61.330899855245335
+    },
+    "head_only": {
+      "mb_per_round": 5.874004364013672,
+      "reduction_pct": 90.82232057695883
+    }
+  }
+}

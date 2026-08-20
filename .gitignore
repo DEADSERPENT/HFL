@@ -1,8 +1,3 @@
-# ============================================================
-# .gitignore — HFL Research Project
-# Samartha H V | MIT Bengaluru | 2026
-# ============================================================
-
 # ── Python ───────────────────────────────────────────────────
 __pycache__/
 **/__pycache__/
@@ -50,27 +45,17 @@ venv/
 env/
 hfl_env/
 
-# ── Raw datasets (2.6 GB — download via setup script) ────────
+# ── Raw datasets (download via setup script) ─────────────────
 SIMULATORS/data/raw/
 
-# ── Large processed arrays (re-generate with preprocess_healthcare.py) ──
-# ecg_signals.npy  = 229 MB
-SIMULATORS/data/processed/healthcare/ecg/ecg_signals.npy
-# cxr_images.npy   = 1.7 GB
-SIMULATORS/data/processed/healthcare/cxr/cxr_images.npy
-# duplicate label file at wrong path
-SIMULATORS/data/processed/healthcare/ecg_labels.npy
+# ── Processed corpora ────────────────────────────────────────
+SIMULATORS/data/processed/vitaldb/*
+!SIMULATORS/data/processed/vitaldb/meta/
+SIMULATORS/data/processed/wear/*
+!SIMULATORS/data/processed/wear/meta/
 
-# NOTE: Small .npy files ARE tracked (partition indices, labels ≤100 KB):
-#   data/processed/partitions/healthcare/device_0X_{train,val,test}.npy  (4-8 KB)
-#   data/processed/healthcare/ecg/ecg_labels.npy   (40 KB)
-#   data/processed/healthcare/cxr/cxr_labels.npy   (24 KB)
-#   data/processed/healthcare/tabular/*.npy         (≤100 KB)
-# These let any device reproduce exact splits without re-running partition step.
 
-# .npz: NOT globally ignored — only large compressed data if generated
-# (small .npz metadata is useful to track)
-# SIMULATORS/data/**/*.npz   ← uncomment only if large .npz files appear
+!SIMULATORS/data/processed/partitions/
 
 # ── Model checkpoints & exported models (large binaries) ─────
 *.pt
@@ -105,6 +90,11 @@ desktop.ini
 !notebooks/
 !notebooks/**/*.ipynb
 
+# ── Experiment results ───────────────────────────────────────
+SIMULATORS/results/**/shadow_*/*.npy
+SIMULATORS/results/**/k*_seed*/*.npy
+
+
 # ── Logs & temp ──────────────────────────────────────────────
 *.tmp
 *.bak
@@ -117,6 +107,10 @@ SIMULATORS/results/**/*.txt
 # ── RESUME tmp (keep locally, not in repo) ───────────────────
 RESUME/
 
+# ── Personal / administrative documents ──────────────────────
+Letter/
+My Credentialing Applications.pdf
+
 # ── Sensitive config (never commit credentials) ──────────────
 .env
 secrets.json
@@ -128,3 +122,7 @@ node_modules/
 dist/
 .vite/
 *.local
+
+
+# NS-3 is a third-party checkout fetched by scripts/install_ns3.sh.
+SIMULATORS/ns3/ns-3-dev/

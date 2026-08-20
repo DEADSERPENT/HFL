@@ -1,0 +1,2 @@
+baseline,epochs,test_accuracy,test_macro_auc,test_auprc,test_case_accuracy,test_case_auc,test_case_auprc,test_n_groups
+B0_Centralized,5,0.7764945652173914,0.861175893605332,0.6158209393091072,0.8004223864836325,0.8773719300245028,0.649167104341899,947

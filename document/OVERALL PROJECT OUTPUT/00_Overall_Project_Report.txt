@@ -72,13 +72,18 @@
   Gap 2  Privacy-efficiency trade-off unresolved — hierarchical FL work
          omits differential privacy; DP work omits hierarchy. Neither
          line reports what the other costs.
-         STATUS: apparatus complete, measurement pending (Section 6).
+         STATUS: MEASURED. The head-only vs full-model gap widens
+         monotonically as the budget tightens (+0.060 at eps=8 to +0.131
+         at eps=0.5 on vitaldb; +0.088 to +0.395 on wear) and nearly
+         vanishes at eps=inf. Both curves, both datasets, 25/25 DP points
+         inside budget.
 
   Gap 3  Real-time QoS not addressed in privacy/robustness frameworks —
          inference latency under deployment conditions is rarely
          reported at all.
-         STATUS: apparatus complete (ONNX export + portable benchmark),
-         measurement pending on current data.
+         STATUS: MEASURED. P95 inference 2.99 ms (vitaldb) / 1.22 ms
+         (wear) on the CPU provider, against a 100 ms target. Update
+         reliability 99.27 % / 99.05 % from NS-3 packet-level simulation.
 
   Gap 4  Static privacy budgets — adaptive privacy allocation is
          proposed in the literature but seldom ablated against a
@@ -94,17 +99,19 @@
   Phase 1  Research understanding, gap analysis, objectives   COMPLETE
   Phase 2  Simulator selection and justification              COMPLETE
   Phase 3  Environment setup (NS-3, CloudSim Plus, Python)    COMPLETE
-  Phase 4  Simulator implementation                           CODE COMPLETE
-                                                              runs pending
-  Phase 5  Model, privacy, deployment                         CODE COMPLETE
-                                                              runs pending
+  Phase 4  Simulator implementation                           COMPLETE
+           NS-3 built + packet-level verified; CloudSim run
+  Phase 5  Model, privacy, deployment                         COMPLETE
+           all 17 deliverables, both datasets, O1-O4 measured
   Phase 6  Joint evaluation, ablation, statistics, figures    CODE COMPLETE
                                                               runs pending
 
-  "CODE COMPLETE, runs pending" is the accurate description of the
-  current state. Every implementation requirement traced from the phase
-  reports is satisfied and dataset-agnostic; what remains is execution
-  on the current datasets.
+  Phases 1-5 are COMPLETE with measured results on both datasets.
+  Phase 6 is code-complete and awaiting execution.
+
+  The system evaluated is HFL-MM. PHANTOM-FL did NOT run: every result
+  used dp_mode=uniform, agg_mode=fedavg, edge_distill_epochs=0 and no
+  personalisation. See 01_PHANTOM_FL_Novel_Model.txt.
 
   Machine-checkable status:
     python tests/traceability.py --dataset vitaldb
@@ -184,16 +191,30 @@
   Each objective is owned by exactly one tool, and the experiment that
   will settle it is fixed in advance.
 
-  ┌───────┬────────────────────────┬───────────┬──────────────────────┐
-  │ Obj.  │ Pass condition         │ Owner     │ Produced by stage    │
-  ├───────┼────────────────────────┼───────────┼──────────────────────┤
-  │ O1    │ uplink reduction ≥50 % │ NS-3      │ ns3_network          │
-  │ O2a   │ epsilon ≤ 1            │ training  │ proposed             │
-  │ O2b   │ accuracy loss ≤ 2 pp   │ eps sweep │ epsilon_sweep        │
-  │ O3a   │ P95 latency < 100 ms   │ ONNX      │ inference_bench      │
-  │ O3b   │ update reliability>99 %│ NS-3      │ ns3_network          │
-  │ O4    │ energy saving ≥ 20 %   │ CloudSim  │ cloudsim_energy      │
-  └───────┴────────────────────────┴───────────┴──────────────────────┘
+  MEASURED 2026-08-05 — all six scored on both datasets.
+
+  ┌───────┬──────────────────┬──────────────┬──────────────┬──────────┐
+  │ Obj.  │ Target           │ vitaldb      │ wear         │ Verdict  │
+  ├───────┼──────────────────┼──────────────┼──────────────┼──────────┤
+  │ O1    │ uplink ≥ 50 %    │ 90.82 %      │ 96.08 %      │ PASS     │
+  │ O2a   │ epsilon ≤ 1      │ 0.963        │ 0.989        │ PASS     │
+  │ O2b   │ acc loss ≤ 2 pp  │ -0.916 pp    │ +1.967 pp    │ see note │
+  │ O3a   │ P95 < 100 ms     │ 2.99 ms      │ 1.22 ms      │ PASS     │
+  │ O3b   │ reliability >99 %│ 99.27 %      │ 99.05 %      │ PASS     │
+  │ O4    │ energy ≥ 20 %    │ 72.3 %       │ 76.8 %       │ PASS     │
+  └───────┴──────────────────┴──────────────┴──────────────┴──────────┘
+
+  vitaldb 6/6 PASS.  wear 5 PASS + 1 INCONCLUSIVE, 0 FAIL.
+
+  O2b note: vitaldb PASSES (95 % CI [-2.820, +0.988], n=5). wear is
+  INCONCLUSIVE — pre-registered n=15 paired seeds give +1.967 pp with
+  CI [+1.760, +2.173], which spans the 2 pp target. Not a failure: the
+  sample cannot decide it. n was fixed in advance and is NOT being
+  extended, since adding seeds until the verdict flips is optional
+  stopping. wear reaches 0.9578 accuracy with no privacy at all, so a
+  saturated task has no headroom to absorb DP noise inside 2 pp.
+
+  Live: python scripts/check_objectives.py --dataset <ds>
 
   HOW EACH ONE WILL BE MEASURED
 

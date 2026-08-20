@@ -34,13 +34,20 @@ def optimize_gpu(memory_fraction: float = 0.95) -> None:
 
 
 def get_dataloader_kwargs(device: torch.device) -> dict:
-    # Limit workers to 2 per loader: 6 devices × 3 loaders × 2 workers = 36 max.
-    # persistent_workers removed — 18 always-alive worker processes waste ~1-2 GB RAM.
+    # Per-device splits here are small (400-930 samples/device) and fully
+    # resident in RAM as tensors (HealthcareDataset materialises the mmap in
+    # __init__), so __getitem__ is a trivial tensor index. Under Opacus the
+    # loader is re-wrapped into a Poisson DPDataLoader ~30×/round, and with
+    # num_workers>0 that respawns worker processes each time — pure IPC/spawn
+    # overhead that starves the GPU (observed 31% util / 1200MHz). Default to
+    # 0 workers (main-process loading, no spawn) for this in-RAM regime.
+    # Override with HFL_NUM_WORKERS to A/B test (e.g. HFL_NUM_WORKERS=2).
+    n_workers = int(os.environ.get("HFL_NUM_WORKERS", "0"))
     if device.type == "cuda":
-        return {
-            "num_workers": 2,
-            "pin_memory":  True,
-        }
+        kw = {"num_workers": n_workers, "pin_memory": True}
+        if n_workers > 0:
+            kw["persistent_workers"] = True  # avoid per-epoch respawn if workers are used
+        return kw
     return {"num_workers": 0, "pin_memory": False}
 
 
@@ -70,15 +77,27 @@ def gpu_memory_info() -> None:
 
 
 def device_info() -> dict:
+    """Device metadata, logged into result CSVs for reproducibility.
+
+    Keys are always present (filled with CPU-safe defaults) so a CSV written
+    on a CPU box has the same columns as one written on the GPU box — a
+    reader must not have to branch on which machine produced a row.
+    """
     import platform
-    info = {"device_type": "cpu", "pytorch_version": torch.__version__,
+    info = {"device_type": "cpu", "device_name": "CPU",
+            "cuda_available": False, "cuda_version": "N/A",
+            "cudnn_version": "N/A", "vram_gb": 0.0, "gpu_sm_count": 0,
+            "pytorch_version": torch.__version__,
             "python_platform": platform.platform()}
     if torch.cuda.is_available():
         props = torch.cuda.get_device_properties(0)
         info.update({
             "device_type": "cuda",
             "device_name": torch.cuda.get_device_name(0),
+            "cuda_available": True,
             "cuda_version": torch.version.cuda,
+            "cudnn_version": str(torch.backends.cudnn.version()),
             "vram_gb": round(props.total_memory / 1e9, 2),
+            "gpu_sm_count": props.multi_processor_count,
         })
     return info

@@ -52,15 +52,47 @@ def extract_baseline_metrics(name: str, path: str) -> dict:
     }
 
 
-def extract_hfl_final(path: str) -> dict:
+def extract_final_test_from_log(csv_path: str) -> dict:
+    """
+    Pull `Final Test AUC=… | Acc=…` from the .log beside a run's CSV.
+
+    hfl_trainer.py prints the held-out TEST metrics to stdout only — the CSV
+    holds per-round VAL metrics. Reading the last CSV row therefore yields a
+    val number, which was then tabulated next to the baselines' test numbers.
+    Prefer the log so both columns mean the same thing.
+    """
+    log_path = os.path.splitext(csv_path)[0] + ".log"
+    if not os.path.exists(log_path):
+        return {}
+    m = None
+    with open(log_path, errors="ignore") as f:
+        for line in f:
+            if line.startswith("Final Test AUC="):
+                m = line.strip()
+    if not m:
+        return {}
+    out = {}
+    for part in m.split("|"):
+        part = part.strip()
+        if part.startswith("Final Test AUC="):
+            out["macro_auc"] = part.split("=", 1)[1].strip()
+        elif part.startswith("Acc="):
+            out["accuracy"] = part.split("=", 1)[1].strip()
+    return out
+
+
+def extract_hfl_final(path: str, system_name: str = "HFL-MM-HC (P1)") -> dict:
     rows = safe_read_csv(path)
     if not rows:
         return {}
     last = rows[-1]
+    test = extract_final_test_from_log(path)
     return {
-        "system":       "HFL-MM-HC (P1)",
-        "accuracy":     last.get("val_accuracy", "N/A"),
-        "macro_auc":    last.get("val_macro_auc", last.get("macro_auc", "N/A")),   # key from hfl_trainer log_entry
+        "system":       system_name,
+        "accuracy":     test.get("accuracy", last.get("val_accuracy", "N/A")),
+        "macro_auc":    test.get("macro_auc",
+                                 last.get("val_macro_auc", last.get("macro_auc", "N/A"))),
+        "metric_split": "test" if test else "val(final round)",
         "epsilon":      last.get("epsilon_spent", "N/A"),
         "rounds":       last.get("global_round", "N/A"),    # key from hfl_trainer log_entry
         "uplink_bytes": last.get("uplink_bytes", "N/A"),
@@ -80,6 +112,12 @@ def extract_epsilon_sweep(sweep_dir: str) -> list[dict]:
             data = safe_read_csv(path)
             if data:
                 last = data[-1]
+                # Per-round sweep CSVs (eps_*.csv from the trainer) carry no
+                # accuracy/epsilon summary columns — including them produced
+                # rows of pure N/A. Only summary-style files qualify.
+                if last.get("accuracy") in (None, "", "N/A") and \
+                   last.get("macro_auc") in (None, "", "N/A"):
+                    continue
                 rows.append({
                     "system":    f"HFL-MM-HC ε={last.get('epsilon', fname)}",
                     "accuracy":  last.get("accuracy", "N/A"),
@@ -149,27 +187,48 @@ def extract_phase4_qos(cloudsim_results_path: str, ns3_results_path: str) -> dic
     return out
 
 
-def compute_accuracy_loss(rows: list[dict], hfl: dict) -> str:
+def compute_accuracy_loss(rows: list[dict], hfl: dict, nodp: dict | None = None) -> str:
     """
-    Compute accuracy loss = (best non-DP baseline AUC - HFL AUC) / best non-DP baseline AUC × 100.
-    Reports in %, positive = degradation.
+    Accuracy loss attributable to PRIVACY, in % of AUC (positive = degradation).
+
+    Preferred definition (when `nodp` is supplied): the ε=1 run against the
+    SAME architecture with DP effectively off (--epsilon 1000). That isolates
+    the privacy mechanism, which is what "≤2% accuracy loss at ε≤1" asks about.
+
+    Fallback: best non-DP baseline. This is NOT equivalent under the head-only
+    recipe — B0–B5 train from scratch, while the proposed run starts from
+    pretrained encoders — so it flatters the proposed system. It is retained
+    only so the field is populated when no comparator run exists, and is
+    labelled as such in the output.
     """
+    try:
+        hfl_auc = float(hfl.get("macro_auc"))
+    except (TypeError, ValueError):
+        return "N/A", "no proposed-run AUC"
+
+    if nodp and nodp.get("macro_auc") not in (None, "", "N/A"):
+        try:
+            ref = float(nodp["macro_auc"])
+            return f"{(ref - hfl_auc) / ref * 100:.2f}%", "vs DP-off same-arch comparator (valid); single seed — 3-seed stats in RESULTS.md"
+        except (ValueError, TypeError, ZeroDivisionError):
+            pass
+
     try:
         non_dp = [r for r in rows
                   if r.get("system", "") not in ("B4 DP-FedAvg",) and
                   r.get("macro_auc", "N/A") not in ("N/A", "")]
-        if not non_dp or not hfl.get("macro_auc"):
-            return "N/A"
+        if not non_dp:
+            return "N/A", "no comparator available"
         best_baseline_auc = max(float(r["macro_auc"]) for r in non_dp)
-        hfl_auc = float(hfl["macro_auc"])
         loss_pct = (best_baseline_auc - hfl_auc) / best_baseline_auc * 100
-        return f"{loss_pct:.2f}%"
+        return f"{loss_pct:.2f}%", "vs best non-DP baseline (NOT like-for-like — see RESULTS.md)"
     except (ValueError, TypeError):
-        return "N/A"
+        return "N/A", "parse error"
 
 
 def build_qos_table(hfl: dict, latency: dict, ns3: dict,
-                    phase4_qos: dict, rows: list[dict]) -> list[dict]:
+                    phase4_qos: dict, rows: list[dict],
+                    nodp: dict | None = None) -> list[dict]:
     def val_or_na(d, k):
         return d.get(k, "N/A")
 
@@ -193,7 +252,7 @@ def build_qos_table(hfl: dict, latency: dict, ns3: dict,
                      if val_or_na(ns3, "update_reliability_pct") != "N/A"
                      else val_or_na(phase4_qos, "update_reliability_pct"))
 
-    acc_loss = compute_accuracy_loss(rows, hfl)
+    acc_loss, acc_basis = compute_accuracy_loss(rows, hfl, nodp)
 
     return [
         {"qos_target": "Comm reduction ≥ 50%",
@@ -210,12 +269,13 @@ def build_qos_table(hfl: dict, latency: dict, ns3: dict,
          "status": check(val_or_na(latency, "latency_p95_ms"), 100, op="<=")},
         {"qos_target": "Accuracy loss ≤ 2% at ε=1",
          "value": acc_loss,
+         "basis": acc_basis,
          "status": check(acc_loss.replace("%", ""), 2, op="<=")},
     ]
 
 
 def write_phase5_results(rows: list[dict], qos: list[dict], latency: dict,
-                          output_path: str) -> None:
+                          output_path: str, latency_source: str = "") -> None:
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", newline="") as f:
         writer = csv.writer(f)
@@ -238,7 +298,7 @@ def write_phase5_results(rows: list[dict], qos: list[dict], latency: dict,
         writer.writerow([])
 
         # Section 2: Inference latency
-        writer.writerow(["## SECTION 2: Inference Latency (ONNX INT8)"])
+        writer.writerow([f"## SECTION 2: Inference Latency (source: {os.path.basename(latency_source)})"])
         writer.writerow(["metric", "value"])
         for k, v in latency.items():
             writer.writerow([k, v])
@@ -246,9 +306,10 @@ def write_phase5_results(rows: list[dict], qos: list[dict], latency: dict,
 
         # Section 3: QoS validation
         writer.writerow(["## SECTION 3: QoS Target Validation"])
-        writer.writerow(["qos_target", "value", "status"])
+        writer.writerow(["qos_target", "value", "status", "basis"])
         for q in qos:
-            writer.writerow([q["qos_target"], q["value"], q["status"]])
+            writer.writerow([q["qos_target"], q["value"], q["status"],
+                             q.get("basis", "")])
 
     print(f"[SAVED] Phase 5 results → {output_path}")
 
@@ -259,6 +320,15 @@ def main():
     parser.add_argument("--baselines_dir", default=BASELINES_DIR)
     parser.add_argument("--ns3_dir",     default=NS3_DIR,
                         help="Directory containing ns3_phase5_results.csv")
+    parser.add_argument("--hfl_results",
+                        default=os.path.join(RESULTS_DIR, "eps1_headonly_dpft.csv"),
+                        help="Per-round CSV of the proposed run (its .log supplies test metrics)")
+    parser.add_argument("--nodp_results",
+                        default=os.path.join(RESULTS_DIR, "eps1000_headonly_nodp.csv"),
+                        help="DP-off comparator (same architecture) for the accuracy-loss figure")
+    parser.add_argument("--latency",
+                        default=os.path.join(RESULTS_DIR, "inference_latency", "bench_fp32_cpu.csv"),
+                        help="Latency benchmark CSV to source the P50/P95/P99 figures from")
     parser.add_argument("--output", default=os.path.join(RESULTS_DIR, "phase5_results.csv"))
     args = parser.parse_args()
 
@@ -290,13 +360,22 @@ def main():
             print(f"  [--] {name}: file not found ({os.path.basename(path)})")
 
     # HFL-MM-HC (P1)
-    hfl_path = os.path.join(rdir, "hfl_mm_hc_results.csv")
+    hfl_path = args.hfl_results
     hfl = extract_hfl_final(hfl_path)
     if hfl:
         rows.append(hfl)
         print(f"  [OK] HFL-MM-HC (P1): acc={hfl.get('accuracy','?')} auc={hfl.get('macro_auc','?')}")
     else:
         print(f"  [--] HFL-MM-HC: results not found ({os.path.basename(hfl_path)})")
+
+    # DP-off comparator (same architecture) — the valid reference for
+    # "accuracy loss at ε≤1". Added as its own row, not as a baseline.
+    nodp = extract_hfl_final(args.nodp_results, "HFL-MM-HC DP-off (ε=1000)")
+    if nodp:
+        rows.append(nodp)
+        print(f"  [OK] DP-off comparator: acc={nodp.get('accuracy','?')} auc={nodp.get('macro_auc','?')}")
+    else:
+        print(f"  [--] DP-off comparator not found ({os.path.basename(args.nodp_results)})")
 
     # ε sweep rows
     sweep_rows = extract_epsilon_sweep(os.path.join(rdir, "epsilon_sweep"))
@@ -307,7 +386,7 @@ def main():
         print("  [--] ε sweep: no CSVs found in epsilon_sweep/")
 
     # Latency
-    lat_path = os.path.join(rdir, "inference_latency", "bench_results.csv")
+    lat_path = args.latency
     latency = extract_latency(lat_path)
     if latency:
         print(f"  [OK] Latency: P95={latency.get('latency_p95_ms','?')} ms")
@@ -337,10 +416,10 @@ def main():
               "(energy=74.9%, reliability=99.05%, comm=76.4%)")
 
     # QoS table
-    qos = build_qos_table(hfl, latency, ns3, phase4_qos, rows)
+    qos = build_qos_table(hfl, latency, ns3, phase4_qos, rows, nodp)
 
     # Write
-    write_phase5_results(rows, qos, latency, args.output)
+    write_phase5_results(rows, qos, latency, args.output, args.latency)
 
     print("\n  QoS SUMMARY:")
     all_pass = True

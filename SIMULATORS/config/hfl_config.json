@@ -2,16 +2,15 @@
   "_comment": "Shared configuration file for NS-3 and CloudSim Plus HFL simulations",
   "_project": "Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT",
   "_student": "Samartha H V | MIT Bengaluru | 2026",
-
   "topology": {
-    "num_iot_devices": 20,
-    "num_edge_servers": 3,
-    "num_clusters": 3,
-    "devices_per_cluster": 7
+    "num_iot_devices": 9,
+    "num_edge_servers": 2,
+    "num_clusters": 2,
+    "devices_per_cluster": 5,
+    "_source": "vitaldb (default) \u2014 see datasets{}"
   },
-
   "federated_learning": {
-    "total_fl_rounds": 100,
+    "total_fl_rounds": 20,
     "local_epochs_per_round": 5,
     "tau_e": 5,
     "tau_c": 1,
@@ -19,23 +18,21 @@
     "batch_size": 32,
     "learning_rate": 0.001
   },
-
   "model": {
-    "model_size_MB": 50,
-    "gradient_size_MB": 50,
-    "compressed_gradient_MB": 25,
+    "model_size_MB": 7.46,
+    "gradient_size_MB": 7.46,
+    "compressed_gradient_MB": 1.87,
     "sparsification_ratio": 0.2,
-    "quantization_bits": 8
+    "quantization_bits": 8,
+    "_source": "vitaldb (default) \u2014 see datasets{}"
   },
-
   "privacy": {
     "epsilon": 1.0,
-    "delta": 1e-5,
+    "delta": 1e-05,
     "noise_mechanism": "Gaussian",
     "gradient_clip_norm": 1.0,
     "privacy_accountant": "MomentsAccountant"
   },
-
   "network_ns3": {
     "wifi_standard": "802.11ax",
     "wifi_frequency_GHz": 5.0,
@@ -46,7 +43,6 @@
     "propagation_model": "LogDistancePropagationLossModel",
     "background_traffic_Mbps": 5
   },
-
   "compute_cloudsim": {
     "iot_device_mips": 300,
     "iot_device_ram_MB": 512,
@@ -64,7 +60,6 @@
     "cloud_server_power_idle_W": 500,
     "cloud_server_power_max_W": 2000
   },
-
   "qos_targets": {
     "max_inference_latency_ms": 100,
     "min_comm_reduction_pct": 50,
@@ -72,7 +67,6 @@
     "min_energy_saving_pct": 20,
     "min_update_reliability_pct": 99
   },
-
   "baselines": [
     "CentralizedFL",
     "FlatFL_NoDP",
@@ -80,23 +74,37 @@
     "HierarchicalFL_NoDP",
     "HFL_Proposed"
   ],
-
   "datasets": {
-    "healthcare": {
-      "name": "PTB-XL ECG + Kermany Chest X-Ray",
-      "modalities": ["ecg_signal", "cxr_image", "tabular_metadata"],
-      "num_samples": 3000,
-      "ecg_classes": 5,
-      "cxr_classes": 2,
-      "tabular_features": 8,
-      "source_ecg": "PTB-XL (PhysioNet)",
-      "source_cxr": "Kermany et al. (Chest X-Ray Pneumonia)"
+    "vitaldb": {
+      "role": "primary research (clinical IoMT)",
+      "num_iot_devices": 9,
+      "num_edge_servers": 2,
+      "n_classes": 2,
+      "n_channels_a": 18,
+      "feat_b_dim": 34,
+      "window": "10 min @0.5 Hz (300 steps)",
+      "n_params": 1864227,
+      "model_size_MB": 7.46,
+      "samples": 48712,
+      "n_cases": 6257,
+      "label": "postoperative ICU admission (icu_days>0)"
     },
-    "noniid_dirichlet_alpha": 0.5
+    "wear": {
+      "role": "fast iteration (wearable IoT)",
+      "num_iot_devices": 22,
+      "num_edge_servers": 2,
+      "n_classes": 18,
+      "n_channels_a": 12,
+      "feat_b_dim": 2048,
+      "window": "2 s @50 Hz (100 steps)",
+      "n_params": 3925875,
+      "model_size_MB": 15.7,
+      "samples": 38578,
+      "label": "workout activity (18 classes)"
+    }
   },
-
   "compute_device": {
-    "_comment": "Auto-detected at runtime by device_utils.py — do not manually override",
+    "_comment": "Auto-detected at runtime by device_utils.py \u2014 do not manually override",
     "auto_detect": true,
     "prefer_gpu": true,
     "detected_gpu": "NVIDIA RTX A2000 12GB",
@@ -111,11 +119,12 @@
     "num_dataloader_workers_gpu": 8,
     "num_dataloader_workers_cpu": 0
   },
-
   "output": {
     "ns3_results_path": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/ns3/",
     "cloudsim_results_path": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/cloudsim/",
     "merged_results_path": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/merged/",
     "log_interval_rounds": 10
-  }
+  },
+  "_REVISION_NOTE": "2026-08-03: topology/model values were 20 devices / 3 edges / 100 rounds / 50 MB \u2014 a configuration never trained in this project. Corrected to the two datasets actually in use. `topology` and `model` now hold the DEFAULT dataset (vitaldb); per-dataset values are under `datasets`. Anything deriving QoS numbers should read `datasets[<name>]`, not the top level.",
+  "_authoritative_source": "data/loaders/datasets.py (registry) and data/processed/partitions/<dataset>/partition_meta.json"
 }

@@ -1,0 +1,167 @@
+%==============================================================================
+% introduction.tex — Introduction for PP-HFM
+% Self-contained \section{}; \input this into main.tex (never compile alone).
+%
+% Structured after the house introduction template: domain motivation, the
+% task, what makes it hard, how approaches developed, what each leaves open,
+% the remedies that follow, "Accordingly, this work...", an enumerated
+% contribution list with explicit non-claims, and the organisation paragraph.
+%
+% POSITIONING RULE (docs/roadmap.md): user-level DP, parameter-efficient DP
+% fine-tuning and DP quantile release are PRIOR ART. The contributions are
+% measurements and auditing practice. Do not write "we propose patient-level
+% DP".
+%
+% NOTE: the contribution list covers only completed work. The records-per-
+% individual scaling law completed 2026-08-16 (24/24 configurations) and is
+% now the fifth contribution; see Sec. Results, "Records per individual".
+% It is stated in AUPRC only -- the AUROC trend is monotone in the same
+% direction but every interval covers zero at three seeds, so it is reported
+% as directionally consistent and not as a resolved effect.
+%==============================================================================
+
+\section{Introduction}
+\label{sec:intro}
+
+Internet-of-Things deployments increasingly derive their value from combining
+sensing streams of different kinds. A hospital theatre records continuous
+physiological waveforms alongside the structured clinical history of the
+patient on the table; a wearable installation records inertial motion alongside
+egocentric video. In each case the streams are complementary rather than
+redundant, and a model with access to both can resolve states that neither
+resolves alone. The streams are also produced where the sensors are, which is
+seldom where computation is convenient, and this tension between where data
+arises and where models are trained is the setting the present work addresses.
+
+Transmitting raw multimodal streams to a central service is the obvious
+resolution and is frequently unavailable. The volume is substantial and the
+uplink is the scarce resource, so centralisation inflates both latency and
+energy in precisely the deployments that can least afford either. More
+decisively, in the settings where multimodal sensing is most valuable the data
+cannot lawfully move at all: clinical records are governed by consent and by
+data-protection regimes that prohibit pooling across institutions, so a model
+requiring centralisation cannot be deployed rather than merely being expensive.
+Federated learning \cite{ref1} answers this by communicating model updates
+instead of records, and hierarchical variants \cite{ref2, ref3} interpose an
+edge tier so that the wide-area link is exercised once per several local
+rounds.
+
+Moving the model rather than the data does not by itself protect the data. The
+updates a client transmits are functions of its records, and membership
+inference against released models is well established \cite{ref14}. A formal
+guarantee is therefore required, and differentially private stochastic gradient
+descent \cite{ref6} supplies one by bounding the influence of a training record
+and perturbing the aggregate. But the guarantee such a system reports is stated
+over the unit it clips, and in a sensing deployment that unit is a
+fixed-length window rather than a person. Where an individual contributes many
+windows --- as every patient does, and as every participant in a continuous
+recording does --- a record-level budget answers whether a particular window
+was used in training, while the question a clinical deployment must answer is
+whether a particular \emph{person} was. The two can be related by group
+privacy \cite{ref8}, but at the group sizes these datasets exhibit the
+conversion is prohibitive, turning a nominal budget of unity into one that
+supports no meaningful claim.
+
+Existing systems have developed along two lines that do not meet. Hierarchical
+designs establish the communication and energy case convincingly: HED-FL
+\cite{ref3} extends deployment lifetime by avoiding long-range transmission,
+HCEF \cite{ref4} adapts computation and compression to device heterogeneity,
+and assignment-oriented work \cite{ref5} reduces divergence under non-identical
+distributions. None carries a formal privacy guarantee. Private designs supply
+the guarantee: FL2DP \cite{ref9} couples noise with shuffling, and RoPPFL
+\cite{ref10} pairs local privacy with robust aggregation at the edge. Neither
+is hierarchical in the sense that matters here, and neither examines how an
+intermediate tier alters the frequency with which each client's budget is
+spent. Across both lines the local objective is treated as the aggregation of
+generic parameter vectors, so neither multiple modalities per record nor the
+grouping of records under an individual plays any part.
+
+Three difficulties follow, and they bear on deployability as much as on
+privacy. The unit at which a guarantee is stated is rarely examined, so its
+cost on genuinely paired multimodal data is unquantified. The validity
+condition of parameter-efficient private training --- that the corpus used to
+pretrain the frozen representation be disjoint from the protected population
+\cite{ref12, ref13} --- is frequently left implicit and, where honoured,
+unpriced. And guarantees are typically reported from the parameters of the
+mechanism rather than audited by attack; where an audit is performed it is
+conducted at the granularity of the record, which is precisely the quantity a
+record-level guarantee already protects.
+
+Two remedies follow directly. The unit can be fixed at the point of clipping
+rather than recovered afterwards by a group-privacy conversion: if the
+gradients of an individual's records are accumulated before the bound is
+applied, that individual's influence on the released model is bounded
+irrespective of how many records they contributed, and accounting performed at
+the same granularity yields a budget that is a statement about people by
+construction. And the resulting guarantee can be audited by mounting membership
+inference at the level of the individual, provided the attack used is strong
+enough that a negative finding is informative --- which requires demonstrating
+on a configuration known to memorise that the attack can find leakage where
+leakage exists.
+
+Accordingly, this work presents PP-HFM, a three-tier federated framework for
+multimodal sensing in which the privacy unit is the individual by construction.
+Records are grouped by individual before they are bounded; the noise scale is
+calibrated to satisfy the budget for every client simultaneously rather than
+for a representative one, so that the interposition of the edge tier is
+reflected in the reported figure; and the cost of releasing a conformal
+calibration quantile is composed into that figure rather than omitted from it.
+Representation learning is separated from private adaptation, with encoders
+pretrained on a population disjoint from every client and frozen, so that only
+a compact fusion head is privatised. The framework is evaluated on two corpora
+whose modalities are associated by the recording apparatus rather than by a
+construction rule, under a protocol that measures communication, latency,
+reliability and energy on a simulated topology and audits the privacy guarantee
+by attack.
+
+The contributions are fivefold. First, the framework enforces an
+individual-level guarantee within a hierarchical multimodal system and reports
+a composed budget covering both training and calibration; the accounting
+practices this requires --- calibrating the noise against every client rather
+than a representative one, and charging the calibration release against the
+same budget --- are specified in enough detail to be checked from outside,
+because each corresponds to a failure that is invisible in a training log.
+Second, the cost of the choice of unit is measured on genuinely paired clinical
+multimodal data, together with the cost of the disjointness condition that
+makes the guarantee valid end-to-end, so that both are priced rather than
+assumed negligible. Third, the guarantee is audited by patient-level membership
+inference under both a threshold attack and a likelihood-ratio attack
+\cite{ref17}, each reported alongside a positive control on a configuration
+known to memorise; the audit returns a null on the private arms, and the
+control is what makes that null attributable to the defence rather than to an
+inadequate adversary. Fourth, the system-level behaviour is validated on two
+deployments differing in topology and in payload, with every network quantity
+measured on rounds in which the payload traversed the simulated topology rather
+than composed analytically. The same protocol establishes that the guarantees
+are affordable in real time: the conformal set construction that carries the
+coverage guarantee occupies $0.68\,\%$ of the inference path, and the private
+mechanism occupies none of it, since its noise is applied to gradients during
+training and adds no operation to serving. The objection that a privacy
+apparatus is too heavy for a latency-bound deployment is therefore answered by
+measurement rather than by argument. Fifth, the price of the individual-level guarantee
+is shown not to be a fixed quantity but a function of how much each individual
+contributes: with the per-step budget and the number of units per step held
+constant, the penalty is indistinguishable from zero when an individual
+contributes a single record and grows monotonically as that number rises,
+saturating by eight records. This design carries its own control, because at one
+record per individual the two units coincide by construction and the two arms
+must agree; that they do is what licenses reading the divergence at larger
+contributions as a property of the unit rather than of the apparatus.
+
+What is not claimed should be stated as plainly. User-level differential
+privacy \cite{ref11}, parameter-efficient differentially private fine-tuning
+\cite{ref12, ref13} and differentially private quantile release \cite{ref24}
+are established prior art, and are used here rather than proposed. The
+contributions above are measurements of these mechanisms in a setting where
+they have not been measured, and the auditing practice under which those
+measurements are reported.
+
+The remainder of the paper is organised as follows. Section~\ref{sec:related}
+reviews related work on hierarchical and private federated learning, on the
+unit at which a guarantee is stated, and on membership inference as an
+auditing instrument; Section~\ref{sec:method} presents the proposed framework;
+Section~\ref{sec:experiments} specifies the corpora, the implementation, the
+evaluation measures and the experimental protocol; Section~\ref{sec:results}
+reports the results; Section~\ref{sec:discussion} discusses their
+interpretation and the limitations of the study; and
+Section~\ref{sec:conclusion} concludes.

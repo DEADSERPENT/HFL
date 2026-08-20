@@ -1,0 +1,2 @@
+baseline,rounds,mu,temperature,test_accuracy,test_macro_auc,test_auprc,val_auc_history
+B5_MOON,10,5.0,0.5,0.8912715697771821,0.9948434499991596,0.9527730011902421,"[0.9686, 0.9873, 0.9902, 0.9931, 0.9944, 0.9954, 0.9959, 0.9964, 0.9965, 0.9969]"

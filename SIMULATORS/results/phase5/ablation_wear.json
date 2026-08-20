@@ -1,0 +1,76 @@
+{
+  "dataset": "wear",
+  "pairing": "HARDWARE-SYNCHRONISED (same person, same instant)",
+  "epochs": 8,
+  "seeds": [
+    42,
+    43
+  ],
+  "n_train": 26424,
+  "n_test": 5969,
+  "runs": {
+    "a": [
+      {
+        "acc": 0.928296197017926,
+        "auroc": 0.997777953805778,
+        "auprc": 0.9764781390340637,
+        "seed": 42,
+        "mode": "a",
+        "secs": 56.3
+      },
+      {
+        "acc": 0.928296197017926,
+        "auroc": 0.9974882140327792,
+        "auprc": 0.9756714940724651,
+        "seed": 43,
+        "mode": "a",
+        "secs": 55.4
+      }
+    ],
+    "b": [
+      {
+        "acc": 0.905344278773664,
+        "auroc": 0.9954997963288346,
+        "auprc": 0.9623605729585033,
+        "seed": 42,
+        "mode": "b",
+        "secs": 8.1
+      },
+      {
+        "acc": 0.9043390852739153,
+        "auroc": 0.9959940390190732,
+        "auprc": 0.9634089315794925,
+        "seed": 43,
+        "mode": "b",
+        "secs": 8.1
+      }
+    ],
+    "both": [
+      {
+        "acc": 0.9361702127659575,
+        "auroc": 0.9980519740821312,
+        "auprc": 0.9808675195319707,
+        "seed": 42,
+        "mode": "both",
+        "secs": 58.1
+      },
+      {
+        "acc": 0.9473948735131513,
+        "auroc": 0.9979262108396918,
+        "auprc": 0.9853785867888186,
+        "seed": 43,
+        "mode": "both",
+        "secs": 58.9
+      }
+    ]
+  },
+  "fusion_gain_auroc": 0.00035600854163286844,
+  "fusion_gain_auprc": 0.007048236607130276,
+  "verdict": {
+    "supports_gap1": false,
+    "reason": "ceiling",
+    "gain_over_sd": 1.4406223851725406,
+    "best_unimodal_auroc": 0.9976330839192786,
+    "text": "CEILING \u2014 the best single modality already reaches 0.9976 AUROC. Fusion gain is real in sign but this task cannot evidence Gap #1."
+  }
+}

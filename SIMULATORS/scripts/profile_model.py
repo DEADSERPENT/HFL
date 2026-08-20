@@ -31,27 +31,42 @@ def _sync(device):
 
 def main():
     ap = argparse.ArgumentParser(description="Profile HFL training step")
-    ap.add_argument("--data_dir", default="data/processed/healthcare")
-    ap.add_argument("--part_dir", default="data/processed/partitions/healthcare")
+    ap.add_argument("--dataset", default="vitaldb",
+                    choices=["wear", "vitaldb"])
+    ap.add_argument("--data_dir", default=None, help="override registry path")
+    ap.add_argument("--part_dir", default=None, help="override registry path")
     ap.add_argument("--batches", type=int, default=20)
     ap.add_argument("--warmup", type=int, default=5)
     ap.add_argument("--batch_size", type=int, default=32)
-    ap.add_argument("--n_classes", type=int, default=5)
+    ap.add_argument("--n_classes", type=int, default=None, help="override registry")
     args = ap.parse_args()
 
-    from hfl_trainer import build_full_healthcare_dataset, load_partitioned_data
+    from hfl_trainer import load_partitioned_data
     from hfl_mm_model import build_hfl_mm_hc
     from device_utils import get_device, optimize_gpu
+    from datasets import get_spec
+
+    # Every shape/path/count comes from the registry so this harness profiles
+    # the model that actually trains, not a differently-shaped stand-in.
+    spec = get_spec(args.dataset)
+    args.data_dir = args.data_dir or spec.data_dir
+    args.part_dir = args.part_dir or spec.partition_dir
+    args.n_classes = args.n_classes or spec.n_classes
+    _kw = {"n_channels_a": spec.n_channels_a}
+    if spec.modality_b != "image":
+        _kw.update(modality_b="features", feat_b_dim=spec.feat_b_dim)
+    print(f"[{'profile'}] dataset={spec.name} classes={spec.n_classes} "
+          f"ch_a={spec.n_channels_a} mod_b={spec.modality_b}")
 
     device = get_device()
     optimize_gpu()
 
-    full = build_full_healthcare_dataset(args.data_dir)
+    full = spec.build_full(args.data_dir)
     loaders = load_partitioned_data(args.part_dir, args.data_dir, 0,
                                     args.batch_size, full_ds=full)
     train = loaders["train"]
 
-    model = build_hfl_mm_hc(n_classes=args.n_classes).to(device)
+    model = build_hfl_mm_hc(n_classes=args.n_classes, **_kw).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
     loss_fn = nn.CrossEntropyLoss()
     model.train()

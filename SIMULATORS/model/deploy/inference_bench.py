@@ -12,6 +12,7 @@ Latency breakdown measured:
 """
 
 import os
+import site
 import sys
 import time
 import argparse
@@ -22,7 +23,13 @@ import numpy as np
 
 
 def simulate_preprocessing(ecg_shape=(1, 12, 1000), cxr_shape=(1, 3, 224, 224)):
-    """Simulate sensor data loading + normalization (no disk I/O in benchmark)."""
+    """Simulate sensor data loading + normalization (no disk I/O in benchmark).
+
+    Shapes are supplied by the caller, read off the loaded ONNX graph. They
+    used to be hardcoded to one dataset's model, so after a dataset change
+    the benchmark could not run any current artifact at all
+    ("Got: 12 Expected: 18").
+    """
     ecg = np.random.randn(*ecg_shape).astype(np.float32)
     # Per-lead z-score normalization
     mean = ecg.mean(axis=2, keepdims=True)
@@ -30,10 +37,13 @@ def simulate_preprocessing(ecg_shape=(1, 12, 1000), cxr_shape=(1, 3, 224, 224)):
     ecg  = (ecg - mean) / std
 
     cxr = np.random.randn(*cxr_shape).astype(np.float32)
-    # ImageNet normalization
-    imagenet_mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 3, 1, 1)
-    imagenet_std  = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 3, 1, 1)
-    cxr = (cxr - imagenet_mean) / imagenet_std
+    if len(cxr_shape) == 4 and cxr_shape[1] == 3:
+        # ImageNet normalisation applies only to a 3-channel image tensor.
+        # Modality B is a feature VECTOR for wear/vitaldb, where this would
+        # broadcast-error.
+        imagenet_mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 3, 1, 1)
+        imagenet_std  = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 3, 1, 1)
+        cxr = (cxr - imagenet_mean) / imagenet_std
     return ecg, cxr
 
 
@@ -53,7 +63,59 @@ def conformal_prediction_set(logits: np.ndarray, q_global: float = 0.9, alpha: f
     return pred_set, top_class, probs
 
 
-CLASS_NAMES = ["NORM", "MI", "STTC", "CD", "HYP"]
+# Filled from the model's own output width; the old hardcoded 5-class ECG
+# list would IndexError on an 18-class WEAR model.
+# Generic labels: the benchmark measures latency, not clinical semantics,
+# and the previous list named the classes of a retired dataset.
+CLASS_NAMES = None   # resolved as class_0..class_{n-1} when needed
+
+
+def _io_shapes(sess):
+    """Input shapes, names and class count taken from the session, substituting
+    1 for the dynamic batch axis.
+
+    Names are read POSITIONALLY rather than looked up as "ecg"/"cxr". Those
+    were the input names of a dataset that no longer exists, and hardcoding
+    them meant the benchmark could not load a graph exported for any other
+    dataset. Modality A is input 0 and modality B is input 1 by the export
+    contract in onnx_exporter.py.
+    """
+    ins = sess.get_inputs()
+    shapes = [tuple(1 if not isinstance(d, int) else d for d in i.shape)
+              for i in ins]
+    names = [i.name for i in ins]
+    n_cls = sess.get_outputs()[0].shape[-1]
+    n_cls = n_cls if isinstance(n_cls, int) else 2
+    return shapes[0], shapes[1], n_cls, names
+
+
+def _preload_cudnn() -> None:
+    """
+    Make the pip-installed cuDNN 9 visible to onnxruntime's CUDA provider.
+
+    cuDNN ships inside the venv (nvidia/cudnn/lib) rather than on the system
+    loader path. Torch preloads it on import, which is why onnx_exporter.py
+    gets a working CUDA session for free — this benchmark deliberately does
+    not import torch (the point of an ONNX deployment artifact is to not need
+    it), so without this it dies with CUDNN_STATUS_NOT_INITIALIZED. Loading
+    RTLD_GLOBAL puts the symbols where the provider can find them.
+
+    Best-effort: on a machine with system cuDNN this is a no-op.
+    """
+    import ctypes
+    import glob
+    for base in site.getsitepackages() + [site.getusersitepackages()]:
+        libdir = os.path.join(base, "nvidia", "cudnn", "lib")
+        if not os.path.isdir(libdir):
+            continue
+        # libcudnn.so.9 last: it depends on the sub-libraries above it.
+        for so in sorted(glob.glob(os.path.join(libdir, "libcudnn_*.so*"))) + \
+                  sorted(glob.glob(os.path.join(libdir, "libcudnn.so*"))):
+            try:
+                ctypes.CDLL(so, mode=ctypes.RTLD_GLOBAL)
+            except OSError:
+                pass
+        return
 
 
 def benchmark_onnx(model_path: str, n_runs: int, warmup: int, provider: str,
@@ -64,15 +126,30 @@ def benchmark_onnx(model_path: str, n_runs: int, warmup: int, provider: str,
         print("[ERROR] onnxruntime not installed. pip install onnxruntime-gpu")
         sys.exit(1)
 
-    providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    if provider == "CUDAExecutionProvider":
+        _preload_cudnn()
+
+    # Honour --provider. Previously this was hardcoded to prefer CUDA, so
+    # `--provider CPUExecutionProvider` silently still benchmarked the GPU —
+    # which would have made any CPU/edge latency figure wrong.
+    providers = ([provider, "CPUExecutionProvider"]
+                 if provider != "CPUExecutionProvider" else ["CPUExecutionProvider"])
     sess = ort.InferenceSession(model_path, providers=providers)
     active_provider = sess.get_providers()[0]
-    if active_provider != "CUDAExecutionProvider":
+    if provider == "CUDAExecutionProvider" and active_provider != "CUDAExecutionProvider":
         print(f"[Benchmark] WARNING: GPU provider not active — running on {active_provider}.")
         print("            Install onnxruntime-gpu for GPU inference.")
     else:
-        print(f"[Benchmark] Running on CUDAExecutionProvider (GPU).")
+        # Report what actually got used, not a hardcoded string — this line
+        # previously claimed "CUDAExecutionProvider (GPU)" even for a CPU run.
+        print(f"[Benchmark] Running on {active_provider}.")
+    _shape_a, _shape_b, _n_cls, in_names = _io_shapes(sess)
+    global CLASS_NAMES
+    if CLASS_NAMES is None or len(CLASS_NAMES) != _n_cls:
+        CLASS_NAMES = [f"class_{i}" for i in range(_n_cls)]
     print(f"[INFO] Model loaded: {model_path}")
+    print(f"[INFO] inputs {in_names[0]}{_shape_a} {in_names[1]}{_shape_b} "
+          f"-> {_n_cls} classes")
     print(f"[INFO] Execution provider: {sess.get_providers()[0]}")
 
     timing = {
@@ -88,12 +165,12 @@ def benchmark_onnx(model_path: str, n_runs: int, warmup: int, provider: str,
 
         # L_preproc
         t_pre = time.perf_counter()
-        ecg, cxr = simulate_preprocessing()
+        ecg, cxr = simulate_preprocessing(_shape_a, _shape_b)
         t_pre_end = time.perf_counter()
 
         # L_inference
         t_inf = time.perf_counter()
-        outputs = sess.run(None, {"ecg": ecg, "cxr": cxr})
+        outputs = sess.run(None, {in_names[0]: ecg, in_names[1]: cxr})
         logits = outputs[0]
         t_inf_end = time.perf_counter()
 

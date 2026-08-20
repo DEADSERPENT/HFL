@@ -72,15 +72,49 @@ class LocalConformCalibrator:
         n = len(scores_np)
         level = np.ceil((1 - self.alpha) * (1 + 1.0 / n)) / (1 + 1.0 / n)
         level = min(level, 1.0)
-        q_local = float(np.quantile(scores_np, level))
+        return self._dp_quantile(scores_np, level)
 
-        # DP noise: Laplace(0, sensitivity/epsilon_conf)
-        # sensitivity of quantile = range of scores = 1.0 for LAC
-        sensitivity = 1.0
-        noise_scale = sensitivity / self.epsilon_conf
-        noise = np.random.laplace(0, noise_scale)
-        q_tilde = float(np.clip(q_local + noise, 0.0, 1.0))
-        return q_tilde
+    def _dp_quantile(self, scores: np.ndarray, level: float,
+                     lo: float = 0.0, hi: float = 1.0) -> float:
+        """
+        eps_conf-DP quantile via the EXPONENTIAL MECHANISM (Smith, 2011).
+
+        The previous implementation added Laplace(0, sensitivity/eps) with
+        sensitivity taken as the full score range (1.0 for LAC). That is the
+        correct GLOBAL sensitivity of a quantile — one changed sample really
+        can move it from min to max — but it makes the mechanism useless here:
+        at eps_conf=0.1 the scale is 10 on a statistic confined to [0,1], so
+        |noise| exceeded the entire range 90.5 % of the time and the clip sent
+        the result to 0 or 1. The observed q_global sequence was exactly that,
+        pinned at 0.0 / 0.5 / 1.0.
+
+        The exponential mechanism instead scores each gap between consecutive
+        order statistics by how close its rank is to the target, and samples a
+        gap with probability proportional to (width x exp(eps * utility / 2)).
+        Utility is rank distance, which has sensitivity 1 regardless of the
+        value range, so accuracy no longer collapses with the scale of the
+        scores. Empty gaps get zero width and are never selected.
+        """
+        n = len(scores)
+        if n == 0:
+            return float(hi)
+        z = np.clip(np.sort(scores), lo, hi)
+        z = np.concatenate([[lo], z, [hi]])          # n+2 boundaries, n+1 gaps
+        target = level * n                            # desired rank
+
+        widths = np.diff(z)                           # (n+1,)
+        ranks = np.arange(n + 1)
+        utility = -np.abs(ranks - target)             # sensitivity 1
+        # log-domain for numerical stability, then subtract the max
+        log_w = np.log(np.maximum(widths, 1e-12)) + self.epsilon_conf * utility / 2.0
+        log_w -= log_w.max()
+        p = np.exp(log_w)
+        s = p.sum()
+        if not np.isfinite(s) or s <= 0:
+            return float(np.quantile(scores, level))  # degenerate: fall back
+        p /= s
+        i = int(np.random.choice(len(p), p=p))
+        return float(np.random.uniform(z[i], z[i + 1]))
 
 
 class FedConformAggregator:

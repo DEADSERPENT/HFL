@@ -33,15 +33,19 @@ def _check(name: str, status: str, detail: str) -> Dict[str, str]:
     return {"check": name, "status": status, "detail": detail}
 
 
-def _dataset_checks(data_dir: str) -> List[Dict[str, str]]:
+# Every dataset declares its required files via DatasetSpec.required_files,
+# so preflight is never hardcoded to one dataset's directory structure. There
+# is deliberately no fallback manifest: a caller that supplies no expectation
+# gets an explicit failure rather than a silent check against another
+# dataset's layout.
+
+
+def _dataset_checks(data_dir: str, expected: dict = None) -> List[Dict[str, str]]:
     out = []
-    expected = {
-        "ecg/ecg_signals.npy":      (3,),   # [N,12,1000]
-        "ecg/ecg_labels.npy":       (1,),
-        "cxr/cxr_images.npy":       (4,),   # [N,3,224,224]
-        "cxr/cxr_labels.npy":       (1,),
-        "tabular/tabular_features.npy": (2,),
-    }
+    if expected is None:
+        return [_check("dataset:manifest", FAIL,
+                       "no required_files supplied; pass the DatasetSpec "
+                       "manifest for the dataset under test")]
     for rel, dims in expected.items():
         path = os.path.join(data_dir, rel)
         if not os.path.exists(path):
@@ -112,6 +116,7 @@ def run_preflight(data_dir: str,
                   checkpoint_dir: str = "checkpoints",
                   results_dir: str = "results",
                   n_devices: int = 6,
+                  required_files: dict = None,
                   min_disk_gb: float = 5.0,
                   min_ram_gb: float = 3.0,
                   require_cuda: bool = False) -> Tuple[bool, List[Dict[str, str]]]:
@@ -151,7 +156,7 @@ def run_preflight(data_dir: str,
         report.append(_check("ram", WARN, "could not read /proc/meminfo"))
 
     # Data + partitions + writable dirs
-    report += _dataset_checks(data_dir)
+    report += _dataset_checks(data_dir, required_files)
     report += _partition_checks(part_dir, n_devices)
     report.append(_writable_dir_check("checkpoint_dir", checkpoint_dir))
     report.append(_writable_dir_check("results_dir", results_dir))
@@ -172,8 +177,8 @@ def format_report(report: List[Dict[str, str]]) -> str:
 if __name__ == "__main__":
     import argparse
     p = argparse.ArgumentParser(description="HFL preflight checks")
-    p.add_argument("--data_dir", default="data/processed/healthcare")
-    p.add_argument("--part_dir", default="data/processed/partitions/healthcare")
+    p.add_argument("--data_dir", default="data/processed/vitaldb")
+    p.add_argument("--part_dir", default="data/processed/partitions/vitaldb")
     p.add_argument("--checkpoint_dir", default="checkpoints")
     p.add_argument("--results_dir", default="results")
     p.add_argument("--n_devices", type=int, default=6)

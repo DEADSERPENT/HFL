@@ -256,3 +256,64 @@ class PrivacyAccountant:
             "budget_remaining": self.budget_remaining(last_eps),
             "budget_exhausted": self.is_exhausted(last_eps),
         }
+
+
+def compute_fl_noise_multiplier_multidevice(
+        target_epsilon: float, target_delta: float, n_fl_calls: int,
+        device_n_train, batch_size: int, local_epochs: int = 1,
+        tol: float = 1e-3, max_iter: int = 60) -> float:
+    """Sigma such that NO device exceeds the budget.
+
+    Two defects this replaces, both of which silently breached the guarantee:
+
+    1. FLOOR vs CEIL. steps_per_call was n // batch_size, but a DataLoader
+       yields ceil(n / batch_size) batches. One uncounted step per call is
+       enough to push a nominally-1.0 budget to 1.01.
+
+    2. ONE DEVICE STOOD IN FOR ALL. Sigma was calibrated from the SMALLEST
+       device only. But each client has its own sampling rate q_d = B/n_d AND
+       its own step count, and the reported epsilon is the MAXIMUM across
+       clients. Small clients have large q (few steps, high rate); large
+       clients have many steps at low rate. Neither dominates universally, so
+       calibrating on either one alone can under-provision the other.
+
+    Here epsilon is evaluated for EVERY device and sigma is bisected until the
+    worst client fits. Monotonic in sigma, so bisection is exact to `tol`.
+    """
+    import math
+    from opacus.accountants import RDPAccountant
+
+    cfgs = []
+    for n in device_n_train:
+        n = max(int(n), 1)
+        q = min(batch_size / n, 1.0)
+        steps = math.ceil(n / batch_size) * local_epochs * n_fl_calls
+        cfgs.append((q, steps))
+
+    def worst_eps(sigma: float) -> float:
+        worst = 0.0
+        for q, steps in cfgs:
+            acct = RDPAccountant()
+            acct.history = [(sigma, q, steps)]      # composed in one entry
+            try:
+                worst = max(worst, acct.get_epsilon(delta=target_delta))
+            except Exception:
+                return float("inf")
+        return worst
+
+    lo, hi = 0.3, 2.0
+    while worst_eps(hi) > target_epsilon and hi < 1024:
+        hi *= 2.0
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        if worst_eps(mid) > target_epsilon:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < tol:
+            break
+    sigma = hi
+    print(f"[DP-Engine] multi-device calibration: {len(cfgs)} clients, "
+          f"eps<={target_epsilon}, delta={target_delta} -> sigma={sigma:.4f} "
+          f"(worst-client eps={worst_eps(sigma):.4f})")
+    return sigma

@@ -1,0 +1,998 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>HFL Research Dossier</title>
+<style>
+@page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+body { font-family: "Times New Roman", Times, serif; font-size: 9.5pt; line-height: 1.32;
+       color: #111; margin: 0; text-align: justify; }
+
+/* ---- two-column body ---- */
+.cols { column-count: 2; column-gap: 6mm; }
+
+/* ---- full-width elements ---- */
+.full { column-span: all; -webkit-column-span: all; }
+
+/* ---- title block ---- */
+.titleblock { column-span: all; text-align: center; border-bottom: 2.5pt solid #14375e;
+              padding-bottom: 7pt; margin-bottom: 11pt; }
+.titleblock h1 { font-size: 19pt; margin: 0 0 5pt 0; color: #14375e; line-height: 1.2;
+                 font-weight: bold; letter-spacing: .2pt; }
+.titleblock .sys { font-size: 11pt; font-style: italic; color: #444; margin-bottom: 8pt; }
+.titleblock .meta { font-size: 8.6pt; color: #333; line-height: 1.45; }
+
+h2 { font-size: 11pt; color: #14375e; margin: 13pt 0 5pt 0; padding-bottom: 2pt;
+     border-bottom: 1pt solid #a8bdd2; text-transform: uppercase; letter-spacing: .4pt;
+     break-after: avoid; }
+h2.parthead { column-span: all; -webkit-column-span: all; font-size: 12.5pt;
+     background: #14375e; color: #fff; border: none; padding: 5pt 8pt; margin: 15pt 0 9pt 0;
+     letter-spacing: .8pt; }
+h3 { font-size: 9.8pt; color: #1d4d7c; margin: 9pt 0 3pt 0; font-weight: bold;
+     break-after: avoid; }
+h4 { font-size: 9.4pt; color: #333; margin: 7pt 0 2pt 0; font-style: italic;
+     font-weight: bold; break-after: avoid; }
+p { margin: 0 0 5pt 0; }
+ul, ol { margin: 0 0 6pt 0; padding-left: 14pt; }
+li { margin-bottom: 2.5pt; }
+
+table { border-collapse: collapse; width: 100%; font-size: 8.1pt; margin: 5pt 0 8pt 0;
+        break-inside: avoid; }
+table.full { font-size: 8.4pt; }
+th { background: #14375e; color: #fff; border: 0.5pt solid #14375e; padding: 3.2pt 4pt;
+     text-align: left; font-weight: bold; }
+td { border: 0.5pt solid #9bb0c4; padding: 3pt 4pt; vertical-align: top; }
+tr:nth-child(even) td { background: #f2f6fa; }
+td.num, th.num { text-align: right; }
+td.c, th.c { text-align: center; }
+
+.pass { color: #14652f; font-weight: bold; }
+.fail { color: #9c1c1c; font-weight: bold; }
+.warn { color: #8a5a00; font-weight: bold; }
+
+.callout { border-left: 3pt solid #14375e; background: #eef3f8; padding: 6pt 8pt;
+           margin: 7pt 0; break-inside: avoid; }
+.callout .lbl { font-variant: small-caps; font-weight: bold; color: #14375e;
+                letter-spacing: .5pt; display: block; margin-bottom: 2pt; font-size: 8.5pt; }
+.danger { border-left-color: #9c1c1c; background: #fbeeee; }
+.danger .lbl { color: #9c1c1c; }
+.good { border-left-color: #14652f; background: #edf6ef; }
+.good .lbl { color: #14652f; }
+
+.keyline { font-size: 10pt; font-style: italic; text-align: center; color: #14375e;
+           border-top: 1pt solid #a8bdd2; border-bottom: 1pt solid #a8bdd2;
+           padding: 6pt 4pt; margin: 8pt 0; break-inside: avoid; }
+
+pre { font-family: "Courier New", monospace; font-size: 7.4pt; line-height: 1.25;
+      background: #f4f6f8; border: 0.5pt solid #c3d0dd; padding: 5pt; margin: 5pt 0;
+      white-space: pre; overflow: hidden; break-inside: avoid; }
+
+.caption { font-size: 7.9pt; color: #555; font-style: italic; margin: -4pt 0 8pt 0; }
+.tag { font-size: 7.4pt; font-weight: bold; padding: 1pt 4pt; border-radius: 2pt;
+       color: #fff; letter-spacing: .3pt; }
+.t-win { background: #14652f; }
+.t-fail { background: #9c1c1c; }
+.t-part { background: #8a5a00; }
+.t-open { background: #4a4a4a; }
+hr.sep { border: none; border-top: 0.5pt solid #c3d0dd; margin: 9pt 0; }
+.small { font-size: 8.2pt; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="titleblock">
+  <h1>Hierarchical Federated Learning for Privacy-Aware,<br>Low-Latency Multimodal IoT Systems</h1>
+  <div class="sys">Research Dossier &mdash; Complete Account of Objectives, Outcomes, Failures and Open Work</div>
+  <div class="meta">
+    <b>System:</b> PP-HFM &nbsp;&middot;&nbsp; <b>Student:</b> Samartha H V (Regd. No. 251580130019)<br>
+    <b>Guide:</b> Dr. Shreyas J, Asst. Professor &nbsp;&middot;&nbsp; <b>Industry Mentor:</b> Mr. Tejas J, Capgemini<br>
+    Manipal Institute of Technology Bengaluru, Manipal Academy of Higher Education<br>
+    <b>Programme timeline:</b> January &ndash; May 2026 &nbsp;&middot;&nbsp; <b>Dossier compiled:</b> 19 August 2026
+  </div>
+</div>
+
+<div class="cols">
+
+<h2>Executive Summary</h2>
+
+<p>This research builds a three-tier federated learning system &mdash; devices, edge
+servers, cloud &mdash; for multimodal clinical and wearable sensing, in which the unit of
+privacy protection is the <b>patient rather than the training record</b>.</p>
+
+<p>All four original engineering objectives were met and exceeded on the primary
+clinical dataset: 90.82&thinsp;% uplink reduction, a composed privacy budget of
+&epsilon;&nbsp;=&nbsp;0.970, 4.58&thinsp;ms P95 inference latency, and 72.30&thinsp;%
+energy saving, with no measurable accuracy cost.</p>
+
+<p>The central <i>scientific</i> claim originally proposed &mdash; that record-level
+privacy leaves patients demonstrably exposed to membership inference &mdash; was tested
+rigorously and <b>refuted</b>. In its place a stronger, better-controlled finding
+emerged: the cost of a patient-level privacy guarantee is not a fixed penalty but a
+<b>measurable function of how many records each patient contributes</b>, vanishing
+exactly where theory says it must and growing monotonically thereafter. That
+relationship is now the core of the work.</p>
+
+<div class="keyline">
+The engineering is finished and comfortably exceeds every target.<br>
+The science is mid-flight: one major hypothesis is dead, its well-controlled<br>
+replacement is measured on one dataset, and the experiment that would prove<br>
+generality is waiting on data access.
+</div>
+
+<h2>Headline Scorecard</h2>
+</div>
+
+<table class="full">
+<tr><th>Objective</th><th class="c">Target</th><th class="c">VitalDB (clinical)</th><th class="c">WEAR (wearable)</th><th>Basis of measurement</th></tr>
+<tr><td>O1 &mdash; Uplink traffic reduction</td><td class="c">&ge; 50&thinsp;%</td><td class="c pass">90.82&thinsp;% PASS</td><td class="c pass">96.08&thinsp;% PASS</td><td>Measured compressor payload, indices included</td></tr>
+<tr><td>O1b &mdash; FL round latency reduction</td><td class="c">&gt; 0&thinsp;%</td><td class="c pass">16.93&thinsp;% PASS</td><td class="c pass">21.68&thinsp;% PASS</td><td>NS-3 packet-level end-to-end round latency</td></tr>
+<tr><td>O2a &mdash; Privacy budget</td><td class="c">&epsilon; &le; 1</td><td class="c pass">0.9705 PASS</td><td class="c pass">0.9656 PASS</td><td>Accountant: training + conformal, basic composition</td></tr>
+<tr><td>O2b &mdash; Accuracy loss under DP</td><td class="c">&le; 2 pp</td><td class="c pass">&minus;0.92 pp PASS</td><td class="c warn">1.967 pp INCONCLUSIVE</td><td>Paired seeds, &epsilon;=1 vs &epsilon;=&infin;, head recipe</td></tr>
+<tr><td>O3a &mdash; Inference latency (P95)</td><td class="c">&lt; 100 ms</td><td class="c pass">4.58 ms PASS</td><td class="c pass">1.22 ms PASS</td><td>1000 timed runs, INT8/CPU, full serving path</td></tr>
+<tr><td>O3b &mdash; Successful model updates</td><td class="c">&gt; 99&thinsp;%</td><td class="c pass">100&thinsp;% PASS</td><td class="c pass">99.94&thinsp;% PASS</td><td>Per-update, two-hop LTE loss model</td></tr>
+<tr><td>O4 &mdash; Energy saving per round</td><td class="c">&ge; 20&thinsp;%</td><td class="c pass">72.30&thinsp;% PASS</td><td class="c pass">76.84&thinsp;% PASS</td><td>CloudSim Plus power model</td></tr>
+</table>
+<p class="caption full">VitalDB: 7 / 7 PASS. WEAR: 6 PASS + 1 INCONCLUSIVE. All figures are measured artifacts in the repository; none is projected or estimated.</p>
+
+<h2 class="parthead">Part I &nbsp;&mdash;&nbsp; What This Research Is</h2>
+<div class="cols">
+
+<h2>1. The Problem in Plain Terms</h2>
+
+<p>Modern sensing deployments &mdash; a hospital operating theatre, a wearable health
+monitor &mdash; produce <b>several different kinds of data about the same person at the
+same moment</b>. An operating theatre records continuous physiological waveforms from
+the patient on the table while also holding that patient's structured clinical history
+and laboratory results. A wearable rig records body motion from accelerometers while a
+head-mounted camera records what the person is doing. In both cases the streams are
+<i>complementary</i>: a model that sees both can resolve states that neither stream
+resolves alone.</p>
+
+<p>Two things make this hard.</p>
+
+<p><b>First, the data cannot be moved.</b> Clinical records are governed by patient
+consent and by data-protection law that prohibits pooling across institutions. This is
+not a question of expense or bandwidth &mdash; a system that requires centralising the
+data simply cannot be deployed. Even where the law permits it, raw multimodal streams
+are bulky, and the uplink is the scarce resource in exactly the deployments that can
+least afford the latency and battery cost of shipping everything to a server.</p>
+
+<p><b>Second, moving the model instead of the data does not by itself protect
+anyone.</b> Federated learning sends model updates rather than records. But an update
+is a function of the records that produced it, and attacks that recover training
+membership from released models are well established. A formal guarantee is required,
+and differential privacy supplies one.</p>
+
+<h2>2. The Specific Gap Attacked</h2>
+
+<p>Here is the crux, and it is the sentence the whole project turns on:</p>
+
+<div class="callout">
+<span class="lbl">The central observation</span>
+Differential privacy protects the unit you clip. In sensing systems, that unit is a
+fixed-length window of signal &mdash; <b>not a person</b>.
+</div>
+
+<p>A patient undergoing surgery does not contribute one record. They contribute
+hundreds of overlapping ten-minute windows drawn from the same operation. A wearable
+participant contributes thousands. When a system reports &ldquo;&epsilon;&nbsp;=&nbsp;1&rdquo;,
+what it has actually guaranteed is that an adversary cannot tell whether <i>one
+particular window</i> was used in training. What a hospital's ethics board, its
+patients, and the law all actually care about is whether <i>a particular person</i>
+was in the training set.</p>
+
+<p>Those two questions coincide only when each individual contributes exactly one
+record. In every real clinical deployment they diverge, and they diverge further the
+longer the recording.</p>
+
+<p>The textbook remedy is <b>group privacy</b> &mdash; a conversion factor translating a
+record-level guarantee into an individual-level one. At the group sizes these datasets
+actually exhibit, that conversion is catastrophic: a nominal budget of
+&epsilon;&nbsp;=&nbsp;1 inflates into a number supporting no meaningful privacy claim
+at all. The conversion exists on paper and is useless in practice.</p>
+
+<h2>3. What the Literature Leaves Open</h2>
+
+<p>Work in this area has developed along two lines that do not meet.</p>
+
+<p><b>Hierarchical federated designs</b> make the systems case convincingly. HED-FL
+extends deployment lifetime by avoiding long-range transmission; HCEF adapts
+computation and compression to heterogeneous devices; assignment-oriented work reduces
+divergence under non-identical data distributions. <b>None carries a formal privacy
+guarantee.</b></p>
+
+<p><b>Private federated designs</b> supply the guarantee. FL2DP couples noise with
+shuffling; RoPPFL pairs local privacy with robust aggregation. <b>Neither is
+hierarchical in the sense that matters here</b>, and neither examines how inserting an
+intermediate edge tier changes how often each client's budget is spent.</p>
+
+<p>Across both lines the local objective is treated as aggregation of generic parameter
+vectors. Neither the existence of multiple modalities per record, nor the grouping of
+many records under one individual, plays any part in the design.</p>
+
+<p>Three concrete deficiencies follow:</p>
+<ol>
+<li>The <b>unit</b> at which a guarantee is stated is rarely examined, so its cost on
+genuinely paired multimodal data is unquantified.</li>
+<li>The validity condition of parameter-efficient private training &mdash; that the
+corpus used to pretrain the frozen representation be <b>disjoint</b> from the protected
+population &mdash; is usually left implicit and, where honoured, unpriced.</li>
+<li>Guarantees are typically <b>reported from mechanism parameters</b> rather than
+audited by attack. Where an audit is performed it is conducted at record granularity
+&mdash; precisely the quantity a record-level guarantee already protects, and therefore
+the least informative thing to test.</li>
+</ol>
+
+<h2>4. The End Goal</h2>
+
+<h3>4.1 Engineering goal</h3>
+<p>Build and validate a three-tier hierarchical federated system &mdash; IoT devices
+&rarr; edge servers &rarr; cloud &mdash; for multimodal sensing, meeting four quantified
+objectives: uplink reduction &ge;&nbsp;50&thinsp;%; accuracy loss at
+&epsilon;&nbsp;&le;&nbsp;1 of &le;&nbsp;2 percentage points; inference latency
+&lt;&nbsp;100&thinsp;ms under heterogeneous networks; and energy saving per training
+round &ge;&nbsp;20&thinsp;%.</p>
+
+<h3>4.2 Scientific goal</h3>
+<p>Establish something true beyond this particular system: that <b>the choice of
+privacy unit is a first-class design decision with a measurable, predictable cost</b>,
+and that practitioners can be told in advance what that cost will be for their
+deployment.</p>
+
+<h3>4.3 Publication goal</h3>
+<p>A Q1 or Q2 journal paper. The original target was IEEE Transactions on Industrial
+Informatics / IEEE Internet of Things Journal. <b>Current strategic assessment: target
+Q2 &mdash; IEEE Journal of Biomedical and Health Informatics &mdash; and aim for a
+strong paper there rather than a marginal one at Q1.</b> The reasoning behind that
+revision is documented in Part IV &sect;1.</p>
+
+<h3>4.4 Academic goal</h3>
+<p>M.Tech thesis submitted within the January&ndash;May 2026 window, with a
+reproducibility package.</p>
+
+<h2>5. The Architecture</h2>
+</div>
+
+<pre class="full">
+    +---------------------------------------------------------------------+
+    |  LAYER 3 -- CLOUD                                                   |
+    |  Global aggregation  .  model distribution  .  privacy accounting   |
+    +----------------------------^----------------------------------------+
+                                 |   wide-area link, exercised ONCE
+                                 |   per several local rounds
+    +----------------------------+----------------------------------------+
+    |  LAYER 2 -- EDGE SERVERS                                            |
+    |  Partial FedAvg  .  gradient compression  .  filtering              |
+    |  (the tier that relieves the uplink)                                |
+    +------^---------------------------------------------^----------------+
+           |                                             |
+    +------+-------------+                    +----------+----------------+
+    | LAYER 1 -- DEVICE  |                    | LAYER 1 -- DEVICE         |
+    | Multimodal sensing |        . . .       | Multimodal sensing        |
+    | Local DP training  |                    | Local DP training         |
+    | PATIENT-grouped    |                    | PATIENT-grouped           |
+    | gradient clipping  |                    | gradient clipping         |
+    +--------------------+                    +---------------------------+
+</pre>
+<p class="caption full">Fig. 1 &mdash; The three-tier PP-HFM topology. The distinguishing feature sits at Layer 1: gradients are grouped by individual <i>before</i> the clipping bound is applied, so the guarantee is a statement about people from the outset rather than something recovered afterwards by conversion.</p>
+
+<div class="cols">
+<h2>6. The Datasets</h2>
+</div>
+
+<table class="full">
+<tr><th>Property</th><th>VitalDB (primary)</th><th>WEAR (secondary)</th></tr>
+<tr><td>Domain</td><td>Intraoperative clinical</td><td>Wearable IoT</td></tr>
+<tr><td>Modality A</td><td>9 intraoperative numeric trends + 9 observed-masks, 10 min @ 0.5 Hz</td><td>12-channel accelerometer (4 sensors &times; 3 axes), 2 s @ 50 Hz</td></tr>
+<tr><td>Modality B</td><td>34-dimensional preoperative clinical + laboratory vector</td><td>2048-d two-stream I3D egocentric video features, same 2 s</td></tr>
+<tr><td>How paired</td><td><b>Same patient, same second</b> (Vital Recorder, one operation)</td><td><b>Hardware-synchronised</b> (same person, same instant)</td></tr>
+<tr><td>Train / test windows</td><td>34,044 / 7,360</td><td>26,424 / 5,969</td></tr>
+<tr><td>Individuals</td><td><b>6,257 patients</b> across 48,712 windows</td><td><b>22 participants</b></td></tr>
+<tr><td>Records per individual (<i>k</i>)</td><td>mean <b>7.79</b>, median 8, max 8 &mdash; <b>100&thinsp;% of patients contribute more than one window</b></td><td>one client per participant</td></tr>
+<tr><td>Federated clients</td><td>9 clients over 2 edge servers</td><td>22 clients</td></tr>
+<tr><td>Role in the study</td><td>Headline results; all privacy claims</td><td>Fast iteration; systems generalisation</td></tr>
+</table>
+<p class="caption full">The <i>k</i> row is the premise of the entire research programme. <b>Not one patient in VitalDB contributes only a single record</b>, so for every individual in the dataset a record-level guarantee and a patient-level guarantee are different statements. WEAR cannot support any patient-level claim: 22 individuals, one client each.</p>
+<p class="caption full">Both corpora are paired <i>at source by the recording apparatus</i>, not by a construction rule. This distinction is critical and is explained in Part IV &sect;7.</p>
+
+<div class="cols">
+
+<h2>7. Project Phases and Infrastructure</h2>
+
+<p>Phases 1&ndash;5 are complete. Phase 5 closed with 17/17 deliverables and all of
+O1&ndash;O4 measured on both datasets. Phase 6 (joint evaluation, ablation, statistics,
+figures) is code-complete with some runs still pending.</p>
+
+<p>Two simulators carry the systems evaluation: <b>NS-3 v3.46.1</b> for the network
+layer (latency, throughput, packet loss, topology) and <b>CloudSim Plus v8.5.6</b> for
+edge-cloud resource modelling (VM scheduling, energy). Both are genuinely running, not
+analytical stand-ins. Every network quantity reported was measured on rounds in which
+the payload actually traversed the simulated topology. This is worth stating explicitly
+because it was <b>not</b> true earlier in the project &mdash; see Part IV &sect;9.</p>
+
+</div>
+
+<h2 class="parthead">Part II &nbsp;&mdash;&nbsp; The Core of the Research</h2>
+<div class="cols">
+
+<h2>8. The Single Central Idea</h2>
+
+<div class="keyline">
+The unit of privacy is a first-class design parameter of federated learning,<br>
+and its utility cost is predictable from the structure of the data &mdash;<br>
+specifically from <i>k</i>, the number of records each individual contributes.
+</div>
+
+<p>Everything built in this project is either the machinery that makes that statement
+measurable, or evidence for it. It is worth being precise about why this is a research
+contribution rather than an engineering choice.</p>
+
+<p>Almost every private federated learning paper reports a single number for the price
+of privacy: &ldquo;&epsilon;&nbsp;=&nbsp;1 costs us 3&thinsp;% accuracy.&rdquo; That
+number is treated as a property of the method. This research shows it is not. It is a
+property of <b>the method applied to a particular data structure</b>, and the governing
+variable of that structure is how many records each protected individual contributes.
+Change <i>k</i> and the price changes, systematically and in a direction that can be
+predicted in advance.</p>
+
+<h2>9. What Was Designed That Is Genuinely Ours</h2>
+
+<p>An honest register matters here, because overclaiming is the fastest route to desk
+rejection. The mechanisms below are <b>used</b> rather than invented: user-level
+differential privacy (McMahan et al., 2018), parameter-efficient DP fine-tuning
+(Li et al., 2021; Yu et al., 2021), and DP quantile release (Smith, 2011) are all
+established prior art.</p>
+
+<p>What is ours is the following.</p>
+
+<h3>9.1 Patient-level guarantee by construction</h3>
+<p>The gradients of one individual's records are <b>accumulated before the clipping
+bound is applied</b>. That individual's influence on the released model is therefore
+bounded irrespective of how many records they contributed, and accounting performed at
+the same granularity yields a budget that is a statement about people by construction
+&mdash; not one recovered afterwards through a ruinous group-privacy conversion.</p>
+
+<h3>9.2 Accounting practices specified to be checkable</h3>
+<p>Two practices are specified in enough detail to be verified from outside, because
+each corresponds to a failure mode that is <b>invisible in a training log</b>:</p>
+<ul>
+<li>The noise scale is calibrated to satisfy the budget for <b>every client
+simultaneously</b>, rather than for a representative one, so that interposing the edge
+tier is reflected in the reported figure.</li>
+<li>The cost of releasing the conformal calibration quantile is <b>composed into</b>
+the budget rather than omitted from it. Measured: &epsilon; = 0.7705 (training) +
+0.2000 (conformal) = <b>0.9705 total</b> on VitalDB.</li>
+</ul>
+
+<h3>9.3 Separation of representation from private adaptation</h3>
+<p>Encoders are pretrained on a population disjoint from every client and then frozen;
+only a compact fusion head is privatised. This is what makes &epsilon;&nbsp;&le;&nbsp;1
+viable at all &mdash; see Part III &sect;11.</p>
+
+<h3>9.4 An audit that can return an informative negative</h3>
+<p>The guarantee is audited by mounting membership inference <b>at the level of the
+individual</b>, under both a threshold attack and a likelihood-ratio attack (LiRA),
+with every attack reported alongside a <b>positive control</b> on a configuration known
+to memorise. The control is what makes a null result attributable to the defence rather
+than to an inadequate adversary. This methodological discipline is, in the end, one of
+the most defensible things the project produced &mdash; it is what allowed a refuted
+hypothesis to remain publishable.</p>
+
+<h3>9.5 The <i>k</i>-scaling law</h3>
+<p>The price of the individual-level guarantee is shown to be a function of individual
+contribution, with a built-in control at <i>k</i>&nbsp;=&nbsp;1. This is now the
+headline finding and is set out in full in Part III &sect;10.</p>
+
+</div>
+
+<h2 class="parthead">Part III &nbsp;&mdash;&nbsp; What Succeeded, and How</h2>
+<div class="cols">
+
+<h2>10. The <i>k</i>-Scaling Law &mdash; the Headline Result</h2>
+<p><span class="tag t-win">PRIMARY WIN</span> &nbsp;Completed 16 August 2026, all 24
+configurations: <i>k</i> &isin; {1, 2, 4, 8} &times; 3 seeds &times; 2 arms.</p>
+
+<p>The experiment subsamples the data so that each patient contributes exactly <i>k</i>
+windows, then runs two arms at matched budget: one clipping per record
+(&ldquo;sample&rdquo;), one clipping per patient (&ldquo;patient&rdquo;). The gap
+between them is the price of upgrading the guarantee from records to people.</p>
+</div>
+
+<table class="full">
+<tr><th class="c"><i>k</i> (records per patient)</th><th class="c">Sample arm AUPRC</th><th class="c">Patient arm AUPRC</th><th class="c">Gap (sample &minus; patient)</th><th class="c">95&thinsp;% CI</th><th class="c">p</th></tr>
+<tr><td class="c">1</td><td class="c">0.5015</td><td class="c">0.5067</td><td class="c">&minus;0.0052</td><td class="c">[&minus;0.0664, +0.0561]</td><td class="c">0.75</td></tr>
+<tr><td class="c">2</td><td class="c">0.5590</td><td class="c">0.5084</td><td class="c"><b>+0.0507</b></td><td class="c">[+0.0417, +0.0596]</td><td class="c">0.0017</td></tr>
+<tr><td class="c">4</td><td class="c">0.5924</td><td class="c">0.5092</td><td class="c"><b>+0.0832</b></td><td class="c">[+0.0694, +0.0971]</td><td class="c">0.0015</td></tr>
+<tr><td class="c">8</td><td class="c">0.5955</td><td class="c">0.5089</td><td class="c"><b>+0.0866</b></td><td class="c">[+0.0603, +0.1129]</td><td class="c">0.0049</td></tr>
+</table>
+<p class="caption full">Table 2 &mdash; Paired over 3 seeds, VitalDB. The gap is zero at <i>k</i>=1 and grows monotonically, saturating by <i>k</i>=8.</p>
+
+<div class="cols">
+
+<h3>10.1 Why this result is strong</h3>
+
+<p><b>It carries its own positive control.</b> At <i>k</i>&nbsp;=&nbsp;1 a patient
+<i>is</i> a record, so the two guarantees are mathematically identical and the arms
+<b>must</b> collapse. They do (p&nbsp;=&nbsp;0.75). This is a validated null sitting
+inside the same experiment as the positive effects &mdash; exactly the design property
+that the earlier membership-inference work initially lacked. It is what licenses
+reading the divergence at larger <i>k</i> as a property of the privacy unit rather than
+an artefact of the apparatus.</p>
+
+<p><b>The mechanism is asymmetric, and must be stated that way.</b> The patient arm is
+essentially <i>flat</i> in <i>k</i> (AUPRC 0.4967&ndash;0.5176 at every <i>k</i>) while
+the sample arm <i>rises</i> with <i>k</i> (0.5015 &rarr; 0.5955). The widening gap is
+the sample arm improving, not the patient arm degrading. Patient-level noise scales
+with the per-patient contribution, so extra records per patient buy the patient arm
+nothing.</p>
+
+<h3>10.2 The honest limits of it</h3>
+<p>AUROC shows the same monotone shape (+0.0006 &rarr; +0.0094 &rarr; +0.0133 &rarr;
++0.0132) but <b>no <i>k</i> reaches significance</b> &mdash; every interval includes
+zero. AUPRC is reported as the resolving metric and AUROC as directionally consistent
+but underpowered at n&nbsp;=&nbsp;3.</p>
+
+<p>Accuracy is pinned at 0.8005 in every patient row. That is an uncalibrated 0.5
+threshold on imbalanced data, not a degenerate model (AUROC &asymp; 0.835 rules out
+majority-class prediction). <b>Accuracy must not be quoted for these arms.</b></p>
+
+<h2>11. Solving the &epsilon;&nbsp;=&nbsp;1 Utility Collapse</h2>
+<p><span class="tag t-win">METHODOLOGICAL TURNING POINT</span></p>
+
+<p>For roughly three weeks the project was blocked: at &epsilon;&nbsp;=&nbsp;1 the model
+collapsed to near-random and Objective 2 was unreachable. The resolution was
+<b>head-only DP fine-tuning</b>: pretrain both encoders non-privately, freeze them, and
+apply DP-SGD to the fusion head alone (560,645 of 2,157,766 parameters =
+26.0&thinsp;%).</p>
+
+<p>The finding that makes this scientifically interesting rather than merely a fix:
+<b>the noise scale was identical in both cases</b> (&sigma; = 11.3281). The noise was
+never the reducible quantity. What changed was the <i>optimisation geometry</i> &mdash;
+a near-linear probe over frozen pretrained features tolerates &sigma;&nbsp;&asymp;&nbsp;11.3;
+end-to-end training from scratch does not. Test AUC moved from 0.562 (unusable) to
+0.8742 &plusmn; 0.0072, and each round ran roughly 20&times; faster (50&thinsp;s vs
+1046&thinsp;s).</p>
+
+<div class="callout">
+<span class="lbl">Provenance note</span>
+The specific AUC figures in this section were obtained on the legacy dataset later
+withdrawn (Part IV &sect;7). The <i>mechanism</i> transferred intact and is confirmed
+on VitalDB by O2b = &minus;0.92 pp. Cite the mechanism, and cite O2b for the number.
+</div>
+
+<h2>12. Communication and Energy Efficiency</h2>
+<p><span class="tag t-win">OBJECTIVE 1 &amp; 4 &mdash; EXCEEDED</span></p>
+
+<p>Uplink reduction reaches <b>90.82&thinsp;%</b> on VitalDB and <b>96.08&thinsp;%</b>
+on WEAR against a full-model FP32 FedAvg reference &mdash; against a 50&thinsp;%
+target. Energy saving reaches <b>72.30&thinsp;%</b> and <b>76.84&thinsp;%</b>
+respectively under the CloudSim Plus power model, against a 20&thinsp;% target.</p>
+
+<p>Part of this win came from finding a defect rather than adding a feature. The
+gradient compressor took a fixed <code>k = numel &times; sparsity</code> of <b>every</b>
+float tensor, so frozen encoders &mdash; whose delta is exactly zero &mdash; still
+contributed 20&thinsp;% of their elements to every payload as explicit zeros. Omitting
+all-zero tensors and capping <i>k</i> at the nonzero count accounted for a
+78.87&thinsp;% reduction on its own.</p>
+
+<p>The fix was proven not to alter learning: the dense path is <b>bit-identical</b> to
+the previous implementation &mdash; indices, quantised values, bounds and the
+error-feedback accumulator all match exactly over five rounds against a verbatim copy
+of the old code. A seed re-run against an existing checkpoint isolated the compressor
+as the only change, moving AUC by 0.0001.</p>
+
+<h2>13. Latency and Reliability</h2>
+<p><span class="tag t-win">OBJECTIVE 3 &mdash; EXCEEDED BY &gt;20&times;</span></p>
+
+<p>P95 inference latency is <b>4.58&thinsp;ms</b> on VitalDB and <b>1.22&thinsp;ms</b>
+on WEAR against a 100&thinsp;ms target, measured over 1000 timed runs after 100 warmup
+iterations across the full serving path (preprocessing &rarr; ONNX forward &rarr;
+conformal prediction set &rarr; serialise). Update success is 100&thinsp;% and
+99.94&thinsp;%.</p>
+
+<p>The result that matters for the paper's argument: <b>the privacy apparatus costs
+nothing at serving time</b>. The conformal set construction that carries the coverage
+guarantee occupies 0.68&thinsp;% of the inference path, and the private mechanism
+occupies none of it &mdash; its noise is applied to gradients during training and adds
+no operation to serving. The standing objection that a privacy apparatus is too heavy
+for a latency-bound deployment is therefore answered <b>by measurement rather than by
+argument</b>.</p>
+
+<p class="small"><b>Caveat retained for honesty:</b> the preprocessing stage synthesises
+tensors rather than reading real sensors and disks, so the preprocessing figure is a
+<i>floor</i>. The end-to-end number should be described as &ldquo;compute
+latency&rdquo;, not &ldquo;glass-to-glass latency&rdquo;. With a &gt;20&times; margin
+the verdict is not endangered.</p>
+
+<h2>14. Multimodal Fusion</h2>
+<p><span class="tag t-part">PARTIAL WIN</span></p>
+
+<p>On VitalDB, fusing both modalities beats the better single modality by
+<b>+0.0370 AUROC</b> and <b>+0.0671 AUPRC</b> over 5 seeds &mdash; an effect
+5.9&times; the seed standard deviation. Per-arm: signals 0.8283 &plusmn; 0.0062,
+clinical 0.7680 &plusmn; 0.0033, fused 0.8653 &plusmn; 0.0052.</p>
+
+<p>The conclusion holds, but with an important correction attached; see Part IV
+&sect;5.</p>
+
+<h2>15. The Privacy Audit Machinery</h2>
+<p><span class="tag t-win">METHODOLOGICAL WIN</span></p>
+
+<p>A full LiRA implementation was built with four attack variants, per-patient IN/OUT
+Gaussians fitted from 16 shadow models per arm, and TPR reported at 1&thinsp;% and
+0.1&thinsp;% FPR alongside AUC &mdash; because average AUC hides the confident
+identification tail that <i>is</i> the clinical disclosure.</p>
+
+<p>Critically, a <b>pre-registered gate</b> was set before running: the attack had to
+exceed 0.5847 on a configuration known to memorise, or its nulls would be inadmissible.
+It reached <b>0.6277</b> [0.5905, 0.6649]. The gate cleared. That single decision is
+what converted the subsequent negative result from a hole in the paper into a
+reportable finding.</p>
+
+</div>
+
+<h2 class="parthead">Part IV &nbsp;&mdash;&nbsp; What Failed, and How</h2>
+<div class="cols">
+
+<p>This part is deliberately as detailed as Part III. Several of these failures are
+more valuable than the successes, and the paper's credibility rests on reporting them
+plainly.</p>
+
+<h2>16. The Refuted Central Hypothesis (N&#8209;A)</h2>
+<p><span class="tag t-fail">REFUTED &mdash; the project's largest single setback</span></p>
+
+<p><b>What was predicted.</b> That models trained with record-level DP would be
+substantially vulnerable to patient-level membership inference, while patient-level DP
+would defend against it. Predicted attack AUC roughly <b>0.7 versus 0.5</b>, a gap of
+&asymp;&nbsp;0.20. This was the project's highest-value item and the main lever for a
+Q1 submission.</p>
+
+<p><b>What was measured.</b> Three arms, 16 shadow models each, identical splits, five
+paired seeds:</p>
+</div>
+
+<table class="full">
+<tr><th>Arm</th><th class="c">Best attack AUC (95&thinsp;% CI)</th><th class="c">Via</th><th class="c">Difficulty floor</th><th class="c">Margin over floor</th></tr>
+<tr><td>Positive control &mdash; head-only, no DP</td><td class="c"><b>0.6277</b> [0.5905, 0.6649]</td><td class="c">lira_offline</td><td class="c">0.5626</td><td class="c pass">+0.0627</td></tr>
+<tr><td>Record-level DP (&epsilon;&nbsp;=&nbsp;1)</td><td class="c">0.5477 [0.4876, 0.6079]</td><td class="c">lira_offline</td><td class="c">0.5252</td><td class="c">+0.0226</td></tr>
+<tr><td>Patient-level DP (&epsilon;&nbsp;=&nbsp;1)</td><td class="c">0.5224 [0.5175, 0.5274]</td><td class="c">loss threshold</td><td class="c">0.5167</td><td class="c">+0.0057</td></tr>
+<tr><td>Record-level DP (&epsilon;&nbsp;=&nbsp;16)</td><td class="c">0.5465 [0.5403, 0.5527]</td><td class="c">loss threshold</td><td class="c">0.5743</td><td class="c fail">&minus;0.0278</td></tr>
+</table>
+<p class="caption full">Table 4 &mdash; <b>The floor is the number every attack must be read against, not 0.5.</b> It ranks patients by shadow-model difficulty alone and never touches the target model; because shadow membership is randomised over the whole patient universe, a difficulty-balanced evaluation split would score 0.5. It does not. Members are drawn from the released train patients and non-members from the released test patients, and those two pools differ in intrinsic difficulty, so an attack is rewarded for detecting difficulty rather than membership. <b>The positive control clears its floor by +0.0627 and remains valid.</b> The two &epsilon;&nbsp;=&nbsp;1 private arms clear it only marginally, and the &epsilon;&nbsp;=&nbsp;16 record arm falls <i>below</i> it &mdash; that arm carries no membership signal whatsoever. Floors are computed per arm from that arm's own shadows, which is why they differ; better-fitting models separate easy from hard patients more sharply.</p>
+
+<table class="full">
+<tr><th>Attack variant</th><th class="c">Paired &Delta; (record &minus; patient)</th><th class="c">95&thinsp;% CI</th><th class="c">p</th></tr>
+<tr><td>loss threshold</td><td class="c">+0.0138</td><td class="c">[&minus;0.0034, +0.0310]</td><td class="c">0.090</td></tr>
+<tr><td>lira_offline</td><td class="c">+0.0325</td><td class="c">[&minus;0.0280, +0.0929]</td><td class="c">0.210</td></tr>
+<tr><td>lira_online</td><td class="c">+0.0034</td><td class="c">[&minus;0.0059, +0.0128]</td><td class="c">0.365</td></tr>
+<tr><td>lira_online_gv</td><td class="c">&minus;0.0211</td><td class="c">[&minus;0.0487, +0.0065]</td><td class="c">0.101</td></tr>
+</table>
+<p class="caption full">Table 5 &mdash; Every confidence interval includes zero. The predicted effect of &asymp;0.20 lies far outside all four.</p>
+
+<div class="cols">
+
+<h3>16.1 How it failed, precisely</h3>
+
+<div class="callout danger">
+<span class="lbl">Required wording &mdash; do not deviate</span>
+The <i>large predicted effect</i> (0.7 vs 0.5, &Delta; &asymp; 0.20) is <b>refuted</b>
+&mdash; it lies far outside every interval. A <i>small</i> effect is <b>not</b>
+excluded: the half-width on the best attack is &plusmn;0.060 at n = 5, and three of
+four attacks lean in the predicted direction. Write &ldquo;the large predicted effect
+is refuted; a small one is unresolved at this sample size&rdquo;. <b>Never</b> write
+&ldquo;there is no effect&rdquo;.
+</div>
+
+<h3>16.2 Why the null is admissible rather than embarrassing</h3>
+<p>Because the positive control cleared its pre-registered gate (+0.0513 over plain
+thresholding on a model known to memorise), the null is a statement about the models
+rather than about a failing attack. A supporting diagnostic reinforces this: on the
+patient arm <b>LiRA adds nothing</b> (&minus;0.0071 &mdash; the plain loss threshold
+actually wins). That is the signature of a defence with no difficulty-confounded signal
+left to recover, not of an underpowered adversary.</p>
+
+<h3>16.3 The difficulty floor &mdash; a control added after the fact</h3>
+<p>A second control, computed 2026-08-20 from shadow scores already on disk, makes the
+null stronger still. Ranking patients by shadow-model difficulty alone &mdash; using no
+target model at all &mdash; already achieves an AUC of <b>0.5252</b> on the record arm
+and <b>0.5743</b> at &epsilon;&nbsp;=&nbsp;16. Since the attacks themselves reach only
+0.5477 and 0.5465, <b>most or all of what looked like leakage was the evaluation split
+being difficulty-imbalanced, not memorisation.</b> At &epsilon;&nbsp;=&nbsp;16 the
+attack falls below its own floor.</p>
+<p>This does not weaken the audit; it sharpens it. The positive control still clears its
+floor by +0.0627, so the instrument demonstrably finds leakage where leakage exists. The
+private arms clear theirs by +0.0226 and +0.0057. The correct reading is that the
+refutation of N-A is <b>firmer than first reported</b>: there was less real signal to
+find than the raw AUCs suggested.</p>
+
+<h3>16.3 What it cost the project</h3>
+<p>The analytic argument that record-level &epsilon; &ne; patient-level &epsilon;
+survives and is priced at 1.77&times;&nbsp;&sigma;. What died is the
+&ldquo;demonstrated vulnerability&rdquo; framing. Delivered value was approximately
+<b>+0.5 in credibility rather than the +1.5 to +2 projected in research strength</b>,
+and the realistic venue target moved from Q1 to Q2. The headline moved to the
+<i>k</i>-scaling law.</p>
+
+<h2>17. An Unexpected Finding Inside the Failure</h2>
+<p><span class="tag t-win">RESCUED VALUE (N&#8209;A&prime;)</span></p>
+
+<p>The factorial that accompanied the failed attack produced something more interesting
+than the attack itself: <b>leakage is a property of the training recipe, not of the
+task</b>.</p>
+</div>
+
+<table class="full">
+<tr><th>Recipe</th><th class="c">Attack AUC</th><th class="c">Member / non-member loss</th></tr>
+<tr><td>Full-model, no DP</td><td class="c">0.5122</td><td class="c">1.81 / 2.31</td></tr>
+<tr><td><b>Head-only, no DP</b> &mdash; <i>our own recipe</i></td><td class="c"><b>0.5847</b></td><td class="c"><b>0.013 / 4.95</b></td></tr>
+<tr><td>Full-model, DP</td><td class="c">0.5206</td><td class="c">6.93 / 7.46</td></tr>
+</table>
+<p class="caption full">Table 6 &mdash; p = 1&times;10<sup>&minus;9</sup>, sd 0.0018 over 6 runs. Under LiRA the head-only figure rises to 0.6277.</p>
+
+<div class="cols">
+<p>Head-only fine-tuning &mdash; the very recipe this project adopted to make
+&epsilon;&nbsp;&le;&nbsp;1 viable &mdash; memorises its members <b>far harder</b> than
+full-model training. This is a genuine caveat to the parameter-efficient DP
+fine-tuning literature and is retained as a contribution in its own right.</p>
+
+<h2>18. Adaptive DP (SADP)</h2>
+<p><span class="tag t-fail">CHARACTERISED NEGATIVE</span></p>
+
+<p>A self-adaptive DP mechanism was designed around a per-group &epsilon; budget split.
+It runs correctly but <b>underperforms uniform DP at equal &epsilon; by
+construction</b>: the cross-group composition tax drives &sigma; from 11.3 to 70. It is
+retained as a characterised negative result, not a claimed contribution. The lesson
+&mdash; that splitting a budget across groups is paid for at a punitive rate under
+composition &mdash; is worth one paragraph in the paper.</p>
+
+<h2>19. INT8 Quantisation</h2>
+<p><span class="tag t-fail">CHARACTERISED NEGATIVE</span></p>
+
+<p>The deliverable prescribed INT8 for edge deployment. Measured, it is <b>slower than
+FP32 on both providers</b> &mdash; 1.90&times; on CPU and 3.25&times; on GPU &mdash;
+and it misses the 4&thinsp;MB size target at 6.55&thinsp;MB. Two independent causes
+were identified:</p>
+<ul>
+<li>Dynamic quantisation only accelerates MatMul/Gemm. This model's cost is dominated
+by MobileNetV3 convolutions and the recurrent path, which it does not accelerate, so
+the quantise/dequantise overhead is paid with no kernel speedup.</li>
+<li>On CUDA the quantised operations have no GPU kernel and fall back to CPU, forcing
+constant device transfers. The runtime reports <b>3180 Memcpy nodes</b> inserted into
+the graph &mdash; precisely the 3.25&times; penalty.</li>
+</ul>
+<p>Recommendation recorded: deploy the FP32 artifact. If model size later matters more
+than latency, the correct lever is static/QDQ quantisation with a calibration set, or
+quantisation-aware training &mdash; not dynamic quantisation.</p>
+
+<h2>20. WEAR Accuracy Objective &mdash; Inconclusive</h2>
+<p><span class="tag t-part">O2b INCONCLUSIVE</span></p>
+
+<p>On WEAR, accuracy loss under DP measures <b>1.967 pp with CI [1.760, 2.173]</b>
+against a 2 pp threshold. The interval <b>straddles the threshold</b>, so the objective
+can be neither passed nor failed. It is reported as INCONCLUSIVE.</p>
+
+<div class="callout danger">
+<span class="lbl">Deliberate decision</span>
+The seed count was pre-registered at n = 15. Extending it now, having seen that the
+interval straddles the threshold, would be <b>p-hacking</b>. The objective stays
+inconclusive and is reported as such. This is a case where the honest outcome is worth
+more than the passing one.
+</div>
+
+<h2>21. WEAR Cannot Corroborate the Fusion Claim</h2>
+<p><span class="tag t-fail">STRUCTURAL CEILING</span></p>
+
+<p>On WEAR the best single modality already reaches <b>0.9976 AUROC</b>, so the fusion
+gain is <b>+0.0004</b> &mdash; the task has no headroom. The analysis script's own
+verdict reads: &ldquo;CEILING &mdash; this task cannot evidence Gap #1&rdquo;.</p>
+
+<p>This is reported as a finding rather than concealed as an omission: <b>on some IoT
+tasks one modality suffices, so multimodal federated learning is not universally
+motivated</b>. It is a genuine limit on the generality of the multimodal argument.</p>
+
+<p>WEAR also cannot carry the privacy claims, and for a structural reason: it contains
+<b>22 individuals in total</b>, with one client per participant. Patient-level
+membership inference needs on the order of 600 members and 600 non-members, and the
+<i>k</i>-scaling experiment needs many records per individual. Neither is available.</p>
+
+<h2>22. The Fusion Gain Shrank Under Replication</h2>
+<p><span class="tag t-part">CORRECTED &mdash; self-caught</span></p>
+</div>
+
+<table class="full">
+<tr><th>Measure</th><th class="c">2 seeds (as first reported)</th><th class="c">5 seeds (correct)</th></tr>
+<tr><td>&Delta;AUROC over best unimodal</td><td class="c">+0.0411</td><td class="c"><b>+0.0370</b></td></tr>
+<tr><td>&Delta;AUPRC</td><td class="c">+0.1062</td><td class="c"><b>+0.0671</b> (&minus;37&thinsp;%)</td></tr>
+<tr><td>Effect size</td><td class="c">14.1&times; seed sd</td><td class="c"><b>5.9&times; seed sd</b></td></tr>
+</table>
+
+<div class="cols">
+<p>The conclusion holds &mdash; fusion still beats the better single modality by
+5.9&times; the seed standard deviation &mdash; but the two-seed AUPRC figure was
+materially seed-lucky. <b>Only the five-seed numbers may be quoted.</b> This is a
+straightforward reminder that small-n effect sizes in this project have consistently
+been optimistic, and it is the reason several other claims were re-run at higher seed
+counts.</p>
+
+<h2>23. The Legacy Dataset Was Invalid</h2>
+<p><span class="tag t-fail">WITHDRAWN ENTIRELY</span></p>
+
+<p>The project's original <code>healthcare</code> dataset paired chest X-rays with ECG
+records by a <b>construction rule</b>: the CXR bucket was a deterministic function of
+the ECG label. The consequence was measured directly &mdash; a CXR-only model scored
+0.3523 accuracy against a 0.20 random baseline, meaning it was reading the label off
+the pairing rule rather than the image.</p>
+
+<p><b>Every accuracy figure computed on that dataset is therefore void as evidence of
+multimodal fusion.</b> Communication, DP accounting, latency and energy results were
+unaffected, since none depends on pairing.</p>
+
+<p>The dataset was fully removed from code and disk on 15 August 2026. The registry now
+contains only VitalDB and WEAR, <b>both paired at source</b>. This was expensive &mdash;
+it invalidated weeks of accuracy results &mdash; but it was the right call, and
+catching it internally rather than in review is a significant save.</p>
+
+<h2>24. Components That Contributed Nothing</h2>
+<p><span class="tag t-fail">DROPPED</span></p>
+
+<p><b>ASWA aggregation</b> was ablated and found to contribute
+<b>&Delta;AUROC = +0.0005</b> (0.8460 vs 0.8465), with accuracy actually
+&minus;0.0042. No measurable contribution; it was a leftover from a scrapped earlier
+design and has been deleted.</p>
+
+<p>Also dropped: <b>CMGA</b>, <b>FedKD-E</b>, <b>pFAL</b>, the <b>PHANTOM-FL</b>
+branding, and all intellectual-property framing. FedKD-E in particular was found not to
+be freeze-aware &mdash; it optimises <i>all</i> parameters on the edge's calibration
+data, which under frozen encoders would both overwrite the pretrained features and leak
+private validation data into them. It was therefore disabled in every reported run and
+cannot be claimed as a contribution without being rebuilt and revalidated.</p>
+
+<h2>25. Silent Experimental Bugs</h2>
+<p><span class="tag t-part">FOUND AND FIXED</span></p>
+
+<p>Several experiments had been failing silently and producing no result at all. The
+component ablation A1&ndash;A4 <b>never ran</b> across the whole of Phase 6, blocked by
+four separate defects: a dead argument that argparse rejected outright; a
+uint8-hardcoded quantiser; a summary that read <code>test_*</code> columns from a CSV
+containing only <code>val_*</code>; and a verdict threshold of 1&times;10<sup>&minus;4</sup>.
+All four were fixed on 16 August 2026, and the 8-bit path was verified bit-identical so
+that the Phase 5 results still stand.</p>
+
+<p>Separately, five defects were found in the results-collection pipeline, including
+topology constants describing an experiment that was never run (20 devices, 3 edges,
+12.8&thinsp;MB model, versus the 6 devices, 2 edges, 8.63&thinsp;MB actually configured
+<i>at that time</i>; the current VitalDB topology is 9 clients over 2 edges), and an
+energy saving that was structurally pinned to 0.0&thinsp;% because the two sides of the
+ratio covered different numbers of uploads.</p>
+
+<p>A definitional bug is worth recording because it looked like a data conflict and was
+not. Update reliability was reported as 96.077&thinsp;% against a verified
+99.05&thinsp;%. Neither number was wrong &mdash; they measured different quantities
+under the same name:</p>
+</div>
+
+<pre class="full">
+    hop_success       = (1 - 0.001)^2   = 99.8001%   <-- per update, 2 hops (device->edge->cloud)
+    hop_success ^ 20                    = 96.0770%   <-- what was actually being reported
+    hop_success ^ 100                   = 81.8649%   <-- same formula at 100 rounds
+</pre>
+<p class="caption full">The code computed the probability that <i>all</i> rounds succeed. Against a target phrased &ldquo;update reliability &gt; 99&thinsp;%&rdquo; that is the wrong quantity, and it is degenerate as a target: it decays with round count, so <i>any</i> system fails it for a long enough run.</p>
+
+<div class="cols">
+<h2>26. The Outstanding Validity Gap</h2>
+<p><span class="tag t-open">UNRESOLVED &mdash; affects the &epsilon; claim</span></p>
+
+<p>A substantial portion of results ran in <b>proxy / oracle mode</b>: the encoders were
+pretrained on the pooled federated <i>training</i> indices. The encoders therefore saw
+private data non-privately, which means <b>&epsilon;&nbsp;=&nbsp;1 does not hold
+end-to-end for that version of the pipeline</b>, and Objective 2 as reported there is
+an upper bound.</p>
+
+<p>The cost of a valid guarantee has since been priced at <b>&minus;0.022 AUROC</b>
+versus the oracle, which is the quantity to report &mdash; the proxy-versus-public gap,
+not the proxy alone. Closing this fully requires pretraining on an external public
+corpus (PTB-XL is public, 12-lead, and natively matches the required input shape) or
+carving a disjoint public index split.</p>
+
+</div>
+
+<h2 class="parthead">Part V &nbsp;&mdash;&nbsp; Achievement Status, Objective by Objective</h2>
+
+<table class="full">
+<tr><th>Objective</th><th class="c">Status</th><th>How far achieved, and the explanation</th></tr>
+<tr>
+  <td><b>O1</b> &mdash; Uplink reduction &ge; 50&thinsp;%</td>
+  <td class="c pass">FULLY<br>ACHIEVED</td>
+  <td>90.82&thinsp;% (VitalDB) and 96.08&thinsp;% (WEAR) &mdash; roughly <b>1.8&ndash;1.9&times; the target</b>. Measured on the real compressor payload with indices included, not estimated from parameter counts. Deterministic and seed-independent, so a single run suffices as evidence. <b>No caveat.</b></td>
+</tr>
+<tr>
+  <td><b>O1b</b> &mdash; Round latency reduction</td>
+  <td class="c pass">FULLY<br>ACHIEVED</td>
+  <td>16.93&thinsp;% and 21.68&thinsp;%, measured packet-level in NS-3 on rounds where the payload actually traversed the topology. Added as an objective mid-project once packet-level measurement became available.</td>
+</tr>
+<tr>
+  <td><b>O2a</b> &mdash; Privacy budget &epsilon; &le; 1</td>
+  <td class="c pass">FULLY<br>ACHIEVED</td>
+  <td>&epsilon; = 0.9705 and 0.9656, and these are <b>composed totals</b> (training 0.7705 + conformal 0.2000), not training-only figures. Composing the conformal release into the budget is stricter than standard practice, where it is usually omitted. <b>Caveat:</b> end-to-end validity depends on the pretraining-disjointness issue in Part IV &sect;26.</td>
+</tr>
+<tr>
+  <td><b>O2b</b> &mdash; Accuracy loss &le; 2 pp</td>
+  <td class="c pass">ACHIEVED on VitalDB<br><span class="warn">INCONCLUSIVE on WEAR</span></td>
+  <td>VitalDB: &minus;0.92 pp, CI [&minus;2.82, +0.99] over 5 paired seeds &mdash; the point estimate is <i>negative</i>, i.e. the private arm was marginally better. The defensible statement is <b>&ldquo;no measurable cost&rdquo;</b>, bounded by the interval &mdash; <b>not</b> &ldquo;zero cost&rdquo;. WEAR: 1.967 pp, CI [1.760, 2.173] straddles the threshold; pre-registered at n = 15 and deliberately not extended.</td>
+</tr>
+<tr>
+  <td><b>O3a</b> &mdash; Inference latency &lt; 100 ms</td>
+  <td class="c pass">FULLY<br>ACHIEVED</td>
+  <td>4.58 ms and 1.22 ms P95 &mdash; a margin of <b>more than 20&times;</b>. Measured over 1000 timed runs across the whole serving path. <b>Caveat:</b> preprocessing is simulated, so this is compute latency, not glass-to-glass. The margin is large enough that the verdict is unaffected.</td>
+</tr>
+<tr>
+  <td><b>O3b</b> &mdash; Update success &gt; 99&thinsp;%</td>
+  <td class="c pass">FULLY<br>ACHIEVED</td>
+  <td>100&thinsp;% and 99.94&thinsp;% per update over the two-hop path. The definitional bug that once made this appear to fail is documented in Part IV &sect;25; the whole-run figure is still emitted, under a distinct name, because it is informative &mdash; just not this objective.</td>
+</tr>
+<tr>
+  <td><b>O4</b> &mdash; Energy saving &ge; 20&thinsp;%</td>
+  <td class="c pass">FULLY<br>ACHIEVED</td>
+  <td>72.30&thinsp;% and 76.84&thinsp;% &mdash; roughly <b>3.6&times; the target</b>, from the CloudSim Plus power model. <b>Important:</b> an alternative 93.5&thinsp;% figure exists from a linear bytes&rarr;Joules proxy; under that model it is arithmetically the same quantity as communication reduction and must not be presented as an independent energy measurement. The CloudSim figure is the one to quote.</td>
+</tr>
+<tr>
+  <td><b>Scientific claim N&#8209;A</b> &mdash; patient MIA vulnerability</td>
+  <td class="c fail">NOT<br>ACHIEVED</td>
+  <td><b>Refuted</b> under a well-powered attack with a passing positive control. The predicted &Delta; &asymp; 0.20 lies far outside all four measured intervals. Retained in the paper as a <b>validated negative result</b>, which is publishable; a negative from a weak attack would have been a hole.</td>
+</tr>
+<tr>
+  <td><b>Scientific claim N&#8209;B</b> &mdash; the <i>k</i>-scaling law</td>
+  <td class="c warn">ACHIEVED ON<br>ONE DATASET</td>
+  <td>Complete on VitalDB: 24/24 configurations, monotone and significant in AUPRC, with a built-in positive control at <i>k</i> = 1. <b>Not yet shown to generalise.</b> AUROC is directionally consistent but underpowered at n = 3. Establishing whether this is a structural law or a dataset-specific artefact is the single highest-value remaining experiment.</td>
+</tr>
+<tr>
+  <td><b>Scientific claim N&#8209;A&prime;</b> &mdash; head-only DP memorises</td>
+  <td class="c pass">ACHIEVED</td>
+  <td>0.6277 under LiRA versus 0.5122 for full-model training, p = 1&times;10<sup>&minus;9</sup> over 6 runs. A real caveat to the parameter-efficient DP fine-tuning literature, and self-critical since it concerns this project's own chosen recipe.</td>
+</tr>
+<tr>
+  <td><b>Claim N&#8209;1</b> &mdash; genuinely paired multimodal benchmark</td>
+  <td class="c warn">ACHIEVED, WITH<br>LIMITS</td>
+  <td>+0.0370 AUROC at 5 seeds on VitalDB, 5.9&times; seed sd. But WEAR is at ceiling and cannot corroborate it, so the claim rests on <b>one dataset</b>. Reported alongside the finding that some IoT tasks do not need fusion at all.</td>
+</tr>
+<tr>
+  <td><b>Claim N&#8209;D</b> &mdash; normalised patient clipping</td>
+  <td class="c"><span class="tag t-open">NOT STARTED</span></td>
+  <td>Identified but untested. The known flaw: a patient's gradient is summed over <i>k</i> windows and then clipped to a fixed bound <i>C</i>, so long recordings are systematically down-weighted. The proposed fix normalises by <i>k</i> or &radic;<i>k</i> before clipping. This is the <b>only remaining candidate for an original mechanism</b> rather than a measurement.</td>
+</tr>
+</table>
+
+<h2 class="parthead">Part VI &nbsp;&mdash;&nbsp; Complete Findings Register</h2>
+
+<table class="full">
+<tr><th>ID</th><th>Claim</th><th class="c">Strength /10</th><th class="c">State</th><th>Evidence</th></tr>
+<tr><td><b>N&#8209;B</b></td><td>Cost of the guarantee scales with records per patient</td><td class="c">8</td><td class="c pass">MEASURED</td><td>24/24 configs; gap 0 &rarr; +0.0507 &rarr; +0.0832 &rarr; +0.0866 AUPRC; control at <i>k</i>=1 (p=0.75)</td></tr>
+<tr><td><b>N&#8209;D</b></td><td>Normalised patient clipping beats fixed-<i>C</i></td><td class="c">8</td><td class="c">NOT RUN</td><td>&mdash;</td></tr>
+<tr><td><b>N&#8209;A&prime;</b></td><td>Head-only DP fine-tuning memorises members</td><td class="c">7</td><td class="c pass">MEASURED</td><td>0.6277 LiRA vs 0.5122 full-model; p = 1e&minus;9, sd 0.0018 over 6 runs</td></tr>
+<tr><td>N&#8209;1</td><td>Genuinely paired multimodal benchmark shows fusion gain</td><td class="c">7.5</td><td class="c warn">ONE DATASET</td><td>+0.0370 AUROC / +0.0671 AUPRC, 5 seeds, 5.9&times; sd (VitalDB); WEAR at ceiling</td></tr>
+<tr><td>N&#8209;2</td><td>Patient-level DP cost measured</td><td class="c">7.5</td><td class="c pass">DONE</td><td>Superseded in importance by N&#8209;B, which generalises it</td></tr>
+<tr><td>N&#8209;3</td><td>Cost of a <i>valid</i> guarantee (disjoint pretraining)</td><td class="c">6.5</td><td class="c pass">MEASURED</td><td>&minus;0.022 AUROC versus oracle pretraining</td></tr>
+<tr><td>N&#8209;4</td><td>Head-only DP viable in hierarchical multimodal FL</td><td class="c">6</td><td class="c pass">MEASURED</td><td>Gap widens as budget tightens; holds on both datasets</td></tr>
+<tr><td>N&#8209;5</td><td>Adaptive-DP composition tax</td><td class="c">5.5</td><td class="c fail">NEGATIVE</td><td>Cross-group split drives &sigma; 11.3 &rarr; 70; worse than uniform at equal &epsilon;</td></tr>
+<tr><td>&mdash;</td><td>DP shifts model attention toward missingness</td><td class="c">5</td><td class="c pass">MEASURED</td><td>Mask attribution share: full_dp 28.2&thinsp;% &gt; patient 22.0&thinsp;% &asymp; sample 21.6&thinsp;% &gt; full_nodp 19.9&thinsp;% &gt; head_nodp 15.8&thinsp;%; rank &rho; = 0.95</td></tr>
+<tr><td>N&#8209;6</td><td>Specialty-derived non-IID partitioning</td><td class="c">4</td><td class="c pass">MEASURED</td><td>3.2&ndash;50.7&thinsp;% divergence across clients</td></tr>
+<tr><td>N&#8209;7</td><td>Missingness carries signal</td><td class="c">4</td><td class="c warn">EVIDENCE,<br>NOT PROOF</td><td>Masks carry 22.0&thinsp;% of attribution mass over 5 seeds; <code>ART_MBP_observed</code> 4.99&thinsp;% &plusmn; 0.33, top-5 on 4/5 seeds. Say &ldquo;consistently among the strongest&rdquo;, not &ldquo;#2&rdquo;. Needs the mask ablation to become proof</td></tr>
+<tr><td><s>N&#8209;A</s></td><td><s>Patient MIA: record-level DP is exploitable</s></td><td class="c">&mdash;</td><td class="c fail">REFUTED</td><td>All four attack &Delta; intervals include zero; control passed at 0.6277. Kept as a validated negative</td></tr>
+</table>
+<p class="caption full">Table 8 &mdash; Dropped entirely: CMGA, FedKD-E, pFAL, ASWA, the PHANTOM-FL brand, and all intellectual-property framing. <b>No claim in this project is patentable</b>, and framing any of it as IP would invite rejection.</p>
+
+<h2 class="parthead">Part VII &nbsp;&mdash;&nbsp; Open Issues and Next Steps</h2>
+<div class="cols">
+
+<h2>27. The Immediate Blocker</h2>
+
+<p><b>External clinical validation data (eICU-CRD) is not yet accessible.</b> A request
+for PhysioNet credentialing is in progress; the guide has been asked by email to act as
+reference. Until that clears, the experiment that would establish whether the
+<i>k</i>-scaling law is structural or dataset-specific cannot run.</p>
+
+<div class="callout good">
+<span class="lbl">This delay is usable, not merely lost time</span>
+The scientific value of the eICU experiment depends on the prediction being
+<b>frozen before the data can be seen</b>. If the curve is fitted, eICU's <i>k</i>
+distribution inspected, and the prediction written afterwards, no reviewer can
+distinguish that from retrofitting &mdash; and neither can we. The waiting period is
+therefore exactly when the pre-registration must be written. Nothing else about the
+restructuring is blocked on access.
+</div>
+
+<h3>27.1 What is blocked, and what is not</h3>
+</div>
+
+<table class="full">
+<tr><th>Work item</th><th class="c">Blocked on data access?</th></tr>
+<tr><td>Freeze the <i>k</i>-law prediction with intervals</td><td class="c"><b>Must be done BEFORE access</b></td></tr>
+<tr><td>Promote the <i>k</i>-law to lead contribution in the manuscript</td><td class="c">No</td></tr>
+<tr><td>Restructure Results around the law</td><td class="c">No</td></tr>
+<tr><td>Redraw Fig. 4 from real LiRA scores (currently synthetic)</td><td class="c">No</td></tr>
+<tr><td>Demote fusion to a setting result with 5-seed numbers</td><td class="c">No</td></tr>
+<tr><td>Build the eICU pipeline against the published schema</td><td class="c">No</td></tr>
+<tr><td>Run the eICU arms</td><td class="c"><b>Yes</b> &mdash; the only genuinely blocked item</td></tr>
+</table>
+
+<div class="cols">
+
+<h2>28. Other Open Issues</h2>
+
+<h3>28.1 Rigorous public pretraining</h3>
+<p><span class="tag t-open">AFFECTS THE &epsilon; CLAIM</span> &mdash; the encoders in
+several runs saw private data non-privately. Closing this needs either an external
+public corpus (PTB-XL) or a disjoint public index split. The proxy-versus-public gap is
+already priced at &minus;0.022 AUROC, so the claim is quantified even where it is not
+yet closed.</p>
+
+<h3>28.2 Figure 4 is illustrative, not evidential</h3>
+<p>The LiRA figure currently uses synthetic curves and is captioned
+&ldquo;Illustrative&rdquo;. The measured per-patient IN/OUT distributions now exist in
+the shadow-model score files. Redrawing from those converts a teaching diagram into
+evidence &mdash; a cheap, high-value fix.</p>
+
+<h3>28.3 Statistical power</h3>
+<p>The <i>k</i>-scaling law rests on n = 3 seeds. AUPRC resolves; AUROC does not.
+Raising the seed count would let both metrics be reported as resolved rather than one
+as &ldquo;directionally consistent&rdquo;.</p>
+
+<h3>28.4 Ablations A1&ndash;A4</h3>
+<p>Fixed on 16 August 2026 after four silent bugs, but the arms still need to be run to
+populate the component ablation table.</p>
+
+<h3>28.5 Claim N&#8209;D remains untested</h3>
+<p>Normalised patient clipping is the only remaining candidate for an <i>original
+mechanism</i> rather than a measurement of an existing one. If it wins it materially
+raises the contribution; if it loses it costs little. It is low-effort and should be
+run.</p>
+
+<h2>29. The Recommended Path Forward</h2>
+
+<ol>
+<li><b>Pre-register the <i>k</i>-law prediction</b> &mdash; fit the curve on VitalDB,
+freeze a numeric forecast with intervals, commit it dated. Must precede data access.</li>
+<li><b>Restructure the manuscript</b> so the <i>k</i>-law is the first contribution
+rather than the fifth, with hierarchy, compression, energy and latency as the vehicle
+that makes the finding deployable rather than as the headline.</li>
+<li><b>Write the eICU pipeline blind</b> against the published schema, so that nothing
+waits on credentialing.</li>
+<li><b>Run the comparison</b> when access lands, and report the outcome either way.</li>
+<li><b>Run claim N&#8209;D</b> in parallel, since it is independent of all of the
+above.</li>
+</ol>
+
+<h2>30. Why Either eICU Outcome Is Publishable</h2>
+
+<p>If the prediction lands, the cost of a patient-level guarantee is shown to be
+<b>structural rather than dataset-specific</b>, and the work delivers a transferable
+design rule: <i>given your k, here is what patient-level &epsilon; = 1 will cost
+you</i>. That is what a practitioner actually needs, and it has not been published.</p>
+
+<p>If the prediction misses, the work has found a <b>boundary condition</b>, with a
+registered forecast proving the story was not retrofitted. That is also publishable,
+and visibly honest.</p>
+
+<div class="keyline">
+A paper reporting that two independent clinical datasets were tested, one<br>
+reproducing the result and the other exposing a limitation, is more<br>
+publishable than one in which everything conveniently succeeded.
+</div>
+
+<h2>31. Closing Assessment</h2>
+
+<p>The engineering objectives are met with wide margins and are not in doubt. The
+project's credibility rests on a pattern it has followed consistently: pre-registering
+gates before running attacks, reporting the inconclusive WEAR result rather than
+extending seeds until it passed, withdrawing an entire dataset when its pairing proved
+invalid, correcting a published effect size downward by 37&thinsp;% after replication,
+and deleting components that measured as contributing nothing.</p>
+
+<p>That discipline is why a refuted central hypothesis did not sink the work. It is
+also the strongest argument that the <i>k</i>-scaling law &mdash; which arrived with its
+own positive control built into the experimental design &mdash; means what it appears to
+mean.</p>
+
+</div>
+
+</body>
+</html>
