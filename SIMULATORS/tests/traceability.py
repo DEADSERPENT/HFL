@@ -3,14 +3,14 @@ traceability.py — every documented requirement, checked against the codebase.
 
 The study is defined by four documents. Nothing may be left out of them:
 
-  document/DOCUMENT PDF/Problem statement and objectives.pdf   → O1-O4
-  document/DOCUMENT PDF/Research Problem Statements ...pdf     → O1-O4 thresholds
-  document/PHASE REPORT/Phase 4.txt                            → D4.1-D4.5
-  document/PHASE REPORT/Phase 5.txt                            → D5.1-D5.13
-  document/PHASE REPORT/Phase 6.txt                            → D6.1-D6.7,
+  document/05_reference/literature/Problem statement and objectives.pdf   → O1-O4
+  document/05_reference/literature/Research Problem Statements ...pdf     → O1-O4 thresholds
+  document/02_phase_reports/Phase 4.txt                            → D4.1-D4.5
+  document/02_phase_reports/Phase 5.txt                            → D5.1-D5.13
+  document/02_phase_reports/Phase 6.txt                            → D6.1-D6.7,
                                                                   S0-S4, A0-A5,
                                                                   Fig 1-10
-  document/OVERALL PROJECT OUTPUT/*.txt                        → IP claims
+  document/06_project_output/*.txt                        → IP claims
 
 Two kinds of requirement, and the difference matters:
 

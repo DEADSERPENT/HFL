@@ -126,3 +126,15 @@ dist/
 
 # NS-3 is a third-party checkout fetched by scripts/install_ns3.sh.
 SIMULATORS/ns3/ns-3-dev/
+# ── PhysioNet restricted data (eICU / BRSET) — DUA-protected ──────────────
+# The signed DUA obligates open release of the CODE. Nothing derived from
+# restricted data may ride along into that public repo.
+# Raw tables live in SIMULATORS/data/raw/, already ignored by
+# SIMULATORS/.gitignore:9 — these are belt-and-braces for the derived arrays.
+SIMULATORS/data/raw/
+SIMULATORS/data/processed/eicu/
+SIMULATORS/data/processed/brset/
+SIMULATORS/data/processed/partitions/eicu/
+SIMULATORS/data/processed/partitions/brset/
+/phi/
+**/phi/

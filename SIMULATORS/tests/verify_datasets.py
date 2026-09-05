@@ -146,7 +146,7 @@ def verify(spec) -> bool:
         C = sig.shape[1]
         ok &= chk(f"{sig_rel}: channels match spec", C == spec.n_channels_a,
                   f"{C} vs spec {spec.n_channels_a}")
-        if spec.name == "vitaldb":            # second half must be a 0/1 mask
+        if spec.has_mask_channels:            # second half must be a 0/1 mask
             mask_vals = set(np.unique(sig[:, C // 2:]).tolist())
             ok &= chk("mask channels binary", mask_vals <= {0.0, 1.0}, str(mask_vals))
 
@@ -173,7 +173,7 @@ def verify(spec) -> bool:
     if sig_rel is not None:
         tr = all_idx["train"]
         sub = sig[np.sort(tr[:4000])][:, :max(1, sig.shape[1] // 2
-                                              if spec.name == "vitaldb" else sig.shape[1])]
+                                              if spec.has_mask_channels else sig.shape[1])]
         m, sd = float(np.nanmean(sub)), float(np.nanstd(sub))
         ok &= chk("train signals ~N(0,1)", abs(m) < 0.25 and 0.5 < sd < 1.6,
                   f"mean={m:+.3f} std={sd:.3f}")

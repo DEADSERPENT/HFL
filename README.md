@@ -34,8 +34,8 @@ the training set?"* Those differ, and the naive conversion is unusable.
 │   └── RUNBOOK.md             operational procedures
 ├── figures/                   publication figures + their generator
 ├── document/                  formal project documents
-│   ├── DOCUMENT PDF/          problem statement, literature
-│   ├── PHASE REPORT/          Phases 1-6
+│   ├── document/05_reference/literature/          problem statement, literature
+│   ├── document/02_phase_reports/          Phases 1-6
 │   ├── DATASET & MODEL GUIDE/ data, model, simulator integration
 │   └── OVERALL PROJECT OUTPUT/ status, IP & novelty register
 └── SIMULATORS/                the codebase
@@ -149,7 +149,7 @@ Every reported ε is checked against its budget. Every objective reports
 
 PHANTOM-FL is **not** part of this system. Its components were either unbuilt,
 measured negative, or architecturally incompatible with head-only DP. See
-`document/OVERALL PROJECT OUTPUT/01_PHANTOM_FL_Novel_Model.txt`.
+`document/06_project_output/01_PHANTOM_FL_Novel_Model.txt`.
 
 ---
 

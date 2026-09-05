@@ -164,7 +164,7 @@ Expected output (GPU machine):
 ├── RUNBOOK.md                          ← this file
 ├── hfl_env/                            ← Python venv (do not commit)
 │
-├── PHASE REPORT/
+├── document/02_phase_reports/
 │   ├── Phase 1.txt                     ← System design & topology
 │   ├── Phase 2.txt                     ← Algorithm design
 │   ├── Phase 3.txt                     ← NS-3 + CloudSim setup

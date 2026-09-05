@@ -1,0 +1,209 @@
+A Brazilian Multilabel Ophthalmological Dataset (BRSET)
+Luis Filipe Nakayama  ,  Mariana Goncalves  ,  Lucas Zago Ribeiro  ,  Helen Santos  ,  Daniel Ferraz  ,  Fernando Malerbi  ,  Leo Anthony Celi  ,  Caio Regatieri 
+
+Published: July 27, 2026. Version: 1.0.2
+
+When using this resource, please cite:  
+Nakayama, L. F., Goncalves, M., Zago Ribeiro, L., Santos, H., Ferraz, D., Malerbi, F., Celi, L. A., & Regatieri, C. (2026). A Brazilian Multilabel Ophthalmological Dataset (BRSET) (version 1.0.2). PhysioNet. RRID:SCR_007345. https://doi.org/10.13026/mysn-8b26
+
+Additionally, please cite the original publication:
+Nakayama LF, Restrepo D, Matos J, Ribeiro LZ, Malerbi FK, Celi LA, Regatieri CS. BRSET: A Brazilian Multilabel Ophthalmological Dataset of Retina Fundus Photos. PLOS Digit Health. 2024 Jul 11;3(7):e0000454. doi: 10.1371/journal.pdig.0000454. PMID: 38991014; PMCID: PMC11239107.
+
+Please include the standard citation for PhysioNet:  
+Pollard, T., Moody, B. E., Lehman, L., Gow, B., Fernandes, C., Xie, C., Johnson, A., Mark, R. G., & Heldt, T. (2026). PhysioNet as a global platform for biomedical research. Nature Health. https://doi.org/10.1038/s44360-026-00096-z. Available from: https://rdcu.be/faatM
+
+Abstract
+The Brazilian Multilabel Ophthalmological Dataset (BRSET) is a multi-labeled ophthalmological dataset designed to improve scientific community development and validate machine learning models. In ophthalmology, ancillary exams support medical decisions and can be used to develop algorithms; however, the availability and representativeness of ophthalmological datasets are limited. This dataset consists of 16,266 images from 8,524 Brazilian patients. Demographics, macula, optic disc, and vessels anatomical parameters, focus, illumination, image field, and artifacts as quality control, and multi-labels are included alongside color fundus retinal photos. This dataset enables computer vision models to predict demographic characteristics and multi-label disease classification using retinal fundus photos.
+
+Background
+In ophthalmology, ancillary imaging exams, including retinal fundus images, ocular anterior segment photos, corneal topography, visual field tests, and optical coherence tomography, are important for disease screening programs, diagnosis, and follow-up [1].
+
+Machine Learning (ML) and artificial intelligence (AI) algorithms have the potential to provide more cost-effective and accessible medical care and improve the diagnosis and treatment of medical conditions [3]. In Ophthalmology, AI holds great promise, particularly in computer vision classification algorithms, with FDA-approved diabetic retinopathy screening devices [1,3-5].
+
+Data is essential for AI model development [6]. Reliable, large, representative, secure, and trustworthy datasets are fundamental. Currently, most of the available retinal datasets are from high-income countries, lacking demographic and comorbidities representativeness, focusing particularly on diabetic retinopathy patients [6].
+
+In low and medium-income countries (LMIC), there is a growing gap between the ophthalmologist’s number and the total population, with two-thirds of the world's ophthalmologists in only seventeen countries [7]. AI systems have the potential to represent a milestone in ophthalmological screening and treatment programs in LMIC; however, the unbalanced representativeness in available data can lead to biased and harmful algorithms results [6].
+
+Our project objective is to develop and provide the first Brazilian Multilabel Ophthalmological Dataset with the objective of reducing under-represented populations in ophthalmological datasets.
+
+Methods
+This project was approved by the São Paulo Federal University - UNIFESP institutional review board (CAAE 33842220.7.0000.5505). In this dataset, the identifiable patient information was removed from all images.
+
+Study cohort
+
+We included data from three Brazilian ophthalmological centers in São Paulo with a total of 16,266  images from 8,524 patients evaluated from 2010 to 2020. This dataset included only one macula-centered paired exam from each patient.
+
+Retinal photos were captured in a Nikon NF505 (Tokyo, Japan) and a Canon CR-2 (Canon Inc, Melville, NY, USA)  retinal camera. Retinographies were taken by previously trained non-medical professionals in pharmacological mydriasis.
+
+Fluorescein angiogram photos, non-retinal images, and duplicated images were excluded. In this dataset were selected fovea-centered images with both temporal retinal vascular arcades and at least one disc diameter of retina nasally to optic disc visible, with 45 degrees angle and optic disc centered images.
+
+Dataset preparation
+
+The file identification was removed in all color fundus photos, sensitive data (patient name, exam date), and headers. Every image was reviewed to ensure the absence of sensitive data in images.
+
+The images were exported directly from the Nikon NF505 and a Canon CR-2 in JPEG format, and no preprocessing techniques were performed.  In all images, the viewpoint is macula centered.
+
+Features collected
+
+Associated with the retina labeling is the retinal camera device, patients' nationality, age in years, sex, clinical antecedents,  insulin use, and diabetes time. The demographics and medical features were collected from electronic medical records from self-reported medical antecedents.
+
+Labeling
+
+All the images were labeled by a retinal specialist ophthalmologist, and the research group established the labeling criteria.
+
+In the anatomic classification, the retinal optic disc, retinal vessel, and macula aspects were classified as normal or abnormal. In the quality control parameters, the image focus, illumination, image field, and artifacts were classified as satisfactory or unsatisfactory.
+
+In the pathological classifications, the image was classified according to the pathological classification list: diabetic retinopathy, diabetic macular edema, scar (toxoplasmosis), nevus, age-related macular degeneration(amd), vascular occlusion, hypertensive retinopathy, drusens, nondiabetic retinal hemorrhage, retinal detachment, myopic fundus, increased cup disc ratio, other.
+
+In diabetic retinopathy classification were applied the International Clinic Diabetic Retinopathy (ICDR) grading and the Scottish Diabetic Retinopathy Grading (SDRG).
+
+Data Description
+This dataset enables computer vision models to predict demographic characteristics and multi-label disease classification. BRSET consists of 16,266 images from 8,524 Brazilian patients.
+
+BRSET contains:
+
+fundus_photos: 16,266 fundus photos images.
+
+labels.csv - database table containing the identifier for each image, demographic information, structural label, diagnosis, and quality parameters labels. Columns are detailed below.
+
+image_id: image identifier.
+patient_id: patient identifier.
+camera: Retinal camera (Canon CR or NIKON NF5050).
+patient_age: Age of patient in years.
+comorbidities: Free text of self-referred clinical antecedents.
+diabetes_time: Self-referred time of diabetes diagnosis in years.
+insulin_use: Self-referred use of insulin (yes or no).
+patient_sex: Enumerated values: 1 for male and 2 for female.
+exam_eye: Enumerated values: 1 for the right eye and 2 for the left eye.
+diabetes: diabetes diagnosis
+nationality: the patient's nationality.
+Anatomical parameters
+
+optic_disc: Enumerated values: 1 for normal and 2 for abnormal.
+vessels: Enumerated values: 1 for normal and 2 for abnormal.
+macula: Enumerated values: 1 for normal and 2 for abnormal.
+Diabetic retinopaty clasification
+
+DR_ICDR: International Clinic Diabetic Retinopathy classification with enumerated values from 0 to 4.
+0 No retinopathy.
+1 Mild non-proliferative diabetic retinopathy.
+2 Moderate non-proliferative diabetic retinopathy.
+3 Severe non-proliferative diabetic retinopathy.
+4 Proliferative diabetic retinopathy and post-laser status.
+DR_SDRG: Scottish Diabetic Retinopathy Grading Scheme classification with enumerated values from 0 to 4.
+0 No retinopathy.
+1 Mild Background.
+2 Moderate Background.
+3 Severe non-proliferative or pre-proliferative diabetic retinopathy.
+4 Proliferative diabetic retinopathy and post-laser status.
+Quality parameters
+
+focus: enumerated values: 1 for normal and 2 for abnormal.
+illumination: enumerated values: 1 for normal and 2 for abnormal.
+image_field: enumerated values: 1 for normal and 2 for abnormal.
+artifacts: enumerated values: 1 for normal and 2 for abnormal.
+Classification parameters
+
+diabetic_retinopathy- 1 present and 0 absent.
+macular_edema- 1 present and 0 absent.
+scar - 1 present and 0 absent
+nevus - 1 present and 0 absent.
+amd - 1 present and 0 absent.
+vascular_occlusion- 1 present and 0 absent.
+hypertensive_retinopathy - 1 present and 0 absent.
+drusens - 1 present and 0 absent.
+hemorrhage - 1 present and 0 absent.
+retinal_detachment - 1 present and 0 absent.
+myopic_fundus - 1 present and 0 absent.
+increased_cup_disc - 1 present and 0 absent.
+other - 1 present and 0 absent.
+Usage Notes
+This is the first Brazilian open-access ophthalmological dataset, and future releases may increase the dataset size, provide race information, and include other ophthalmological exam modalities. Our objective is to reduce the under-represented countries in the ophthalmology dataset pool used for the development of models.
+
+As a limitation, our dataset includes only a single nationality representativeness (Brazilian) and represents a general ophthalmological clinic group of patients, therefore with unbalanced disease distribution, a high percentage of normal patients, and includes images with low quality.
+
+Exploratory data analysis and codes are available in the GitHub repository [8]. Best practice guidelines should be followed when analyzing the data, and we incentivize sharing codes and results to improve reproducibility.
+
+Release Notes
+ BRSET v1.0.2 was released in July  2026. Changes include:
+
+Comprehensive review of the exam_eye column to ensure accurate mapping of OS/OD labels.
+
+Fixed typo from Illuminaton to illumination and updated drusens to drusen.
+
+Changed insuline to insulin for technical accuracy.
+
+Ethics
+This project was approved by the São Paulo Federal University - UNIFESP institutional review board (CAAE 33842220.7.0000.5505). The requirement for individual consent was waived. In this dataset, all images were anonymized with all identifiable patient information removed.
+
+Acknowledgements
+The creation of this dataset project was funded by Instituto da Visão -  IPEPO and Lemann Foundation.
+
+Conflicts of Interest
+The authors declare no conflicts of interest to declare.
+
+References
+Kras A, Celi LA, Miller JB. Accelerating ophthalmic artificial intelligence research: the role of an open access data repository. Curr Opin Ophthalmol. 2020;31: 337–350. doi:10.1097/ICU.0000000000000678
+Rudnisky CJ, Tennant MTS, Weis E, Ting A, Hinz BJ, Greve MDJ. Web-based grading of compressed stereoscopic digital photography versus standard slide film photography for the diagnosis of diabetic retinopathy. Ophthalmology. 2007;114: 1748–1754. doi:10.1016/j.ophtha.2006.12.010
+Ting DSW, Pasquale LR, Peng L, Campbell JP, Lee AY, Raman R, et al. Artificial intelligence and deep learning in ophthalmology. Br J Ophthalmol. 2019;103: 167–175. doi:10.1136/bjophthalmol-2018-313173
+Md A, Abramoff, Lavin PT, Birch M, Shah N, Folk JC. Pivotal trial of an autonomous AI-based diagnostic system for detection of diabetic retinopathy in primary care offices. Yearbook of Paediatric Endocrinology. 2019. doi:10.1530/ey.16.12.1
+Bhaskaranand M, Ramachandra C, Bhat S, Cuadros J, Nittala MG, Sadda SR, et al. The value of automated diabetic retinopathy screening with the EyeArt system: A study of more than 100,000 consecutive encounters from people with diabetes. Diabetes Technol Ther. 2019;21: 635–643. doi:10.1089/dia.2019.0164
+Khan SM, Liu X, Nath S, Korot E, Faes L, Wagner SK, et al. A global review of publicly available datasets for ophthalmological imaging: barriers to access, usability, and generalisability. The Lancet Digital Health. 2020. doi:10.1016/S2589-7500(20)30240-5
+Resnikoff S, Lansingh VC, Washburn L, Felch W, Gauthier T-M, Taylor HR, et al. Estimated number of ophthalmologists worldwide (International Council of Ophthalmology update): will we meet the needs? Br J Ophthalmol. 2020;104: 588–592. doi:10.1136/bjophthalmol-2019-314336
+BRSET website. https://github.com/luisnakayama/BRSET
+Parent Projects
+A Brazilian Multilabel Ophthalmological Dataset (BRSET) was derived from:
+mBRSET, a Mobile Brazilian Retinal Dataset v1.0
+Please cite them when using this project.
+Share
+    
+Access
+Access Policy:
+Only credentialed users who sign the DUA can access the files.
+
+License (for files):
+PhysioNet Credentialed Health Data License 1.5.0
+
+Data Use Agreement:
+PhysioNet Credentialed Health Data Use Agreement 1.5.0
+
+Required training:
+CITI Data or Specimens Only Research
+
+Discovery
+DOI (version 1.0.2):
+https://doi.org/10.13026/mysn-8b26
+
+DOI (latest version):
+https://doi.org/10.13026/z9zv-g542
+
+Topics:
+dataset retina ophthalmology
+
+Project Views
+196
+Current Version
+4436
+All Versions
+Project Views by Unique Registered Users
+Corresponding Author
+Luis Filipe Nakayama
+São Paulo Federal University - UNIFESP, São Paulo, Brazil; Massachusetts Institute of Technology, Cambridge, USA.
+luisnaka@mit.edu
+
+Versions
+1.0.0
+March 8, 2023
+1.0.1
+Aug. 14, 2024
+1.0.2
+July 27, 2026
+Files
+Total uncompressed size: 15.6 GB.
+
+
+Name	Size	Modified
+fundus_photos		
+LICENSE.txt(download)	2.5 KB	2026-07-15
+SHA256SUMS.txt(download)	1.4 MB	2026-07-23
+label_brset.csv(download)	1.6 MB	2026-05-03

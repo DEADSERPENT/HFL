@@ -155,11 +155,11 @@ against on VitalDB or WEAR.
 | `DATASET & MODEL GUIDE/01_Datasets.txt` | ✅ **rewritten** for the three datasets |
 | `DATASET & MODEL GUIDE/02_Model_Design.txt` | ⚠ no `FeatureEncoder`, no `n_channels_a`, no modality-B switch |
 | `DATASET & MODEL GUIDE/03_NS3_CloudSim_Integration.txt` | ⚠ predates the topology corrections |
-| `PHASE REPORT/Phase 1–4.txt` | ⚠ describe the old plan and old data |
-| `PHASE REPORT/Phase 5.txt` | ⚠ stale results |
+| `document/02_phase_reports/Phase 1–4.txt` | ⚠ describe the old plan and old data |
+| `document/02_phase_reports/Phase 5.txt` | ⚠ stale results |
 | `OVERALL PROJECT OUTPUT/01_PHANTOM_FL_Novel_Model.txt` | ⚠ claims 5 innovations; see §5 |
 | `OVERALL PROJECT OUTPUT/00_Overall_Project_Report.txt`, `IP & N.txt` | ⚠ pending |
-| `DOCUMENT PDF/*` | ✅ unaffected — problem statement, objectives, literature review still valid |
+| `document/05_reference/literature/*` | ✅ unaffected — problem statement, objectives, literature review still valid |
 | `results/phase5/RESULTS.md` | ⚠ describes healthcare-era Phase 5; needs a new-domain edition |
 
 ### 4.4 🟡 Methodological

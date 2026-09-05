@@ -1,0 +1,145 @@
+eICU Collaborative Research Database
+Tom Pollard  ,  Alistair Johnson  ,  Jesse Raffa  ,  Leo Anthony Celi  ,  Omar Badawi  ,  Roger Mark 
+
+Published: April 15, 2019. Version: 2.0
+
+When using this resource, please cite:  
+Pollard, T., Johnson, A., Raffa, J., Celi, L. A., Badawi, O., & Mark, R. (2019). eICU Collaborative Research Database (version 2.0). PhysioNet. RRID:SCR_007345. https://doi.org/10.13026/C2WM1R
+
+Additionally, please cite the original publication:
+The eICU Collaborative Research Database, a freely available multi-center database for critical care research. Pollard TJ, Johnson AEW, Raffa JD, Celi LA, Mark RG and Badawi O. Scientific Data (2018). DOI: http://dx.doi.org/10.1038/sdata.2018.178.
+
+Please include the standard citation for PhysioNet:  
+Pollard, T., Moody, B. E., Lehman, L., Gow, B., Fernandes, C., Xie, C., Johnson, A., Mark, R. G., & Heldt, T. (2026). PhysioNet as a global platform for biomedical research. Nature Health. https://doi.org/10.1038/s44360-026-00096-z. Available from: https://rdcu.be/faatM
+
+Abstract
+The eICU Collaborative Research Database is a multi-center database comprising deidentified health data associated with over 200,000 admissions to ICUs across the United States between 2014-2015. The database includes vital sign measurements, care plan documentation, severity of illness measures, diagnosis information, and treatment information. Data is collected through the Philips eICU program, a critical care telehealth program that delivers information to caregivers at the bedside. 
+
+Background
+Philips Healthcare has developed an eICU telehealth system for critically ill patients, which provides 24 hour support for caregivers at the bedside. It is a supplement — not a replacement — to the bedside team, and the data utilized by the remote caregivers is archived for research purposes. Here we describe the eICU Collaborative Research Database, a multi-center intensive care unit database covering over 200,000 admissions to ICUs monitored by eICU Programs across the United States. The database is deidentified, and includes vital sign measurements, care plan documentation, APACHE severity of illness measures, and diagnosis information and treatment details.
+
+Methods
+The eICU Collaborative Research Database is populated with data from a combination of many critical care units throughout the continental United States. Patients were selected for inclusion in the public database, by first identifying hospital discharges between 2014 and 2015. The proportion of index stays in each hospital from the full private data repository was used to perform a stratified sample of patient index stays based upon hospital. A small proportion of patients only had stays in step down units or low acuity units, and these stays were removed. The database comprises over 200 thousand patient unit encounters for over 139 thousand unique patients admitted between 2014 and 2015. Patients were admitted to one of 335 units at 208 hospitals located throughout the US.
+
+All tables are deidentified to meet the safe harbor provision of the US Health Insurance Portability and Accountability Act (HIPAA). These provisions include the removal of all protected health information. Hospital and unit identifiers have also been removed to protect the privacy of contributing organizations. The schema was established in collaboration with Privacert (Cambridge, MA), who certified the re-identification risk as meeting safe harbor standards (HIPAA Certification no. 1031219-2). 
+
+Data Description
+Data include vital signs, laboratory measurements, medications, APACHE components, care plan information, admission diagnosis, patient history, time-stamped diagnoses from a structured problem list, and similarly chosen treatments. Data from each patient is collected into a common warehouse only if certain “interfaces” are available. Each interface is used to transform and load a certain type of data: vital sign interfaces incorporate vital signs, laboratory interfaces provide measurements on blood samples, and so on. It is important to be aware that different care units may have different interfaces in place, and that the lack of an interface will result in no data being available for a given patient, even if those measurements were made in reality. The data is provided as a relational database, comprising multiple tables joined by keys.
+
+Usage Notes
+Accessing the data requires proof of completion of a course on human research and signing of a data use agreement. By sharing the data publicly, we seek to foster collaboration in secondary analysis of electronic health records. Detailed documentation is available online at: https://eicu-crd.mit.edu/. Jupyter Notebooks are shared alongside documentation to demonstrate analysis and exploration of the data. A collaboratively developed codebase for working with the data is available at: https://github.com/mit-lcp/eicu-code. 
+
+The eICU Collaborative Research Database (eICU-CRD) is provided through the work of researchers at the MIT Laboratory for Computational Physiology, Philips Healthcare, and our collaborators. We have limited resources and cannot provide individual support to researchers worldwide, so we encourage researchers to work together as a community. If you are seeking advice for a specific question, we would suggest raising an issue on the eICU Code Repository: https://github.com/mit-lcp/eicu-code/issues
+
+Acknowledgements
+The authors would like to thank the Philips eICU Research Institute and Philips Healthcare for contribution of the data. The authors would also like to thank Andrew A. Kramer for insightful comments regarding the data and Dina Demner-Fushman for helpful feedback on the deidentification process.
+
+Conflicts of Interest
+The work was supported by grants NIH-R01-EB017205, NIH-R01-EB001659, and NIH-R01-GM104987 from the National Institutes of Health. The MIT Laboratory for Computational Physiology received funding from Philips Healthcare to undertake work on the database described in this paper. O.B. is an employee of Philips Healthcare.
+
+References
+Pollard TJ, Johnson AEW, Raffa JD, Celi LA, Mark RG and Badawi O. The eICU Collaborative Research Database, a freely available multi-center database for critical care research. Scientific Data (2018). DOI: http://dx.doi.org/10.1038/sdata.2018.178.
+Share
+    
+Access
+Access Policy:
+Only credentialed users who sign the DUA can access the files.
+
+License (for files):
+PhysioNet Credentialed Health Data License 1.5.0
+
+Data Use Agreement:
+PhysioNet Credentialed Health Data Use Agreement 1.5.0
+
+Required training:
+CITI Data or Specimens Only Research
+
+Discovery
+DOI (version 2.0):
+https://doi.org/10.13026/C2WM1R
+
+DOI (latest version):
+https://doi.org/10.13026/0pzc-dm64
+
+Topics:
+telemedicine icu critical care
+
+Project Website:
+ https://eicu-crd.mit.edu/
+
+Project Views
+8774
+Current Version
+8774
+All Versions
+Project Views by Unique Registered Users
+Corresponding Author
+Tom Pollard
+MIT Laboratory for Computational Physiology, MA, USA.
+tpollard@mit.edu
+
+Versions
+2.0
+April 15, 2019
+Files
+Total uncompressed size: 5.1 GB.
+
+Access the files
+Download the ZIP file (5.1 GB)
+Request access using Google BigQuery.
+Download the files using your terminal: wget -r -N -c -np --user samarthasmg --ask-password https://physionet.org/files/eicu-crd/2.0/
+To download the files using AWS command line tools, first configure your AWS credentials.
+Folder Navigation: <base>
+Name	Size	Modified
+LICENSE.txt(download)	2.5 KB	2019-04-15
+SHA256SUMS.txt(download)	2.6 KB	2019-07-10
+admissionDrug.csv.gz(download)	11.7 MB	2019-03-19
+admissionDx.csv.gz(download)	7.3 MB	2019-03-19
+allergy.csv.gz(download)	4.5 MB	2019-03-19
+apacheApsVar.csv.gz(download)	4.9 MB	2019-03-19
+apachePatientResult.csv.gz(download)	16.5 MB	2019-03-19
+apachePredVar.csv.gz(download)	3.7 MB	2019-03-19
+carePlanCareProvider.csv.gz(download)	4.2 MB	2019-03-19
+carePlanEOL.csv.gz(download)	15.0 KB	2019-03-19
+carePlanGeneral.csv.gz(download)	29.4 MB	2019-03-19
+carePlanGoal.csv.gz(download)	3.9 MB	2019-03-19
+carePlanInfectiousDisease.csv.gz(download)	78.6 KB	2019-03-19
+customLab.csv.gz(download)	14.5 KB	2019-03-19
+diagnosis.csv.gz(download)	33.6 MB	2019-03-19
+hospital.csv.gz(download)	816 B	2019-03-19
+infusionDrug.csv.gz(download)	46.7 MB	2019-03-19
+intakeOutput.csv.gz(download)	218.6 MB	2019-03-19
+lab.csv.gz(download)	492.9 MB	2019-03-19
+medication.csv.gz(download)	128.1 MB	2019-03-19
+microLab.csv.gz(download)	142.1 KB	2019-03-19
+note.csv.gz(download)	22.8 MB	2019-03-19
+nurseAssessment.csv.gz(download)	188.8 MB	2019-03-19
+nurseCare.csv.gz(download)	92.6 MB	2019-03-19
+nurseCharting.csv.gz(download)	1.6 GB	2019-03-19
+pastHistory.csv.gz(download)	12.4 MB	2019-03-19
+patient.csv.gz(download)	9.9 MB	2019-03-19
+physicalExam.csv.gz(download)	82.2 MB	2019-03-19
+respiratoryCare.csv.gz(download)	8.6 MB	2019-03-19
+respiratoryCharting.csv.gz(download)	188.6 MB	2019-03-19
+treatment.csv.gz(download)	40.8 MB	2019-03-19
+vitalAperiodic.csv.gz(download)	228.5 MB	2019-03-19
+vitalPeriodic.csv.gz(download)	1.7 GB	2019-03-19
+
+PhysioNet
+Maintained by the MIT Laboratory for Computational Physiology
+
+Supported by the National Institute of Biomedical Imaging and Bioengineering (NIBIB), National Heart Lung and Blood Institute (NHLBI), and NIH Office of the Director under NIH grant numbers U24EB037545 and R01EB030362
+
+Navigation
+Discover Data
+Share Data
+About
+News
+Explore
+Data
+Software
+Challenges
+Tutorials
+
+
+Accessibility

@@ -438,7 +438,7 @@ Every stage declares its inputs and refuses to run on missing or stale ones.
 Per-stage logs and a manifest record the exact command behind every number.
 
 **Documentation:** `document/DATASET & MODEL GUIDE/` (data, model, simulators),
-`document/PHASE REPORT/` (Phases 1–6), `document/OVERALL PROJECT OUTPUT/`
+`document/02_phase_reports/` (Phases 1–6), `document/06_project_output/`
 (status and the IP & Novelty register).
 
 ---

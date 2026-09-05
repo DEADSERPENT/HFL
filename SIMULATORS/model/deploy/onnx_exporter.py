@@ -30,16 +30,17 @@ def dataset_io(dataset: str):
     import sys
     _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.insert(0, os.path.join(_root, "data", "loaders"))
-    from datasets import get_spec
+    from datasets import get_spec, window_len
     sp = get_spec(dataset)
     kw = {"n_classes": sp.n_classes, "n_channels_a": sp.n_channels_a}
     if sp.modality_b == "image":
         kw_extra, shape_b = {}, (1, 3, 224, 224)
-        win = 1000
+        win = window_len(sp, 1000)
     else:
         kw_extra = {"modality_b": "features", "feat_b_dim": sp.feat_b_dim}
         shape_b = (1, sp.feat_b_dim)
-        win = {"wear": 100, "vitaldb": 300}.get(dataset, 100)
+        # Read off the array, not a per-dataset map: see datasets.window_len.
+        win = window_len(sp)
     kw.update(kw_extra)
     return kw, (1, sp.n_channels_a, win), shape_b, sp
 
