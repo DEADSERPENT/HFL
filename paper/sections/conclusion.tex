@@ -1,0 +1,74 @@
+%==============================================================================
+% conclusion.tex — Conclusion for PP-HFM.
+% Self-contained \section{}; \input this into main.tex (never compile alone).
+%
+% RULE: no number appears here that does not already appear in Results, and no
+% claim is made here that Results does not establish. A conclusion that
+% introduces evidence is a conclusion a reviewer reads twice.
+%
+% The two former [PENDING] sentences -- the fusion condition (amendment F-A1)
+% and the clipping-artifact question (amendment N-A2) -- were filled
+% 2026-10-21. Results now reports both (sec:results:fusion:balance and
+% sec:results:kscaling:nd); they are stated here without numbers regardless.
+%
+% READABILITY PASS 2026-10-21: sentences split; the N-A2 finding moved from the
+% "future directions" paragraph (where it was a result posing as a direction)
+% to the paragraph on the cost of the guarantee. Numbers unchanged.
+%==============================================================================
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper presented a hierarchical federated learning system for multimodal
+clinical and wearable sensing that enforces differential privacy at the level
+of the individual rather than the record, and quantified the cost of that
+choice. On two deployments, the composed budget, including the conformal
+calibration release, is $0.970$ and $0.966$. Uplink traffic is reduced by
+$90.8\,\%$ and $96.1\,\%$, energy per round by $72.3\,\%$ and $76.8\,\%$, and
+the 95th-percentile inference latency is $3.0$ and $1.2$~ms against a
+requirement of $100$~ms. Because noise is added to gradients during training,
+the privacy mechanism adds no computation at inference.
+
+Two findings are central. First, robustness to a tight privacy budget is
+determined by the initialization rather than by the size of the privatized
+subset. A pretrained initialization improves on a random one by $0.0187$
+without noise and by $0.1447$ at the tightest budget, whereas restricting the
+privatized subset contributes at most $0.0036$, with intervals covering zero,
+despite privatizing $3.3$ times fewer parameters. The restriction is therefore
+justified by its communication savings only.
+
+Second, the cost of an individual-level guarantee increases with the number of
+records each individual contributes. At a fixed per-step budget and number of
+units per step, the penalty is indistinguishable from zero at one record per
+individual and reaches $0.0866$ in average precision at eight, saturating
+before that point. Because the two units coincide at one record per
+individual, this configuration serves as a built-in control. The
+individual-level arm remains flat while the record-level arm improves, so the
+cost arises from additional records that the stricter unit cannot exploit.
+Normalizing the clipping bound by the record count does not reduce this cost,
+which indicates that it is inherent to the unit rather than to the clipping
+rule. On a second clinical corpus of $132{,}736$ individuals across $187$
+hospitals, the ordering and the saturation transfer, whereas the magnitude is
+approximately one sixth of the pre-registered forecast and is not resolved at
+three seeds.
+
+Several results are negative. Compression does not affect accuracy and is
+justified by traffic reduction alone. An adaptive per-layer allocation of the
+budget performs worse than a uniform allocation. The predicted difference in
+membership leakage between the two units is not observed under an attack whose
+positive control reaches $0.625$. The benefit of multimodal fusion is
+conditional: it is $0.0370$ in area under the ROC curve on the first clinical
+corpus, untestable on the wearable corpus, where the better single modality
+reaches $0.9976$, and absent on the external clinical corpus. A titration on
+the external corpus shows that balance between the two streams is a sufficient
+condition: when the stronger stream is degraded to parity with the weaker,
+fusion yields a significant gain in area under the ROC curve over the better
+single modality, although not in average precision and not relative to the
+intact stronger stream.
+
+Future work should establish whether the saturation level of the scaling law
+is a constant of the guarantee or a fixed fraction of the precision attainable
+on a task, which requires a third corpus. Establishing equivalence in leakage
+between the two units, rather than the absence of a large difference, requires
+a shadow population larger than sixteen and a non-member set large enough to
+resolve the low-false-positive regime.

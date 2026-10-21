@@ -245,7 +245,7 @@ def fig_backbone(f):
     ax.text(80.5, 8.4, f"{f['n_head']:,} of {f['n_total']:,} parameters\n"
                        f"({pct:.1f}%) receive noise",
             fontsize=5.8, color=VERM, ha="center", va="top", linespacing=1.4)
-    ax.text(50, 0.6, "no batch normalisation anywhere — it mixes statistics "
+    ax.text(50, 0.6, "no batch normalization anywhere — it mixes statistics "
                      "across a batch and destroys the per-patient gradient",
             fontsize=5.8, color=MUTED, ha="center", style="italic")
     finish(fig, "fig2_backbone")
@@ -481,7 +481,7 @@ def fig_energy(f):
     actually reduces what the constrained tier spends."""
     import csv, collections
     order = ["CentralizedFL", "FlatFL_DP", "HierarchicalFL_NoDP", "HFL_Proposed"]
-    short = {"CentralizedFL": "centralised", "FlatFL_DP": "flat + DP",
+    short = {"CentralizedFL": "centralized", "FlatFL_DP": "flat + DP",
              "HierarchicalFL_NoDP": "hierarchy,\nno DP", "HFL_Proposed": "proposed"}
     fig, axes = plt.subplots(1, 2, figsize=(COL2, 2.15))
     for ax, ds, lab in zip(axes, ("vitaldb", "wear"),
@@ -619,12 +619,24 @@ def fig_lira_measured(f, arm="head_nodp"):
     finish(fig, "fig4_lira")
 
 
-# ── Fig 8 — head-only vs full-model DP across the budget ───────────────
+# ── Fig 8 — decomposing the recipe: initialisation vs privatised subset ──
 def fig_epsilon(f):
-    """The pre-registered condition: if head-only training were merely a good
-    initialisation its advantage would be constant in epsilon. It is not — the
-    gap widens as the budget tightens and nearly closes when the budget is
-    removed, which is the signature of a dimensionality effect."""
+    """Three arms, because two cannot separate the two things that differ.
+
+    The earlier two-arm version compared head-only-from-pretrained against
+    full-model-from-random and attributed the gap to privatised
+    dimensionality. Those arms differ in TWO ways at once, and the
+    decomposition shows the attribution was wrong:
+
+        B4  full model, random init      (prior art)
+        B7  full model, pretrained init  (isolates initialisation)
+        B6  head only,  pretrained init  (the proposed recipe)
+
+    B4->B7 is nearly the whole effect and is strongly epsilon-dependent;
+    B7->B6 is ~0 at every budget. B7 privatises 3.3x more parameters than B6
+    at the same budget and loses nothing, which refutes the dimensionality
+    account directly.
+    """
     import csv, collections, statistics as st
     r = list(csv.DictReader(open(_SIM /
         "results/phase5/epsilon_sweep/vitaldb/epsilon_sweep.csv")))
@@ -634,19 +646,31 @@ def fig_epsilon(f):
         # and "2.0", so matching on the string silently dropped four of the
         # six budgets and drew a two-point line.
         d[(float(x["epsilon"]), x["recipe"])].append(float(x["macro_auc"]))
-    eps = sorted({e for e, _ in d})
+    # Only budgets where all three arms ran, so the band is never drawn
+    # across a missing point.
+    eps = sorted({e for e, _ in d}
+                 & {e for e, rc in d if rc == "full"}
+                 & {e for e, rc in d if rc == "full_pre"}
+                 & {e for e, rc in d if rc == "head"})
     xs = np.arange(len(eps))
-    head = [st.mean(d[(e, "head")]) for e in eps]
-    full = [st.mean(d[(e, "full")]) for e in eps]
+    b4 = [st.mean(d[(e, "full")]) for e in eps]
+    b7 = [st.mean(d[(e, "full_pre")]) for e in eps]
+    b6 = [st.mean(d[(e, "head")]) for e in eps]
+    nseed = max(len(d[(e, "head")]) for e in eps)
 
-    fig, ax = plt.subplots(figsize=(COL1, 1.95))
-    ax.plot(xs, head, "-o", color=BLUE, lw=1.6, ms=4.5, label="head-only", zorder=4)
-    ax.plot(xs, full, "-s", color=VERM, lw=1.6, ms=4.0, label="full model", zorder=4)
-    ax.fill_between(xs, full, head, color=MUTED, alpha=0.13, lw=0, zorder=2)
+    fig, ax = plt.subplots(figsize=(COL1, 2.05))
+    # The shaded band is now the INITIALISATION effect, which is the finding.
+    ax.fill_between(xs, b4, b7, color=VERM, alpha=0.12, lw=0, zorder=2)
+    ax.plot(xs, b4, "-s", color=VERM, lw=1.6, ms=4.0,
+            label="full model, random init", zorder=4)
+    ax.plot(xs, b7, "-o", color=BLUE, lw=1.6, ms=4.5,
+            label="full model, pretrained", zorder=4)
+    ax.plot(xs, b6, "--^", color=GREEN, lw=1.4, ms=4.0,
+            label="head only, pretrained", zorder=5)
     for i in (0, len(eps) - 1):
-        ax.annotate(f"{head[i]-full[i]:.3f}", (xs[i], (head[i] + full[i]) / 2),
+        ax.annotate(f"{b7[i]-b4[i]:+.3f}", (xs[i], (b4[i] + b7[i]) / 2),
                     fontsize=5.8, color=INK, ha="center", va="center",
-                    bbox=dict(fc=SURF, ec="none", pad=0.8), zorder=5)
+                    bbox=dict(fc=SURF, ec="none", pad=0.8), zorder=6)
     ax.set_xticks(xs)
     ax.set_xticklabels([r"$\infty$" if np.isinf(e) else f"{e:g}" for e in eps],
                        fontsize=6.2)
@@ -654,15 +678,16 @@ def fig_epsilon(f):
                   fontsize=6.4)
     ax.set_ylabel("macro AUROC", fontsize=6.4)
     ax.tick_params(labelsize=5.8, length=2)
-    for s in ("top", "right"):
-        ax.spines[s].set_visible(False)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
     ax.grid(axis="y", color=RULE, lw=0.5, alpha=0.6, zorder=0)
-    ax.legend(frameon=False, fontsize=6.0, loc="lower right",
-              handlelength=1.4, borderpad=0.2)
-    fig.text(0.5, -0.26,
-             "Shaded band is the advantage of privatising only the fusion head.\n"
-             "It widens as the budget tightens and nearly closes at "
-             r"$\varepsilon=\infty$." "\nSingle seed per point.",
+    ax.legend(frameon=False, fontsize=5.8, loc="lower right",
+              handlelength=1.6, borderpad=0.2)
+    fig.text(0.5, -0.30,
+             "Shaded band is the INITIALIZATION effect, and it is nearly the\n"
+             "whole advantage. The two pretrained arms are near-coincident at\n"
+             f"every budget though one privatizes 3.3x more parameters.\n"
+             f"{nseed} seeds per point.",
              fontsize=5.8, color=MUTED, ha="center", style="italic",
              linespacing=1.5)
     finish(fig, "fig8_epsilon")

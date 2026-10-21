@@ -9,6 +9,10 @@
 %
 % Required in the host preamble:
 %   amsmath, amssymb, booktabs, algorithm, algorithmic, graphicx
+% READABILITY PASS 2026-10-21: formal register; inter-subsection transitions
+% removed; misplaced group-privacy sentence restored to its paragraph; the
+% wrong forward reference before the deployment subsection fixed. Floats and
+% equations are copied verbatim.
 %==============================================================================
 
 \section{Methodology}
@@ -16,50 +20,42 @@
 
 \subsection{Overall Framework of the Proposed PP-HFM}
 
-Multimodal Internet-of-Things deployments derive their value from combining
-sensing streams of different kinds --- physiological monitors alongside
-clinical records, inertial sensors alongside video --- and from doing so where
-the streams are produced rather than where a server happens to be. The evidence
-that would train such a model is therefore distributed by construction, and in
-the settings that matter most it cannot be centralised: records are governed by
-consent and by data-protection regimes that prohibit pooling, so a model
-requiring the data to move cannot be deployed at all. Federated learning
-removes that obstacle by moving the model instead of the data, but it does not
-by itself supply a privacy guarantee, because the updates a client transmits
-are themselves functions of its records. A framework intended for these
-settings must therefore combine distributed multimodal training with a formal
-guarantee, and must do so within the network, latency and energy budgets of an
-edge installation rather than those of a datacentre.
+Multimodal Internet-of-Things deployments combine sensing streams of different
+kinds, such as physiological monitors with clinical records or inertial sensors
+with video, at the location where the streams are produced. The training data
+are therefore distributed, and in clinical settings they cannot be centralized,
+because consent and data-protection regulations prohibit pooling. Federated
+learning addresses this by moving the model instead of the data, but it does
+not provide a privacy guarantee, because client updates are functions of the
+client's records. A suitable framework must therefore combine distributed
+multimodal training with a formal guarantee, within the network, latency and
+energy constraints of an edge installation.
 
-Differentially private federated learning supplies the formal guarantee, and
-the mechanisms for it are well established. What is not established is the
-\emph{unit} to which that guarantee attaches in a clinical setting. Standard
-differentially private stochastic gradient descent \cite{ref6} clips
-and accounts per training record, and in a monitoring dataset a record is a
-fixed-length window rather than a person: in the cohort used here every patient
-contributes several windows, so a record-level budget answers whether a
-particular window was used in training while the clinical guarantee must answer
-whether a particular \emph{patient} was. Prior federated systems illustrate the
-same division from the opposite direction. HED-FL \cite{ref3}
-establishes the communication and energy case for a hierarchical tier but
-carries no differential privacy; FL2DP \cite{ref9} provides differential
-privacy without a hierarchy; and neither, nor the heterogeneity-aware and
-assignment-oriented designs that follow them \cite{ref4, ref5}, models multiple modalities per record or the grouping
-of records under a single individual.
+Differentially private federated learning provides such a guarantee, but the
+\emph{unit} of the guarantee in clinical settings has received little
+attention. Standard differentially private stochastic gradient descent
+\cite{ref6} clips and accounts per training record. In a monitoring dataset, a
+record is a fixed-length window rather than a person, and every patient in the
+cohort used here contributes several windows. A record-level budget therefore
+bounds whether a particular window was used in training, whereas a clinical
+guarantee must bound whether a particular \emph{patient} was. Prior federated
+systems address only one side of this problem. HED-FL \cite{ref3} provides a
+hierarchical tier without differential privacy, FL2DP \cite{ref9} provides
+differential privacy without a hierarchy, and neither these nor the
+heterogeneity-aware and assignment-oriented designs \cite{ref4, ref5} model
+multiple modalities per record or the grouping of records by individual.
 
-Accordingly, this work pursues a framework in which the privacy unit is the
-patient by construction rather than by conversion after the fact, and in which
-the hierarchy that makes the system deployable and the guarantee that makes it
-publishable are designed together rather than adopted separately. The system,
-termed PP-HFM (Patient-Private Hierarchical Federated Multimodal learning), is
-organised in three tiers: institutional clients that hold patient-grouped
-multimodal records and never release them, edge aggregators that absorb several
-local rounds before communicating upward, and a cloud aggregator that maintains
-the global model. Within each client, representation learning and private
-adaptation are separated: encoders pretrained on a disjoint public population
-are frozen, and only a compact fusion head is trained under a differentially
-private objective whose sensitivity is enforced at the level of the patient.
-Fig.~\ref{fig:pphfm_arch} presents the overall organisation.
+This work therefore proposes a framework in which the privacy unit is the
+patient by construction, and in which the hierarchy and the guarantee are
+designed jointly. The system, PP-HFM (Patient-Private Hierarchical Federated
+Multimodal learning), has three tiers: institutional clients that hold
+patient-grouped multimodal records and never release them, edge aggregators
+that perform several local rounds before communicating upward, and a cloud
+aggregator that maintains the global model. Within each client, representation
+learning is separated from private adaptation. Encoders pretrained on a
+disjoint public population are frozen, and only a compact fusion head is
+trained under a differentially private objective with patient-level
+sensitivity. Fig.~\ref{fig:pphfm_arch} shows the overall organization.
 
 \begin{figure*}[!t]
 \centering
@@ -74,136 +70,110 @@ drawn grouped by edge for legibility; the indices give the true assignment.}
 \label{fig:pphfm_arch}
 \end{figure*}
 
-The processing pipeline proceeds as follows. Each client draws a batch of
-patients rather than a batch of windows, accumulates the gradients of all
-windows belonging to a sampled patient into a single per-patient gradient,
-bounds that gradient, and perturbs the aggregate once per optimisation step, so
-that the influence of any one individual on the released model is bounded
-irrespective of how many records that individual contributed. The resulting
-update is compressed and transmitted to the client's edge, which averages over
-its clients; after several such edge rounds the edges report to the cloud,
-which averages over edge populations and redistributes the global model. At the
-end of training the clients release differentially private calibration
-quantiles, from which a distribution-free prediction set is formed, and the
-privacy cost of that release is charged against the same budget as training.
+Each client samples a batch of patients rather than windows, sums the
+gradients of all windows of each sampled patient into one per-patient
+gradient, clips that gradient, and adds noise to the aggregate once per
+optimization step. The influence of any individual on the released model is
+therefore bounded regardless of the number of records contributed. The
+resulting update is compressed and sent to the client's edge, which averages
+the updates of its clients. After several edge rounds, the edges report to the
+cloud, which averages across edges and redistributes the global model. At the
+end of training, the clients release differentially private calibration
+quantiles, from which a distribution-free prediction set is constructed, and
+the privacy cost of this release is charged to the same budget as training.
 
-The components are stated here without implementation detail. The patient-level
-privacy mechanism enforces sensitivity with respect to the individual rather
-than the record; the multi-client noise calibration ensures that a single noise
-scale satisfies the budget for every client simultaneously despite pronounced
-differences in client size; the two-tier aggregation converts local
-optimisation into a global model while exercising the wide-area link once per
-several local rounds; the update encoding reduces the transmitted payload; and
-the federated conformal calibration supplies coverage guarantees under the same
-budget. The deployment path specifies how a
-released model is executed within a latency budget, and the network and energy
-instrumentation measures the communication and energy costs the hierarchy
-incurs. The empirical audit that tests the resulting guarantee is described
-alongside them. The encoder architecture, the aggregation rule, and the
-conformal machinery are adopted from established work and are not claimed as
-contributions.
-
-Taken together, these components constitute a framework in which a clinical
-privacy guarantee is stated at the unit clinicians care about, the cost of
-stating it that way is measured rather than assumed, and the guarantee is
-audited by attack rather than asserted from its parameters. The remaining
-subsections describe each element in detail, beginning with the architecture
-that organises them.
+The framework comprises the following components. The patient-level privacy
+mechanism enforces sensitivity with respect to the individual. The
+multi-client noise calibration selects a single noise scale that satisfies the
+budget for every client despite large differences in client size. The two-tier
+aggregation produces the global model while using the wide-area link once per
+several local rounds. The update encoding reduces the transmitted payload. The
+federated conformal calibration provides coverage guarantees under the same
+budget. The deployment path specifies how the released model is executed
+within a latency budget, and the network and energy instrumentation measures
+the communication and energy costs of the hierarchy. An empirical audit tests
+the resulting guarantee. The encoder architecture, the aggregation rule and
+the conformal procedure are adopted from established work and are not claimed
+as contributions.
 
 \subsection{Overall System Architecture}
 \label{sec:method:arch}
 
 PP-HFM is a three-tier federated system built on a frozen multimodal backbone.
-Its guiding architectural principle is a separation of responsibilities: the
-encoders supply fixed representations, a compact head carries all trainable and
-all privatised capacity, an edge tier absorbs local rounds to relieve the
-wide-area link, and a cloud tier maintains the global model. The encoder
-design, the weighted averaging rule, and the conformal calibration procedure
-are adopted from prior work, and the design effort is concentrated on the unit
-at which privacy is enforced and on the accounting that keeps the reported
-budget truthful. The system is therefore best understood as a structured
-composition of adopted and newly specified components, each with a distinct
-role, rather than as a monolithic model.
+Responsibilities are separated: the encoders provide fixed representations, a
+compact head contains all trainable and privatized parameters, an edge tier
+absorbs local rounds to reduce wide-area traffic, and a cloud tier maintains
+the global model. The encoder design, the weighted averaging rule and the
+conformal calibration procedure are adopted from prior work. The design
+contribution lies in the unit at which privacy is enforced and in the
+accounting of the reported budget.
 
-The complete architecture is illustrated in Fig.~\ref{fig:pphfm_arch}. An
-institutional client holds a set of patients, each contributing a number of
-time-aligned multimodal records. Those records are encoded by two frozen
-modality-specific encoders and combined by a trainable fusion head; the head is
-optimised under a differentially private objective and its update, once
-compressed, is the only quantity that leaves the institution. Updates are
-averaged at the edge over the clients it serves, and after $\tau_e$ such rounds
-the edge models are averaged at the cloud over edge populations and
-redistributed. At no point does a record, a gradient of a single record, or an
-uncompressed update cross an institutional boundary.
+The architecture is shown in Fig.~\ref{fig:pphfm_arch}. An institutional
+client holds a set of patients, each contributing several time-aligned
+multimodal records. The records are encoded by two frozen modality-specific
+encoders and combined by a trainable fusion head. The head is optimized under
+a differentially private objective, and its compressed update is the only
+quantity that leaves the institution. Updates are averaged at the edge over the
+clients it serves. After $\tau_e$ such rounds, the edge models are averaged at
+the cloud and redistributed. No record, single-record gradient or uncompressed
+update crosses an institutional boundary.
 
-At the level of module organisation the system comprises three functional
-groups. The first is the frozen backbone: two modality-specific encoders,
-pretrained on a population disjoint from every federated client and not adapted
-during federated training. The second is the privatised trainable component:
-the fusion head, together with the patient-level clipping and noise mechanism
-that governs its optimisation and the calibration procedure that sets the noise
-scale. The third comprises the communication and calibration components: the
-update encoding that reduces payload, the two-tier averaging that produces the
-global model, and the federated conformal procedure that converts point
+The system consists of three functional groups. The first is the frozen
+backbone: two modality-specific encoders, pretrained on a population disjoint
+from every federated client and not adapted during federated training. The
+second is the privatized trainable component: the fusion head, the
+patient-level clipping and noise mechanism that governs its optimization, and
+the calibration procedure that sets the noise scale. The third comprises the
+communication and calibration components: the update encoding, the two-tier
+averaging, and the federated conformal procedure that converts point
 predictions into prediction sets with a coverage guarantee.
 
-The resulting information flow is a group-then-bound structure. Within a
-client, records fan into the encoders and are combined by the head; gradients
-are then gathered \emph{by patient} before any bound is applied, so that the
-quantity subsequently clipped is a patient's total contribution rather than a
-record's. Perturbation is applied once to the aggregate of those bounded
-per-patient contributions, after which the update is compressed and leaves the
-client. Upward, the flow is hierarchical: client to edge repeatedly, edge to
-cloud occasionally, with the ratio between the two set by $\tau_e$.
+Information flows in a group-then-bound structure. Within a client, records
+are encoded and combined by the head, and gradients are grouped \emph{by
+patient} before clipping, so that the clipped quantity is a patient's total
+contribution rather than a single record's. Noise is added once to the
+aggregate of the clipped per-patient gradients, after which the update is
+compressed and transmitted. Communication is hierarchical: client to edge in
+every edge round and edge to cloud once per cloud round, with the ratio set by
+$\tau_e$.
 
-The rationale follows from the two constraints the setting imposes. Grouping
-gradients by patient before bounding them is what makes the guarantee a
-statement about people, and doing so at the point of clipping rather than by a
-group-privacy conversion afterwards avoids the prohibitive degradation such a
-conversion entails. Confining private optimisation to a small head over frozen
-features keeps the perturbation dimensionality low, which is what makes a tight
-budget survivable at all; pretraining those features on a disjoint population is
-what keeps the resulting guarantee end-to-end rather than nominal. Interposing
-an edge tier reduces wide-area transmissions by the factor $\tau_e$ without
-altering the learning objective, and because the encoders are fixed and the
-aggregation rule is standard, any behaviour observed can be attributed to the
-privacy unit and its accounting rather than to the representation or the
-averaging.
-
-Having established the blueprint, the module organisation, and the information
-flow, the following subsections describe each component in detail --- the
-frozen multimodal backbone, the patient-level privacy mechanism, the noise
-calibration, the hierarchical aggregation, the update encoding and conformal
-calibration, and the empirical audit --- concluding with the formulation of the
-training objective and the privacy accounting.
+This design follows from the constraints of the setting. Grouping gradients by
+patient before clipping makes the guarantee a statement about individuals, and
+avoids the severe degradation of a group-privacy conversion. Restricting
+private optimization to a small head over frozen features keeps the dimension
+of the perturbed vector low, which is necessary for acceptable utility under a
+tight budget. Pretraining the features on a disjoint population keeps the
+guarantee valid end to end. The edge tier reduces wide-area transmissions by a
+factor of $\tau_e$ without changing the learning objective. Because the
+encoders are fixed and the aggregation rule is standard, observed differences
+can be attributed to the privacy unit and its accounting rather than to the
+representation or the averaging.
 
 \subsection{Frozen Multimodal Backbone}
 \label{sec:method:backbone}
 
-A tight privacy budget forces a large noise scale, and the perturbation a
-parameter vector must absorb grows with its dimensionality, so training an
-entire network under such a budget degrades severely. Restricting private
-optimisation to a small trainable subset over frozen pretrained features is an
-established remedy: parameter-efficient differentially private fine-tuning is
-markedly more robust at small $\varepsilon$ than end-to-end private training
-\cite{ref12, ref13}. PP-HFM adopts this design without
-alteration and claims no novelty for it; what the framework adds is the
-condition under which the resulting guarantee remains valid, and the
-measurement of what that condition costs.
+A tight privacy budget requires a large noise scale, and the noise a parameter
+vector must absorb grows with its dimension, so private training of a full
+network degrades severely. Parameter-efficient differentially private
+fine-tuning, which restricts private optimization to a small trainable subset
+over frozen pretrained features, is considerably more robust at small
+$\varepsilon$ than end-to-end private training \cite{ref12, ref13}. PP-HFM
+adopts this design unchanged. The framework adds the condition under which the
+resulting guarantee remains valid, and a measurement of the cost of that
+condition.
 
-The backbone comprises two modality-specific encoders. The temporal encoder
-consumes a multichannel physiological time series and applies a multi-scale
-convolutional stem, in which three parallel one-dimensional convolutions of
-different kernel widths extract fine, intermediate and coarse temporal
-morphology whose outputs are concatenated; a strided convolution reduces
-temporal resolution, two residual convolutional blocks and a bidirectional
-recurrent layer model longer-range dependence, and an attention-pooling layer
-collapses the temporal axis using learned weights. Because pooling is adaptive,
-the encoder accepts sequences of any length without architectural change. The
-static encoder consumes a fixed-length vector of preoperative clinical and
-laboratory variables through a two-layer perceptron with normalisation and
-nonlinearity. The two embeddings are concatenated and mapped to class logits by
-the fusion head. The backbone and head are illustrated in
+The backbone consists of two modality-specific encoders. The temporal encoder
+takes a multichannel physiological time series as input. A multi-scale
+convolutional stem applies three parallel one-dimensional convolutions with
+different kernel widths to capture fine, intermediate and coarse temporal
+patterns, and concatenates their outputs. A strided convolution then reduces
+the temporal resolution, two residual convolutional blocks and a bidirectional
+recurrent layer model longer-range dependencies, and an attention-pooling layer
+aggregates over time with learned weights. Because pooling is adaptive, the
+encoder accepts sequences of any length. The static encoder processes a
+fixed-length vector of preoperative clinical and laboratory variables with a
+two-layer perceptron with normalization and a nonlinearity. The two embeddings
+are concatenated and mapped to class logits by the fusion head, as shown in
 Fig.~\ref{fig:backbone}.
 
 \begin{figure*}[!t]
@@ -214,86 +184,69 @@ pretrained centrally and frozen; only the fusion head is trained under
 differential privacy, so noise is applied to $559{,}874$ of $1{,}864{,}227$
 parameters. Section~\ref{sec:method:backbone} defines the two pretraining
 configurations, and Section~\ref{sec:exp:impl} records which produced which
-result. No batch normalisation appears anywhere, because it mixes statistics
+result. No batch normalization appears anywhere, because it mixes statistics
 across a batch and would make the per-patient gradient ill-defined.}
 \label{fig:backbone}
 \end{figure*}
 
-Two properties of the backbone are load-bearing for the privacy mechanism
-rather than for accuracy. The first is that its parameters are frozen
-throughout federated training, so the trainable and privatised capacity of the
-system is concentrated entirely in the fusion head, which holds $559{,}874$ of
-the $1{,}864{,}227$ parameters of the network; the private optimisation is
-therefore a near-linear probe over fixed features rather than end-to-end
-training. The second is that every normalisation layer is a group or layer
-normalisation and none is a batch normalisation. This is a requirement of the
-mechanism, not a tuning choice: batch normalisation mixes statistics across the
-examples of a batch, so a per-example --- and therefore a per-patient ---
-gradient ceases to be well defined and the accounting that follows would be
-unsound. The recurrent layer is likewise a per-sample-gradient-compatible
-implementation.
+Two properties of the backbone are required by the privacy mechanism. First,
+its parameters remain frozen throughout federated training, so all trainable
+and privatized capacity resides in the fusion head, which holds $559{,}874$ of
+the $1{,}864{,}227$ parameters. The private optimization is therefore close to
+a linear probe over fixed features. Second, every normalization layer is a
+group or layer normalization; no batch normalization is used. Batch
+normalization mixes statistics across the examples of a batch, so per-example,
+and therefore per-patient, gradients would not be well defined, and the
+privacy accounting would be invalid. The recurrent layer is likewise
+implemented in a form compatible with per-sample gradients.
 
-The pretraining corpus carries a condition that is easy to leave implicit and
-consequential to violate. If the encoders are pretrained on data belonging to
-the federated clients, they have already observed the protected population
-without a guarantee, and the budget subsequently reported for the head is not
-an end-to-end statement about the system. PP-HFM therefore admits two
-configurations of the encoders, and distinguishes them throughout.
+The pretraining corpus must satisfy an additional condition. If the encoders
+are pretrained on data from the federated clients, they have been exposed to
+the protected population without a guarantee, and the budget reported for the
+head does not describe the system end to end. PP-HFM therefore distinguishes
+two encoder configurations.
 
-In the \emph{oracle} configuration the encoders are pretrained on the pooled
+In the \emph{oracle} configuration, the encoders are pretrained on the pooled
 training data of the federated clients. This configuration does \emph{not}
-carry a valid end-to-end guarantee and is not proposed for deployment; it is
-retained because it isolates the achievable ceiling of the head-only recipe
-from the separate question of where the representation came from, and it is
-therefore the configuration under which the mechanism is characterised. In the
-\emph{disjoint} configuration a set of individuals is reserved before federated
-training begins, disjoint at the level of the individual from every client's
+provide a valid end-to-end guarantee and is not proposed for deployment. It is
+used to characterize the mechanism, because it isolates the attainable
+performance of the head-only recipe from the origin of the representation. In
+the \emph{disjoint} configuration, a set of individuals is reserved before
+federated training, disjoint at the individual level from every client's
 training, validation and test splits, and the encoders are pretrained only on
-that set; disjointness is verified rather than assumed. This is the
-configuration that carries the guarantee the paper claims, and the utility
-forgone by respecting it is measured rather than absorbed silently.
-
-The distinction is stated here, in the specification of the mechanism, because
-a reader would otherwise reasonably assume that every reported figure was
-obtained under the disjoint configuration. Section~\ref{sec:exp:impl} records
-which configuration produced which result, and
-Section~\ref{sec:results:objectives} reports the cost of moving between them.
-
-The frozen embeddings and the trainable head are the substrate on which the
-privacy mechanism operates. Having established what is optimised and what is
-not, the following subsection describes the mechanism that governs the
-optimisation of the head and fixes the unit at which its guarantee is stated.
+this set. Disjointness is verified explicitly. This configuration provides the
+guarantee claimed in this paper, and its utility cost is measured.
+Section~\ref{sec:exp:impl} specifies which configuration produced each result,
+and Section~\ref{sec:results:objectives} reports the cost of moving between
+them.
 
 \subsection{Patient-Level Privacy Mechanism}
 \label{sec:method:threat}
 \label{sec:method:privacy}
 
-The guarantee a clinical system must make concerns individuals, and the
-mechanism ordinarily used to provide it does not. Differentially private
-stochastic gradient descent bounds the influence of a training \emph{record} by
-clipping its gradient to a fixed norm and perturbing the aggregate
-\cite{ref6}. Where each record corresponds to a distinct person the
-two coincide, but in a monitoring dataset a record is a fixed-length window and
-a single operation yields many of them, so removing one patient perturbs as
-many records as that patient contributed. A record-level budget consequently
-bounds the wrong quantity. The relation between the two is available
-analytically: an $(\varepsilon,\delta)$-differentially private mechanism is
-$(k\varepsilon,\,k e^{(k-1)\varepsilon}\delta)$-differentially private for
-groups of size $k$ \cite{ref8}.
+A clinical system must provide a guarantee about individuals, whereas the
+standard mechanism provides one about records. Differentially private
+stochastic gradient descent bounds the influence of a training \emph{record}
+by clipping its gradient to a fixed norm and adding noise to the aggregate
+\cite{ref6}. When each record corresponds to a distinct person, the two
+coincide. In a monitoring dataset, however, a record is a fixed-length window
+and a single operation yields many windows, so removing one patient removes as
+many records as that patient contributed. An $(\varepsilon,\delta)$-differentially
+private mechanism is $(k\varepsilon,\,k e^{(k-1)\varepsilon}\delta)$-differentially
+private for groups of size $k$ \cite{ref8}. Applied at the mean group size of
+this cohort, this conversion turns a nominal $\varepsilon = 1$ into
+$\varepsilon \approx 8$ with $\delta \approx 9 \times 10^{-2}$, which does not
+support a clinical claim. The gap between the two units is illustrated in
+Fig.~\ref{fig:sensitivity}.
 
-Whether the distinction arises at all is a property of the deployment, and two
-regimes must be separated. Where each client corresponds to a single
-individual --- a wearable installation in which one participant carries one
-device --- client-level, user-level and individual-level guarantees coincide,
-and bounding the client's contribution already bounds the person's. Where a
-client instead holds records belonging to many individuals --- an institution
-holding many patients --- the two units diverge for every participant, and it
-is this regime the mechanism below addresses. The framework applies to both;
-only the second exhibits the gap, and the evaluation is organised accordingly. Applied at the mean group size
-of this cohort that conversion turns a nominal $\varepsilon = 1$ into
-$\varepsilon \approx 8$ with $\delta \approx 9 \times 10^{-2}$, which is not a
-budget that supports a clinical claim. The gap between the two units is
-illustrated in Fig.~\ref{fig:sensitivity}.
+Whether the two units differ depends on the deployment. When each client
+corresponds to a single individual, as in a wearable installation where one
+participant carries one device, client-level, user-level and individual-level
+guarantees coincide. When a client holds records from many individuals, as an
+institution holding many patients does, the units differ for every
+participant. The mechanism below addresses the second case. The framework
+applies to both, but only the second exhibits the gap, and the evaluation is
+organized accordingly.
 
 \begin{figure}[!t]
 \centering
@@ -306,22 +259,19 @@ patient contributed. $k_p{=}8$ is the cohort mean.}
 \label{fig:sensitivity}
 \end{figure}
 
-The mechanism therefore enforces the guarantee at the point of clipping rather
-than recovering it by conversion afterwards. Its unit of sampling is the
-patient: at each optimisation step a client draws patients independently with a
-fixed rate, so that the quantity entering the accountant is a rate over the
-patient population rather than over the window population. For each sampled
-patient the gradients of all of that patient's windows are accumulated into a
-single per-patient gradient, and it is that sum which is bounded to the
-clipping norm. Bounding the sum is what makes the sensitivity patient-level: a
-patient can displace the aggregate by at most the clipping norm regardless of
-how many windows they contributed, whereas bounding each window individually
-would permit a displacement proportional to their number. Gaussian noise
-calibrated to that same norm is then added once per step to the aggregate of
-the bounded per-patient gradients, and the parameters of the head are updated.
-The internal organisation of the mechanism is shown in
-Fig.~\ref{fig:patientdp}, and the procedure is stated in
-Algorithm~\ref{alg:patientdp}.
+The mechanism enforces the guarantee at the point of clipping rather than by
+conversion afterwards. The sampling unit is the patient: at each optimization
+step, a client samples patients independently at a fixed rate, so the rate
+entering the accountant is defined over patients rather than windows. For each
+sampled patient, the gradients of all of that patient's windows are summed into
+one per-patient gradient, and this sum is clipped to the clipping norm.
+Clipping the sum makes the sensitivity patient-level: a patient can change the
+aggregate by at most the clipping norm regardless of the number of windows,
+whereas clipping each window separately would allow a change proportional to
+that number. Gaussian noise calibrated to the same norm is then added once per
+step to the aggregate of the clipped per-patient gradients, and the head
+parameters are updated. The mechanism is shown in Fig.~\ref{fig:patientdp} and
+stated in Algorithm~\ref{alg:patientdp}.
 
 \begin{algorithm}[!t]
 \caption{Patient-level private local update at client $k$}
@@ -359,84 +309,59 @@ step. Grouping before bounding is what fixes the unit of the guarantee.}
 \label{fig:patientdp}
 \end{figure}
 
-Accounting is performed with the same sampling rate that governs the sampling,
-so the reported budget is patient-level by construction rather than by a
-conversion applied after the fact, and a single accountant instance persists
-for the whole of a client's participation so that composition across rounds is
-carried rather than reset. The cost of the construction is explicit and is one
-of the quantities this work sets out to measure: the number of effective units
-per step falls from windows to patients, and a patient contributing many
-windows has their summed gradient bounded more aggressively than one
-contributing few. Whether that cost grows with the number of records per
-individual, and how steeply, is examined empirically rather than asserted, by
-holding the first effect fixed and varying the second
+Accounting uses the same patient-level sampling rate, so the reported budget is
+patient-level by construction. A single accountant instance persists for the
+whole of a client's participation, so composition across rounds is preserved.
+The construction has two costs, which this work measures: the number of
+effective units per step decreases from windows to patients, and a patient with
+many windows has their summed gradient clipped more strongly than a patient with
+few. The dependence of this cost on the number of records per individual is
+examined empirically by holding the first effect fixed and varying the second
 (Section~\ref{sec:results:kscaling}).
-
-The mechanism fixes the unit and the form of the perturbation but not its
-magnitude, which must be chosen so that the budget is respected by every client
-rather than by a representative one. That choice is the subject of the
-following subsection.
 
 \subsection{Noise Calibration Across Heterogeneous Clients}
 
-The noise multiplier is the quantity that converts a clipping norm into a
-budget, and it is determined by the sampling rate and the number of
-optimisation steps a client performs. In a federated system partitioned by
-institution or specialty those quantities differ substantially between clients:
-a small client samples a large fraction of its population at each step but
-performs few steps, while a large client does the reverse. Neither regime
-dominates the other universally, and because the budget a system reports is the
-worst case across its clients rather than the average, a noise scale calibrated
-from any single client will under-provision some other client and cause the
-reported guarantee to be exceeded.
+The noise multiplier determines the budget for a given clipping norm, and
+depends on the sampling rate and on the number of optimization steps of a
+client. In a federated system partitioned by institution or specialty, these
+quantities differ substantially between clients: a small client samples a
+large fraction of its population per step but performs few steps, whereas a
+large client does the reverse. Neither case dominates in general. Because the
+reported budget is the maximum over clients rather than the average, a noise
+scale calibrated for any single client may be insufficient for another, and
+the reported guarantee would then be violated.
 
-The calibration therefore solves for the smallest noise multiplier that
-satisfies the target budget simultaneously for every client, by searching over
-candidate values and evaluating each against all clients rather than against a
-representative one. Two details of that evaluation are load-bearing. The number
-of optimisation steps a client performs per call is obtained by rounding the
-ratio of its population to the batch size \emph{upward}, because rounding
-downward under-counts the steps actually taken and therefore under-provisions
-the noise required to cover them. The population and rate for each client are
-read from the partition files the training procedure actually loads, rather
-than from any cached description of them, because a description that has
-drifted from the data yields a budget that is exceeded silently while every
-diagnostic reports values within specification.
-
-These are stated as requirements of the method rather than as implementation
-notes because each corresponds to a failure that is invisible at run time: the
-system continues to train, the logs continue to show a budget within target,
-and only an independent recomputation reveals that the guarantee has been
-breached. A privacy mechanism whose correctness cannot be observed from its own
-outputs must be specified in enough detail that it can be checked from outside.
-
-With the unit fixed, the perturbation formed and its magnitude calibrated, the
-locally privatised update is ready to be communicated. The following subsection
-describes the aggregation that converts those updates into a global model.
+The calibration therefore selects the smallest noise multiplier that satisfies
+the target budget for every client simultaneously, by evaluating each
+candidate value against all clients. Two details are essential. First, the
+number of optimization steps per call is computed by rounding the ratio of the
+client's population to the batch size \emph{upward}; rounding downward
+undercounts the steps and therefore underestimates the required noise. Second,
+the population and sampling rate of each client are read from the partition
+files used in training rather than from cached metadata, because metadata that
+no longer matches the data produces a budget that is violated without any
+warning. Both details are stated as part of the method because violations of
+either are not detectable from training logs and can only be found by
+independent recomputation.
 
 \subsection{Two-Tier Hierarchical Aggregation}
 
-A flat federated system transmits every client update to the cloud in every
-round, which makes the wide-area link the binding constraint on how often the
-model can be updated. Interposing an aggregation tier between clients and cloud
-relieves that constraint \cite{ref2, ref3}: several
-rounds of local optimisation and edge averaging are performed for each round of
-cloud averaging, so the expensive link is exercised once per group of local
-rounds rather than once per round. PP-HFM adopts this organisation, with the
-number of edge rounds per cloud round denoted $\tau_e$, and claims no novelty
-for the averaging rule itself.
+In a flat federated system, every client update is sent to the cloud in every
+round, so the wide-area link limits the update frequency. An intermediate
+aggregation tier removes this limitation \cite{ref2, ref3}: several rounds of
+local optimization and edge averaging are performed for each round of cloud
+averaging, so the wide-area link is used once per group of local rounds.
+PP-HFM adopts this organization, with $\tau_e$ edge rounds per cloud round, and
+claims no novelty for the averaging rule.
 
-Aggregation proceeds in two stages, both by averaging weighted by the number of
-training records a participant holds. Within a cloud round, each client
-initialises from the model held by its edge, performs one locally private pass,
-and transmits its encoded update; the edge forms the weighted average over the
-clients it serves and returns it, and this repeats $\tau_e$ times. The edges
-then report to the cloud, which forms the weighted average over edge
-populations and broadcasts the result downward as the global model for the next
-round. Parameters that are not floating-point are carried through unchanged
-rather than averaged. The full procedure across both tiers is stated in
-Algorithm~\ref{alg:round}.
-
+Aggregation is performed in two stages, each weighted by the number of
+training records of the participants. Within a cloud round, each client
+initializes from its edge model, performs one private local pass, and sends its
+encoded update. The edge computes the weighted average over its clients and
+returns it, and this is repeated $\tau_e$ times. The edges then report to the
+cloud, which computes the weighted average over edges and broadcasts it as the
+global model for the next round. Non-floating-point parameters are passed
+through unchanged. The procedure is given in Algorithm~\ref{alg:round}.
 
 \begin{algorithm}[!t]
 \caption{PP-HFM cloud round $r$}
@@ -460,146 +385,109 @@ Algorithm~\ref{alg:round}.
 \end{algorithmic}
 \end{algorithm}
 
-The parameter $\tau_e$ governs the trade the hierarchy makes. Setting it to one
-collapses the edge tier into the cloud tier, recovering conventional
-single-tier federated averaging, which is the configuration used to isolate the
-contribution of the hierarchy; increasing it reduces wide-area transmissions
-proportionally while allowing edge models to diverge further between
-synchronisations. Because the privacy mechanism operates entirely within a
-client and the aggregation consumes only already-privatised updates, $\tau_e$
-affects communication and convergence but does not enter the guarantee except
-through the number of optimisation steps it implies, which the calibration of
-the preceding subsection already accounts for.
-
-The updates the two tiers exchange are not transmitted in their raw form, and
-the model they produce emits point predictions that a clinical setting requires
-to be qualified. The encoding of the updates and the calibration of the
-predictions are described together in the following subsection.
+The parameter $\tau_e$ controls the trade-off of the hierarchy. With
+$\tau_e = 1$, the edge tier is merged into the cloud tier, which recovers
+conventional single-tier federated averaging; this configuration is used to
+isolate the contribution of the hierarchy. Larger values reduce wide-area
+transmissions proportionally but allow edge models to diverge further between
+synchronizations. Because the privacy mechanism operates entirely within a
+client and aggregation uses only privatized updates, $\tau_e$ affects
+communication and convergence, and enters the guarantee only through the
+number of optimization steps, which the calibration already accounts for.
 
 \subsection{Update Encoding and Conformal Calibration}
 
-Two components complete the system, both adopted from established practice and
-neither claimed as a contribution. The first reduces the payload the hierarchy
-transmits. A client update is sparsified by retaining only its
-largest-magnitude coordinates and the retained values are quantised uniformly
-to a reduced bit width; the residual discarded by sparsification is retained
-locally and added to the update of the following round, so that coordinates
-suppressed in one round are eventually transmitted rather than lost. The
-encoding is applied to an update that has already been perturbed by the privacy
-mechanism, and is therefore a post-processing operation on a private quantity;
-by the post-processing invariance of differential privacy it does not affect
-the guarantee, which is why it can be tuned for bandwidth without privacy
-consequence.
+Two further components are adopted from established practice and are not
+claimed as contributions. The first reduces the transmitted payload. Each
+client update is sparsified by retaining only its largest-magnitude
+coordinates, and the retained values are uniformly quantized to a reduced bit
+width. The residual removed by sparsification is stored locally and added to
+the next round's update, so suppressed coordinates are transmitted later rather
+than lost. The encoding is applied after the privacy mechanism and is therefore
+post-processing; by the post-processing property of differential privacy, it
+does not affect the guarantee and can be tuned for bandwidth alone.
 
-The second qualifies the predictions. A point prediction is insufficient for
-clinical use, and conformal prediction supplies prediction sets with a
-distribution-free coverage guarantee that requires no retraining
-\cite{ref22, ref23}. Each client computes
-nonconformity scores on a held-out calibration split and releases a quantile of
-them; the edges aggregate client quantiles, the cloud aggregates edge
-quantiles, and the resulting global threshold defines the prediction set. The
-released quantile is, however, a statistic of protected data, and its release is
-a disclosure in exactly the sense the framework is designed to bound. It is
-therefore perturbed before release and, more importantly, is \emph{budgeted}:
-the calibration term is allocated a share of the total budget in advance and
-the composed total is what the system reports.
-
-That accounting decision deserves emphasis because the alternative fails
-silently. If calibration is triggered once per edge round rather than once per
-training run, its cost composes across every edge round; a system that reports
-only the training term then understates the budget it has spent by a
-multiplicative factor while every logged value remains within its stated
-target. Splitting the budget in advance and reporting the composed total
-removes that failure mode by construction rather than by vigilance.
-
-The framework as described provides a guarantee whose parameters are known by
-construction. Whether that guarantee corresponds to what an adversary can
-actually achieve is a separate question, and it is the subject of the following
-subsection.
+The second component provides uncertainty quantification. Conformal
+prediction produces prediction sets with a distribution-free coverage guarantee
+without retraining \cite{ref22, ref23}. Each client computes nonconformity
+scores on a held-out calibration split and releases a quantile of them; the
+edges aggregate the client quantiles, the cloud aggregates the edge quantiles,
+and the resulting global threshold defines the prediction set. The released
+quantile is a statistic of protected data, so it is perturbed before release
+and charged to the budget: the calibration term receives a fixed share of the
+total budget in advance, and the system reports the composed total. If
+calibration were performed once per edge round rather than once per training
+run, its cost would compose across all edge rounds, and reporting only the
+training term would understate the total budget by a multiplicative factor.
+Allocating the budget in advance and reporting the composed total prevents
+this.
 
 \subsection{Deployment Path and Inference Under a Latency Budget}
 \label{sec:method:deploy}
 
-The training procedure described so far produces a model; the clinical value of
-that model depends on the delay between a measurement becoming available and a
-prediction being returned, which is a property of the deployment path rather
-than of the optimisation. That path is therefore specified as part of the
-system. The trained network is exported to a portable computation graph and
-quantised to integer precision, a transformation that reduces both memory
-footprint and arithmetic cost on commodity hardware without retraining
-\cite{ref26} and which is applied after federated training has completed, so
-that it operates on an already-released model and has no bearing on the privacy
-guarantee. Inference is executed on the edge tier rather than in the cloud, so
-that the wide-area link is not on the critical path of a prediction.
+The clinical value of the trained model depends on the delay between the
+availability of a measurement and the return of a prediction, which is a
+property of the deployment path. This path is therefore specified as part of
+the system. The trained network is exported to a portable computation graph and
+quantized to integer precision, which reduces memory footprint and arithmetic
+cost on commodity hardware without retraining \cite{ref26}. Quantization is
+applied to the released model after federated training and therefore does not
+affect the privacy guarantee. Inference is executed at the edge tier rather
+than in the cloud, so the wide-area link is not on the critical path.
 
-The delay is decomposed into four stages, each measured separately rather than
-inferred from a single end-to-end figure, because a budget that is satisfied
-overall may still be dominated by a stage that a deployment could remove.
-Preprocessing constructs and normalises the input tensors from the sensor
+The delay is decomposed into four separately measured stages, because an
+end-to-end figure within budget may still be dominated by a removable stage.
+Preprocessing constructs and normalizes the input tensors from the sensor
 stream; the forward pass evaluates the exported graph; the conformal stage
-constructs the prediction set from the resulting logits using the global
-threshold obtained during calibration; and a final stage converts the outcome
-into the form the consuming system expects. Reporting the stages separately
-also locates the cost of the conformal guarantee explicitly, which matters
-because a coverage guarantee that doubled the response time would be a poor
-trade in a setting where the response time is the binding constraint.
+constructs the prediction set from the logits using the global threshold; and
+a final stage converts the output into the format required by the consuming
+system. Reporting the stages separately also isolates the cost of the
+conformal guarantee.
 
-Latency is characterised by its distribution rather than by its mean. The
-system is required to satisfy its budget at the ninety-fifth percentile, since
-a mean conceals precisely the tail that determines whether a deployment meets
-its obligations under load, and a clinical service level is stated as a
-percentile rather than an average. The measurement configuration is fixed in
-advance rather than chosen after inspection of the results: the integer-
-quantised graph is executed on a general-purpose CPU provider, representing an
-edge node without an accelerator, for one thousand timed executions preceded by
-one hundred discarded warm-up executions, and each of the four stages is timed
-separately within every execution. Reporting against a CPU provider is
-deliberate; an edge deployment cannot be assumed to have a GPU, and a latency
-figure obtained on one would not describe the setting the system targets.
+Latency is characterized by its distribution rather than its mean, and the
+budget must be met at the 95th percentile, since a clinical service level is
+defined by its tail. The measurement configuration is fixed in advance: the
+integer-quantized graph is executed on a general-purpose CPU provider,
+representing an edge node without an accelerator, for one thousand timed runs
+after one hundred discarded warm-up runs, and each of the four stages is timed
+within every run. A CPU provider is used because an edge deployment cannot be
+assumed to have a GPU.
 
 \subsection{Network and Energy Instrumentation}
 \label{sec:method:instr}
 
-Three of the system's four design objectives concern quantities that a
-training script cannot observe: the volume of traffic the hierarchy carries
-over the wide-area link, the reliability with which updates arrive, and the
-energy each tier expends in producing a round. These are properties of a
-deployed topology rather than of an optimisation, and are therefore measured on
-instrumented models of that topology rather than estimated from parameter
-counts.
+Three of the four design objectives concern quantities that cannot be observed
+from training: the wide-area traffic of the hierarchy, the reliability of update
+delivery, and the energy consumed per round by each tier. These are properties
+of the deployed topology and are therefore measured on simulated models of that
+topology rather than estimated from parameter counts.
 
-The network is modelled as the three tiers of
-Section~\ref{sec:method:arch}, with the device-to-edge segment carried over a
-wireless local-area link and the edge-to-cloud segment over a point-to-point
-backhaul, so that the asymmetry the hierarchy exploits --- frequent local
-exchange over a cheap link, infrequent global exchange over an expensive one
---- is represented rather than assumed. Each round is simulated in both
-directions, the downlink broadcast of the global model and the uplink
-transmission of client updates, and the volume, delivery reliability and end-to-end
-delay are recorded per round for the proposed configuration and for the flat
-and centralised alternatives against which it is compared. Recording the delay
-per round is what allows the latency benefit of the hierarchy to be quantified
-separately from the latency of serving a prediction: the former is a property
-of how often the wide-area link is traversed during training, the latter of the
-deployment path of Section~\ref{sec:method:deploy}, and a design may improve
-one without affecting the other. Because the payload is
-the compressed update of Eqs.~\eqref{eq:10}--\eqref{eq:11}, the traffic measured
-is that of the system as specified rather than of an uncompressed idealisation.
+The network is modeled with the three tiers of Section~\ref{sec:method:arch}.
+The device-to-edge segment uses a wireless local-area link and the
+edge-to-cloud segment a point-to-point backhaul, so the asymmetry between
+frequent local exchange over a low-cost link and infrequent global exchange
+over a high-cost link is represented explicitly. Each round is simulated in
+both directions, the downlink broadcast of the global model and the uplink
+transmission of client updates. Traffic volume, delivery reliability and
+end-to-end delay are recorded per round for the proposed configuration and for
+the flat and centralized baselines. Per-round delay quantifies the latency
+benefit of the hierarchy during training, which is distinct from the inference
+latency of the deployment path in Section~\ref{sec:method:deploy}. Because the
+payload is the compressed update of Eqs.~\eqref{eq:10}--\eqref{eq:11}, the
+measured traffic is that of the specified system rather than of an
+uncompressed approximation.
 
-Energy is modelled per tier from the power characteristics of the participating
-hardware and the completion time of the work assigned to it, with the
-device tier representing constrained embedded nodes, the edge tier
-representing server-class accelerated hardware, and the cloud tier representing
-the aggregation host. Attributing energy by tier is what makes the comparison
-informative: a hierarchical design does not reduce the total work performed so
-much as move it, and a figure reported only in aggregate would conceal whether
-a saving at one tier had been purchased by an increase at another.
+Energy is modeled per tier from the power characteristics of the hardware and
+the completion time of the assigned work. The device tier represents
+constrained embedded nodes, the edge tier server-class accelerated hardware,
+and the cloud tier the aggregation host. Energy is reported per tier because a
+hierarchical design redistributes work rather than reducing it, and an
+aggregate figure would not show whether a saving at one tier is offset by an
+increase at another.
 
-The targets against which these quantities are assessed are fixed in advance
-and are stated in Table~\ref{tab:objectives}; the measured values are reported
-in Section~\ref{sec:results}. Stating the targets before the measurement, and
-in a single place, is what prevents a threshold from being adjusted after the
-fact to accommodate a result.
+The targets for these quantities were fixed in advance and are listed in
+Table~\ref{tab:objectives}. The measured values are reported in
+Section~\ref{sec:results}.
 
 \begin{table}[!t]
 \centering
@@ -613,13 +501,13 @@ Section~\ref{sec:results}.}
 \toprule
 & Quantity & Target \\
 \midrule
-O1  & Uplink traffic reduction vs.\ centralised & $\ge 50\%$ \\
-O1b & Training-round latency vs.\ centralised   & improvement \\
+O1  & Uplink traffic reduction vs.\ centralized & $\ge 50\%$ \\
+O1b & Training-round latency vs.\ centralized   & improvement \\
 O2a & Privacy budget, composed total            & $\varepsilon \le 1$ \\
 O2b & Accuracy loss under the budget            & $\le 2$ pp \\
 O3a & Inference latency, 95th percentile        & $< 100$ ms \\
 O3b & Successful model updates                  & $> 99\%$ \\
-O4  & Energy saving per round vs.\ centralised  & $\ge 20\%$ \\
+O4  & Energy saving per round vs.\ centralized  & $\ge 20\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -628,34 +516,30 @@ O4  & Energy saving per round vs.\ centralised  & $\ge 20\%$ \\
 \label{sec:method:mia}
 
 A differential privacy guarantee is an upper bound on the influence of an
-individual; it does not establish what an adversary attains in practice, and in
-particular it does not establish that a system providing a weaker guarantee is
-exploitable. Membership inference supplies the complementary measurement
-\cite{ref14}. PP-HFM is audited by mounting membership inference at the
-level of the individual: members are the patients held in the clients' training
-splits, non-members are patients held out entirely, and both groups are scored
-by the same released model through the same procedure, so that any separation
-between them reflects membership rather than a difference in how they were
-handled.
+individual. It does not show what an adversary achieves in practice, nor that a
+system with a weaker guarantee is exploitable. Membership inference provides
+this complementary measurement \cite{ref14}. PP-HFM is audited by
+individual-level membership inference. Members are the patients in the
+clients' training splits and non-members are patients held out entirely. Both
+groups are scored by the same released model using the same procedure, so any
+separation between them reflects membership.
 
-The audit uses two attacks of deliberately different strength. The first
-compares each patient's mean per-record loss against a global threshold
-\cite{ref15}. Aggregating to the patient before deciding is the
-essential step: a per-record attack measures record membership, which is
-precisely the quantity a record-level guarantee does protect, whereas averaging
-a patient's records is what converts weak per-record signal into per-person
-signal. The second is a likelihood-ratio attack \cite{ref17}, adapted
-so that the unit of membership is the patient. Shadow models are trained on
-independently drawn halves of the patient population, with all of a patient's
-records moving together and each shadow trained under the same recipe as the
-model it calibrates; for each patient the distribution of a logit-scaled
-confidence statistic is estimated separately over the shadows in which that
-patient was a member and those in which it was not, and membership is scored by
-the ratio of the two. The distinction matters because a global threshold is
-confounded by per-patient difficulty, so the strength it reports is a lower
-bound on leakage rather than an estimate of it
-\cite{ref16}; the per-patient calibration removes that
-confound, as illustrated in Fig.~\ref{fig:lira}.
+Two attacks of different strength are used. The first compares each patient's
+mean per-record loss with a global threshold \cite{ref15}. Aggregation to the
+patient level before thresholding is essential: a per-record attack measures
+record membership, which a record-level guarantee already protects, whereas
+averaging over a patient's records converts weak per-record signals into a
+per-individual signal. The second is a likelihood-ratio attack \cite{ref17}
+adapted so that the unit of membership is the patient. Shadow models are
+trained on independently sampled halves of the patient population, with all
+records of a patient assigned together, and each shadow is trained with the
+same recipe as the target model. For each patient, the distribution of a
+logit-scaled confidence statistic is estimated separately over the shadows that
+include and exclude that patient, and membership is scored by the ratio of the
+two densities. A global threshold is confounded by per-patient difficulty, so
+the attack strength it reports is a lower bound on leakage rather than an
+estimate \cite{ref16}. Per-patient calibration removes this confound, as
+illustrated in Fig.~\ref{fig:lira}.
 
 \begin{figure}[!t]
 \centering
@@ -668,28 +552,19 @@ membership as a likelihood ratio.}
 \label{fig:lira}
 \end{figure}
 
-Results are reported by area under the receiver operating characteristic curve
-and additionally by true-positive rate at low false-positive rate, because an
-average-case summary conceals the tail: an attack near chance on average may
-still identify a small number of individuals with high confidence, and for a
-disclosure claim those identifications are the harm. Where the number of
-non-members is insufficient to resolve a requested false-positive rate the
-value is reported as undefined rather than interpolated.
+Attacks are evaluated by the area under the receiver operating characteristic
+curve and by the true-positive rate at low false-positive rates, because an
+attack close to chance on average may still identify a few individuals with
+high confidence. When the number of non-members is too small to resolve a
+given false-positive rate, the value is reported as undefined rather than
+interpolated.
 
-The audit carries one methodological requirement without which its verdict
-would be uninterpretable. An attack that finds nothing is indistinguishable
-from an attack that is incapable of finding anything, so the same procedure is
-additionally applied to a configuration known to memorise --- non-private
-training of the same head over the same frozen encoders --- and is required to
-register clearly elevated leakage there before any negative result elsewhere is
-admitted. This positive control is a precondition of the audit rather than a
-supplementary experiment, and it is reported alongside every result it
-qualifies.
-
-Having specified the mechanism, its calibration, the aggregation that combines
-its outputs, the components that encode and qualify them, and the audit that
-tests the guarantee they provide, the following subsection states the training
-objective and the accounting formally.
+A negative audit result is informative only if the attack is capable of
+detecting leakage. The same procedure is therefore applied to a configuration
+known to memorize, namely non-private training of the same head over the same
+frozen encoders, and is required to detect clearly elevated leakage there. This
+positive control is a precondition of the audit and is reported with every
+result it qualifies.
 
 % FLOAT NOTE: both algorithm floats are declared beside the text that cites
 % them, not at the end of the section. Declared at the end — after the
@@ -707,7 +582,7 @@ records contributed by patient $p$, with $k_p = |W_p|$; the partition is
 constructed so that $W_p$ never spans two clients or two evaluation splits.
 Model parameters are written $\theta = (\theta_{\mathrm{enc}},
 \theta_{\mathrm{head}})$, and $\ell$ is the class-weighted cross-entropy. The
-notation is summarised in Table~\ref{tab:notation}.
+notation is summarized in Table~\ref{tab:notation}.
 
 \begin{table}[!t]
 \centering
@@ -721,7 +596,7 @@ $K$, $E$              & number of clients, of edge aggregators \\
 $\mathcal{P}_k$, $W_p$ & patients at client $k$; records of patient $p$ \\
 $k_p = |W_p|$         & records contributed by patient $p$ \\
 $R$, $\tau_e$         & cloud rounds; edge rounds per cloud round \\
-$B$                   & patients sampled per optimisation step \\
+$B$                   & patients sampled per optimization step \\
 $C$, $\sigma$         & clipping norm; noise multiplier \\
 $q$                   & Poisson sampling rate over patients \\
 $(\varepsilon,\delta)$ & privacy budget \\
@@ -741,25 +616,25 @@ F_k(\theta) &= \frac{1}{n_k}\!\!\sum_{(x,y)\in\mathcal{D}_k}\!\!
 \tag{1}
 \label{eq:1}
 \end{equation}
-minimised only over $\theta_{\mathrm{head}}$, since $\theta_{\mathrm{enc}}$ is
+minimized only over $\theta_{\mathrm{head}}$, since $\theta_{\mathrm{enc}}$ is
 pretrained on a disjoint public population and held fixed,
 \begin{equation}
 \theta_{\mathrm{enc}}\ \text{fixed},
 \qquad
-\theta_{\mathrm{head}} \leftarrow \text{privately optimised}.
+\theta_{\mathrm{head}} \leftarrow \text{privately optimized}.
 \tag{2}
 \label{eq:2}
 \end{equation}
 
-At each optimisation step client $k$ draws a subset $S \subseteq \mathcal{P}_k$
+At each optimization step client $k$ draws a subset $S \subseteq \mathcal{P}_k$
 by including each patient independently with probability
 \begin{equation}
 q = \frac{B}{|\mathcal{P}_k|},
 \tag{3}
 \label{eq:3}
 \end{equation}
-a rate defined over patients rather than over records, which is the
-substitution that makes the accounted quantity patient-level. For each sampled
+a rate defined over patients rather than records, which makes the accounted
+quantity patient-level. For each sampled
 patient the record gradients are accumulated and the sum is bounded,
 \begin{equation}
 \begin{aligned}
@@ -770,8 +645,8 @@ g_p &= \!\!\sum_{(x,y)\in W_p}\!\! \nabla_{\theta_{\mathrm{head}}}\,
 \tag{4}
 \label{eq:4}
 \end{equation}
-Equation~\eqref{eq:4} is the step at which the unit of the guarantee is
-determined: because the bound is applied to the sum, the influence of patient
+Equation~\eqref{eq:4} determines the unit of the guarantee: because the bound
+is applied to the sum, the influence of patient
 $p$ is at most $C$ irrespective of $k_p$, whereas bounding each record
 separately would admit an influence of $k_p C$. A single perturbation scaled to
 the same norm is then applied to the aggregate,
@@ -800,10 +675,10 @@ T_k = R\,\tau_e\,\Big\lceil \frac{n_k}{B} \Big\rceil .
 \tag{7}
 \label{eq:7}
 \end{equation}
-The maximum in Eq.~\eqref{eq:6} is taken over all clients rather than a
-representative one, and the ceiling in Eq.~\eqref{eq:7} rounds upward; either
-substituted for its convenient alternative yields a budget that is exceeded
-without any observable symptom.
+The maximum in Eq.~\eqref{eq:6} is taken over all clients, and the ceiling in
+Eq.~\eqref{eq:7} rounds upward; replacing either with a representative client
+or a downward rounding yields a budget that is violated without any observable
+symptom.
 
 Aggregation applies the weighted average at each tier. Writing
 $\theta_k^{(r,s)}$ for the model of client $k$ after edge round $s$ of cloud
@@ -835,7 +710,7 @@ $d$,
 \tag{10}
 \label{eq:10}
 \end{equation}
-and the retained values are quantised uniformly to $b$ bits with step
+and the retained values are quantized uniformly to $b$ bits with step
 $s = (v_{\max}-v_{\min})/(2^{b}-1)$,
 \begin{equation}
 Q(v) = v_{\min} + \operatorname{round}\!\Big(\frac{v - v_{\min}}{s}\Big)\, s .
@@ -890,11 +765,9 @@ and membership is scored by the ratio of the fitted in- and out-densities,
 
 
 
-The objective in Eq.~\eqref{eq:1} is minimised over the fusion head alone,
-under the mechanism of Eqs.~\eqref{eq:3}--\eqref{eq:5} with the noise scale
-fixed by Eq.~\eqref{eq:6}, while the encoders remain frozen. Optimisation uses
-stochastic gradient descent on the perturbed gradient, with the round at which
-the reported model is taken selected on validation performance and the
-composed budget of Eq.~\eqref{eq:13} reported in place of the training term
-alone. Having specified the framework and its accounting, the following section
-describes the datasets, the implementation, and the evaluation protocol.
+The objective in Eq.~\eqref{eq:1} is minimized over the fusion head only,
+using the mechanism of Eqs.~\eqref{eq:3}--\eqref{eq:5} with the noise scale
+given by Eq.~\eqref{eq:6}, while the encoders remain frozen. Optimization uses
+stochastic gradient descent on the perturbed gradient. The reported model is
+selected by validation performance, and the composed budget of
+Eq.~\eqref{eq:13} is reported instead of the training term alone.

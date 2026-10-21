@@ -1,0 +1,80 @@
+{
+  "dataset": "eicu",
+  "source_document": "document/Research Problem Statements for Multimodal.pdf",
+  "problem_statement": "Problem Statement 1 \u2014 Federated Multimodal Edge-Cloud Learning for Low-Latency, Privacy-Preserving IoT",
+  "objectives": {
+    "O1": {
+      "name": "Uplink traffic reduction",
+      "target": 50.0,
+      "unit": "%",
+      "cmp": ">=",
+      "source": "NS-3 / proposed run communication accounting",
+      "measured": null,
+      "verdict": "NOT MEASURED"
+    },
+    "O1b": {
+      "name": "FL round latency reduction",
+      "target": 0.0,
+      "unit": "%",
+      "cmp": ">",
+      "source": "NS-3 per-round end-to-end round latency (packet-level)",
+      "measured": null,
+      "verdict": "NOT MEASURED"
+    },
+    "O2a": {
+      "name": "Privacy budget",
+      "target": 1.0,
+      "unit": "eps",
+      "cmp": "<=",
+      "source": "proposed run privacy accountant",
+      "measured": null,
+      "verdict": "NOT MEASURED"
+    },
+    "O2b": {
+      "name": "Accuracy loss under DP",
+      "target": 2.0,
+      "unit": "pp",
+      "cmp": "<=",
+      "source": "proposed run at eps vs no-DP reference",
+      "measured": null,
+      "verdict": "NOT MEASURED"
+    },
+    "O3a": {
+      "name": "Inference latency (P95)",
+      "target": 100.0,
+      "unit": "ms",
+      "cmp": "<",
+      "source": "ONNX Runtime inference benchmark",
+      "measured": 0.194,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "latency_eicu.json:total_ms.p95_ms (CPU provider)"
+    },
+    "O3b": {
+      "name": "Successful model updates",
+      "target": 99.0,
+      "unit": "%",
+      "cmp": ">",
+      "source": "NS-3 per-update reliability",
+      "measured": null,
+      "verdict": "NOT MEASURED"
+    },
+    "O4": {
+      "name": "Energy saving per round",
+      "target": 20.0,
+      "unit": "%",
+      "cmp": ">=",
+      "source": "CloudSim Plus energy model",
+      "measured": null,
+      "verdict": "NOT MEASURED"
+    }
+  },
+  "summary": {
+    "passed": 1,
+    "failed": 0,
+    "inconclusive": 0,
+    "not_measured": 6
+  }
+}

@@ -48,6 +48,14 @@ class DatasetSpec:
     # integrity only for such corpora; testing `spec.name == "vitaldb"`
     # instead silently skipped every corpus added afterwards.
     has_mask_channels: bool = False
+    # Which meta/*.npy groups predictions for CASE-LEVEL metrics. This is a
+    # different role from the DP unit and the split key, which stay the
+    # INDIVIDUAL (case_ids). Grouping metrics needs a unit whose label is
+    # single-valued; on eICU one uniquepid can survive one admission and die in
+    # a later one (1.4% of individuals), so the person is not such a unit and
+    # the stay is (0 conflicts in 185,140 stays). Defaults to case_ids, which
+    # keeps vitaldb and wear exactly as they were.
+    metric_group_file: str = "meta/case_ids.npy"
     pool_files: frozenset = frozenset()
     build_full: Callable = field(repr=False, default=None)
     notes: str = ""
@@ -147,6 +155,8 @@ REGISTRY = {
         modality_b_desc="5-d admission clinical vector (age, sex, wt, ht, APACHE)",
         pairing="SAME STAY (patientunitstayid); tabular is admission-time only",
         has_mask_channels=True,
+        # Person-level grouping is ill-defined here; see metric_group_file.
+        metric_group_file="meta/stay_ids.npy",
         required_files={"vitals/windows.npy": (3,),      # [N,12,T]
                         "vitals/labels.npy": (1,),
                         "tabular/features.npy": (2,)},   # [N,5]

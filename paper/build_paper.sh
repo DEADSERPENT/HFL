@@ -30,10 +30,21 @@ for a in "$@"; do
   esac
 done
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC="$ROOT/$PROJ"
-OUT="$ROOT/build/$(basename "$PROJ")"
 MAIN="main"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# The header says this script lives beside the project, but it is currently
+# INSIDE it. Resolve both layouts instead of assuming one: if main.tex sits
+# next to the script and no project was named on the command line, the script
+# is inside the project and the build root is its parent.
+if [ -f "$HERE/$MAIN.tex" ] && [ "$PROJ" = "paper" ]; then
+  SRC="$HERE"
+  ROOT="$(dirname "$HERE")"
+else
+  SRC="$HERE/$PROJ"
+  ROOT="$HERE"
+fi
+OUT="$ROOT/build/$(basename "$SRC")"
 
 [ -f "$SRC/$MAIN.tex" ] || { echo "[FATAL] no $SRC/$MAIN.tex"; exit 1; }
 
@@ -52,7 +63,11 @@ IEEEtran paper with algorithms and BibTeX:
 
     sudo apt-get install --no-install-recommends \
         texlive-latex-recommended texlive-latex-extra texlive-science \
-        texlive-fonts-recommended latexmk
+        texlive-fonts-recommended texlive-publishers latexmk
+
+texlive-publishers is NOT optional: it carries IEEEtran.cls, and without it
+the very first line of main.tex fails. biber is NOT needed -- main.tex uses
+\bibliographystyle + \bibliography, which is BibTeX, not biblatex.
 
 (That needs your password, so run it yourself — in this session prefix it with
 an exclamation mark: !sudo apt-get install ...)
@@ -143,8 +158,8 @@ echo "  from their reference usually means a figure* could not be placed. The"
 echo "  fixes, in order: keep stfloats loaded; declare the float earlier in the"
 echo "  source; or make it single-column if the content allows."
 echo "=============================================================="
-cp -f "$PDF" "$SRC/../$(basename "$PROJ")_build.pdf" 2>/dev/null && \
-  echo "  copy: $ROOT/$(basename "$PROJ")_build.pdf"
+cp -f "$PDF" "$SRC/$(basename "$SRC")_build.pdf" 2>/dev/null && \
+  echo "  copy: $SRC/$(basename "$SRC")_build.pdf"
 
 # Only ever write to <project>_build.pdf. Other PDFs beside the sources are NOT
 # build outputs -- paper/IEEE_RESEARCH_HFL.pdf is downloaded from Overleaf --

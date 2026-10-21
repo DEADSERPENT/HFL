@@ -1,0 +1,6 @@
+system,name,description,present,metric_split,n_seeds,accuracy,macro_auc,auprc,case_auc,acc_loss_vs_S0_pp,uplink_mb,uplink_reduction_pct,p95_latency_ms,update_reliability_pct,epsilon_spent,source
+S0,CentralizedFL,"pooled data, no FL, no DP",True,test,,0.9594571955101358,0.9990419718110769,0.9898699610996372,,0.0,,,,,,results/phase5/baselines/wear/baseline_b0.csv
+S1,FlatFL_NoDP,"FedAvg, single tier, no DP",True,test,,0.9108728430222818,0.9962253140600958,0.9656998119073076,,4.858435248785398,,,,,,results/phase5/baselines/wear/baseline_b2.csv
+S2,FL2DP,"FedAvg + DP, flat tier",True,test,,0.16250628245937343,0.6865057774786145,0.1443154450847026,,79.69509130507623,,,,,0.9571849015056962,results/phase5/baselines/wear/baseline_b4.csv
+S3,HED-FL,"hierarchical, no DP",True,test,1,0.9547662925113084,0.9981721960276171,0.9846898376248497,,0.4690902998827351,,,,,inf,results/phase6/wear/s3_hedfl_wear.csv
+S4,HFL-MM (PROPOSED),2-tier + head-only DP + fusion,True,test,3,0.939409169598481,0.9961444371962843,0.9781935547791715,,2.0048025911654777,,,1.218,,0.9656259638947442,results/phase5/proposed_wear.csv

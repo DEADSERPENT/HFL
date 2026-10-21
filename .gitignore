@@ -138,3 +138,15 @@ SIMULATORS/data/processed/partitions/eicu/
 SIMULATORS/data/processed/partitions/brset/
 /phi/
 **/phi/
+
+# ── Added 2026-10-21 (commit-prep pass) ─────────────────────────────────────
+# eICU preprocessing scratch: 2.7 GB memmaps derived from restricted data,
+# recreated by preprocess_eicu.py on every build. Never commit.
+_eicu_acc/
+**/_eicu_acc/
+# Per-k copies of the eICU partition_meta.json (per-hospital counts). The
+# original under data/processed/partitions/eicu/ is already ignored above.
+SIMULATORS/results/phase5/k_scaling/eicu/**/partition_meta.json
+# Per-run resource monitor traces and detached-runner state (regenerated).
+SIMULATORS/results/monitoring/hfl_train_*.csv
+SIMULATORS/results/pipeline/_detached/

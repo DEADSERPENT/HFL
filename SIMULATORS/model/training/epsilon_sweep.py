@@ -5,9 +5,12 @@ This is the central experiment of the thesis: how does utility move as the
 privacy budget tightens, and does the head-only recipe change the shape of that
 curve? For each eps it runs BOTH private recipes on identical data:
 
-    full   : DP-SGD over the whole model         (the B4 recipe / prior art)
-    head   : frozen pretrained encoders + DP-SGD on the fusion head only
-             (the proposed recipe)
+    full     : DP-SGD over the whole model, RANDOM init  (B4 / prior art)
+    full_pre : DP-SGD over the whole model, PRETRAINED init (B7) - the control
+               that separates initialisation from DP scope. Without it a
+               full-vs-head gap conflates the two.
+    head     : frozen pretrained encoders + DP-SGD on the fusion head only
+               (B6, the proposed recipe)
 
 plus one eps=inf reference (no DP) so the curve has an anchor for "what does
 privacy cost at all". The interesting result is not either curve alone but the
@@ -42,7 +45,7 @@ for _sub in ("privacy", "architecture", "training", "deploy", "utils"):
 sys.path.insert(0, str(_MODEL_ROOT.parent / "data" / "loaders"))
 
 from device_utils import get_device, optimize_gpu, set_seed          # noqa: E402
-from datasets import get_spec                                        # noqa: E402
+from datasets import get_spec, REGISTRY# noqa: E402
 from baselines import (build_loaders, compute_class_weight,          # noqa: E402
                        run_dp_fedavg, run_fedavg, _save_csv)
 
@@ -61,14 +64,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dataset", required=True,
-                    choices=["wear", "vitaldb"])
+                    choices=sorted(REGISTRY))
     ap.add_argument("--data_dir", default=None)
     ap.add_argument("--partition_dir", default=None)
     ap.add_argument("--output_dir", default=None,
                     help="default: results/phase5/epsilon_sweep/<dataset>")
     ap.add_argument("--epsilons", nargs="+", default=["0.5", "1.0", "2.0", "4.0", "8.0", "inf"])
     ap.add_argument("--recipes", nargs="+", default=["full", "head"],
-                    choices=["full", "head"],
+                    choices=["full", "full_pre", "head"],
                     help="which private recipes to sweep")
     ap.add_argument("--pretrained_encoders", default=None,
                     help="required for the 'head' recipe; default resolves to "
@@ -110,7 +113,7 @@ def main():
     ckpt = args.pretrained_encoders or str(
         _sim / "checkpoints" / f"pretrained_encoders_{args.dataset}.pt")
 
-    if "head" in args.recipes and not os.path.exists(ckpt):
+    if ({"head", "full_pre"} & set(args.recipes)) and not os.path.exists(ckpt):
         raise SystemExit(
             f"[sweep][FATAL] the 'head' recipe needs pretrained encoders and none "
             f"were found at:\n  {ckpt}\n"
@@ -150,6 +153,19 @@ def main():
         m = build_hfl_mm_hc(n_classes=spec.n_classes, **_kw)
         load_pretrained_encoders(m, ckpt)
         return freeze_encoders(m)
+
+    def model_full_pre():
+        """B7: pretrained starting weights, but NOTHING frozen - DP-SGD over the
+        whole network. Mirrors baselines.pretrained_full_model_fn exactly. This
+        is the arm that separates "the encoders were already good" from
+        "training only the head is what survives the noise": without it, a
+        full-vs-head gap conflates the initialisation with the DP scope."""
+        m = build_hfl_mm_hc(n_classes=spec.n_classes, **_kw)
+        load_pretrained_encoders(m, ckpt)
+        return m                      # deliberately NOT frozen
+
+    _FACTORY = {"full": model_full, "head": model_head,
+                "full_pre": model_full_pre}
 
     csv_path = os.path.join(out_dir, "epsilon_sweep.csv")
     done = set()
@@ -205,7 +221,7 @@ def main():
                 if eps == float("inf"):
                     # Same model factory the private arm of this recipe uses,
                     # so the only difference is DP on/off.
-                    _mf = model_head if rec == "head" else model_full
+                    _mf = _FACTORY[rec]
                     r = run_fedavg(_mf, device_loaders, pooled,
                                    rounds=args.rounds, local_epochs=args.local_epochs,
                                    lr=args.lr, **common)
@@ -213,7 +229,7 @@ def main():
                              total_params="")
                 else:
                     r = run_dp_fedavg(
-                        model_head if rec == "head" else model_full,
+                        _FACTORY[rec],
                         device_loaders, pooled, rounds=args.rounds,
                         local_epochs=args.local_epochs, lr=args.lr, epsilon=eps,
                         delta=args.delta, max_grad_norm=args.max_grad_norm,

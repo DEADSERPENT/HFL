@@ -56,6 +56,7 @@ guarantee cost over a window-level one on genuinely paired clinical
 multimodal data" is a number this field does not have.
 """
 
+import math
 from typing import Dict, List, Optional, Sequence, Union
 
 import numpy as np
@@ -172,6 +173,8 @@ def patient_level_dp_train(model: nn.Module,
                            accountant: Optional[PatientPrivacyAccountant] = None,
                            class_weight: Optional[torch.Tensor] = None,
                            max_windows_per_patient: int = 64,
+                           clip_norm: str = "none",
+                           norm_sink: Optional[list] = None,
                            generator: Optional[torch.Generator] = None) -> Dict:
     """One local training call under a PATIENT-level guarantee.
 
@@ -179,7 +182,31 @@ def patient_level_dp_train(model: nn.Module,
     Sensitivity is enforced by clipping each patient's SUMMED gradient, so a
     patient's influence is bounded by `max_grad_norm` regardless of how many
     windows they contributed.
+
+    `clip_norm` (claim N-D) rescales that summed gradient BEFORE the clip:
+
+        "none"    g                 the original rule
+        "k"       g / k             k = windows contributed by this patient
+        "sqrt_k"  g / sqrt(k)
+
+    THE GUARANTEE IS UNCHANGED BY THIS OPTION, and the reason must be stated
+    precisely or the mechanism looks like a privacy cheat. Sensitivity is set
+    by the clip, not by what is clipped: after rescaling, the clip still bounds
+    every patient's contribution to `max_grad_norm`, so removing one patient
+    still moves the sum by at most C. Sigma, epsilon and delta are therefore
+    identical across all three settings, and the arms are directly comparable
+    at a matched budget.
+
+    What DOES change is the optimisation geometry. Under "none" a patient's
+    summed gradient grows with k, so long recordings are far more likely to
+    saturate the clip and are systematically down-weighted relative to short
+    ones; the extra windows then buy nothing. That is the suspected mechanism
+    behind the flat patient arm in the k-scaling law. Normalising removes the
+    dependence of the pre-clip norm on k, so each patient enters at a scale set
+    by their gradient direction rather than by how long they were recorded.
     """
+    if clip_norm not in ("none", "k", "sqrt_k"):
+        raise ValueError(f"clip_norm must be none|k|sqrt_k, got {clip_norm!r}")
     params = [p for p in model.parameters() if p.requires_grad]
     if not params:
         raise ValueError("patient_level_dp_train: no trainable parameters — "
@@ -193,6 +220,10 @@ def patient_level_dp_train(model: nn.Module,
     q = min(patients_per_batch / max(n_pat, 1), 1.0)
     steps_per_epoch = max(n_pat // max(patients_per_batch, 1), 1)
     total_loss, total_seen, n_steps, n_pat_seen = 0.0, 0, 0, 0
+    # How often the clip actually binds. If N-D works, this falls: that is the
+    # mechanism, and reporting it separates "the rule changed" from "the result
+    # moved for some other reason".
+    n_saturated = 0
     model.train()
 
     for _ in range(n_epochs):
@@ -230,8 +261,22 @@ def patient_level_dp_train(model: nn.Module,
                 loss.backward()
 
                 g = _flat_grad(params)
+                # N-D: rescale BEFORE the clip. `gi` was already truncated to
+                # max_windows_per_patient above, so k is what actually
+                # contributed to this gradient rather than the patient's raw
+                # window count. Sensitivity is unaffected — see the docstring.
+                if clip_norm == "k":
+                    g = g / max(len(gi), 1)
+                elif clip_norm == "sqrt_k":
+                    g = g / math.sqrt(max(len(gi), 1))
                 nrm = g.norm(2)
+                if norm_sink is not None:
+                    # (windows contributed, pre-clip norm). Diagnostic only:
+                    # it answers whether saturation is actually driven by k,
+                    # which is the premise N-D rests on.
+                    norm_sink.append((len(gi), float(nrm)))
                 g = g * min(1.0, max_grad_norm / (nrm + 1e-6))   # per-PATIENT clip
+                n_saturated += int(nrm > max_grad_norm)
                 summed += g
 
                 # Divide by len(gi) to recover mean CE for this patient — the
@@ -262,7 +307,12 @@ def patient_level_dp_train(model: nn.Module,
             "n_patients": n_pat,
             "sample_rate": q,
             "dp": True,
-            "dp_unit": "patient"}
+            "dp_unit": "patient",
+            "clip_norm": clip_norm,
+            # Fraction of per-patient gradients the clip actually bound. The
+            # N-D hypothesis predicts this is high under "none" and falls once
+            # the pre-clip norm no longer scales with k.
+            "clip_saturation": n_saturated / max(n_pat_seen, 1)}
 
 
 if __name__ == "__main__":

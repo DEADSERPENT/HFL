@@ -83,6 +83,9 @@ SCHEMA = {
     "tabular_fields": ["age", "gender", "admissionweight", "admissionheight"],
     "apache_field": "apachescore",         # lives in apachePatientResult
     "label_field": "unitdischargestatus",  # "Expired" / "Alive"
+    # Minutes from unit admission to unit discharge. For an Expired stay this
+    # is the time of death, and it is what the 24 h lead-time rule keys on.
+    "discharge_offset_field": "unitdischargeoffset",
     "label_positive": "Expired",
 }
 
@@ -93,7 +96,16 @@ T_SLOTS = 12            # 12 slots x 5 min — vitalPeriodic archives ~every 5 m
 # k=8. Capping eICU at 8 would test exactly VitalDB's range and could not
 # falsify the saturation prediction, which is only testable at k > 8. 48 hours
 # gives k up to 32. The accumulator is memory-mapped when it exceeds MMAP_GB.
-MAX_WINDOWS_PER_STAY = 48
+# EARLY-PREDICTION TASK DEFINITION (set 2026-09-08, replacing a 48 h window).
+# Features come from the first OBS_WINDOW_H hours after unit admission, and an
+# individual whose in-unit death falls inside that window is EXCLUDED: they
+# pose no prediction problem, and their final windows are peri-mortem, which
+# makes mortality look artificially easy. Features precede the outcome either
+# way - this is clinical defensibility, not leakage. k-scaling reach falls from
+# ~32 to ~24 windows/individual, still well past VitalDB's ~8.
+OBS_WINDOW_H = 24
+MIN_DEATH_LEAD_MIN = OBS_WINDOW_H * 60
+MAX_WINDOWS_PER_STAY = OBS_WINDOW_H
 MIN_SLOTS_OBSERVED = 3  # a window with fewer real readings is not a window
 MMAP_GB = 1.0           # accumulators larger than this spill to disk
 MIN_WINDOWS = 2         # an individual below this cannot serve k-scaling
@@ -256,7 +268,11 @@ def split_stratified_within_client(person, client, y, seed=42,
         m = person == pp
         cs, ct = np.unique(client[m], return_counts=True)
         p_client[pp] = cs[np.argmax(ct)]
-        p_label[pp] = int(y[m].max())        # "ever expired" is the patient outcome
+        # CLINICAL DEFINITION: patient-level in-unit mortality = 1 if ANY
+        # eligible ICU stay for that individual has unitdischargestatus ==
+        # "Expired", else 0. max() is the implementation of that definition,
+        # not the definition itself - the paper must state the clinical form.
+        p_label[pp] = int(y[m].max())
 
     buckets = {}
     for pp in people:
@@ -347,7 +363,8 @@ def write_partitions(part_dir: Path, splits, client, n_clients, y, person,
         "edge_assignments": {str(k): v for k, v in edge_assign.items()},
         "devices": devices,
         "client_key": f'{SCHEMA["client_key"]} (real hospitals, taken as given; '
-                      f'hospitals under 200 windows pooled)',
+                      f'hospitals under 200 windows OR with zero positive '
+                      f'cases are merged into one pooled client)',
         "individual_key": SCHEMA["person_key"],
         "split": "by INDIVIDUAL (uniquepid), stratified by outcome within each "
                  "hospital; no individual spans splits",
@@ -363,23 +380,58 @@ def write_partitions(part_dir: Path, splits, client, n_clients, y, person,
     return meta
 
 
-def assign_clients(client_of_sample, min_samples=200):
+def assign_clients(client_of_sample, min_samples=200, y=None):
     """Clients are hospitals as they arrive, not constructed.
 
-    Hospitals below `min_samples` are merged into a pooled client rather than
-    dropped: discarding them would bias the cohort toward large centres, which
-    is the opposite of what a federated study wants to show.
+    TWO pooling criteria, both fixed in advance of any experimental result:
+
+    1. SIZE. Hospitals below `min_samples` windows are merged into a pooled
+       client rather than dropped: discarding them would bias the cohort
+       toward large centres, the opposite of what a federated study wants.
+
+    2. DEGENERATE OUTCOME. A hospital with zero positive cases is also pooled.
+       It cannot contribute to a binary task's positive class and its
+       within-client mortality is mathematically undefined.
+
+       Criterion 2 reads the LABEL, so client construction is not purely
+       label-independent. This is disclosed deliberately: it is applied to
+       every eICU experiment identically, and it is decided here - before any
+       model is trained - rather than adjusted after seeing a result. The
+       affected patients are retained inside the pooled client, not discarded.
+
+    Returns (clients, n_clients, pooled_index, report).
     """
     ids, counts = np.unique(client_of_sample, return_counts=True)
-    keep = set(ids[counts >= min_samples].tolist())
+    too_small = set(ids[counts < min_samples].tolist())
+
+    no_positive = set()
+    if y is not None:
+        y = np.asarray(y)
+        for h in ids:
+            if h in too_small:
+                continue
+            if int(y[client_of_sample == h].sum()) == 0:
+                no_positive.add(h)
+
+    drop = too_small | no_positive
+    keep = [h for h in ids if h not in drop]
     remap, nxt = {}, 0
-    for h in ids:
-        if h in keep:
-            remap[h] = nxt
-            nxt += 1
-    pooled = nxt if len(keep) < len(ids) else None
+    for h in keep:
+        remap[h] = nxt
+        nxt += 1
+    pooled = nxt if drop else None
     out = np.array([remap.get(h, pooled) for h in client_of_sample])
-    return out, nxt + (1 if pooled is not None else 0), pooled
+
+    report = {
+        "hospitals_seen": int(len(ids)),
+        "min_samples": int(min_samples),
+        "pooled_for_size": int(len(too_small)),
+        "pooled_for_zero_positives": int(len(no_positive)),
+        "standalone_clients": int(nxt),
+        "pooled_client_index": pooled,
+        "n_clients": int(nxt + (1 if pooled is not None else 0)),
+    }
+    return out, report["n_clients"], pooled, report
 
 
 def label_prevalence_spread(y, client_of_sample, n_clients):
@@ -405,7 +457,8 @@ def verify_schema(raw_dir: Path) -> int:
     print("=" * 66)
     wanted = {
         SCHEMA["patient_csv"]: [SCHEMA["person_key"], SCHEMA["stay_key"],
-                                SCHEMA["client_key"], SCHEMA["label_field"]]
+                                SCHEMA["client_key"], SCHEMA["label_field"],
+                                SCHEMA["discharge_offset_field"]]
                                + SCHEMA["tabular_fields"],
         SCHEMA["vitals_csv"]: [SCHEMA["stay_key"], SCHEMA["time_key"]]
                               + SCHEMA["vital_channels"],
@@ -441,6 +494,51 @@ def verify_schema(raw_dir: Path) -> int:
 
 
 # ── real-table loading ────────────────────────────────────────────────────
+def apply_lead_time_rule(stays: dict, min_lead_min=MIN_DEATH_LEAD_MIN,
+                         verbose=True):
+    """Drop individuals whose in-unit death occurs inside the feature window.
+
+    The task is: from the first OBS_WINDOW_H hours after admission, will this
+    person die in the unit? Someone who dies at hour 10 of a 24 h window poses
+    no such question, and their last windows are peri-mortem.
+
+    Exclusion is at the INDIVIDUAL level, not the stay level: dropping only the
+    fatal stay would silently relabel that person a survivor, because the
+    patient-level outcome is "ever expired".
+
+    Returns (kept_stays, report). Counts only - never record content.
+    """
+    died_early = {m["person"] for m in stays.values()
+                  if m["y"] == 1 and np.isfinite(m.get("dc_off", np.nan))
+                  and m["dc_off"] < min_lead_min}
+    kept = {s: m for s, m in stays.items() if m["person"] not in died_early}
+
+    def _prev(d):
+        by = {}
+        for m in d.values():
+            by[m["person"]] = max(by.get(m["person"], 0), m["y"])
+        return (sum(by.values()) / (len(by) or 1), sum(by.values()), len(by))
+
+    p0, pos0, n0 = _prev(stays)
+    p1, pos1, n1 = _prev(kept)
+    report = {
+        "rule": f"exclude individuals dying < {min_lead_min} min after admission",
+        "observation_window_h": OBS_WINDOW_H,
+        "individuals_before": n0, "individuals_after": n1,
+        "individuals_excluded": len(died_early),
+        "stays_before": len(stays), "stays_after": len(kept),
+        "stays_excluded": len(stays) - len(kept),
+        "deaths_before": pos0, "deaths_after": pos1,
+        "mortality_prevalence_before": round(p0, 4),
+        "mortality_prevalence_after": round(p1, 4),
+    }
+    if verbose:
+        print(f"[eicu] lead-time rule (<{min_lead_min} min): individuals "
+              f"{n0:,} -> {n1:,} ({len(died_early):,} excluded); "
+              f"mortality {p0:.4f} -> {p1:.4f}")
+    return kept, report
+
+
 def load_patient_table(raw_dir: Path, max_stays=None, verbose=True):
     """Read patient.csv + apachePatientResult.csv into per-stay metadata.
 
@@ -478,6 +576,8 @@ def load_patient_table(raw_dir: Path, max_stays=None, verbose=True):
                 "hosp": row.get(pth["client_key"]) or "unknown",
                 "tab": tab,
                 "y": int(status == pth["label_positive"]),
+                # minutes admission -> discharge; for an Expired stay, death
+                "dc_off": coerce_float(row.get(pth["discharge_offset_field"])),
             }
             if max_stays and len(stays) >= max_stays:
                 break
@@ -596,39 +696,100 @@ def build_from_rows(rows, out_dir: Path, seed=42, verbose=True,
     client = np.asarray([r["hosp"] for r in rows])
     stay_ids = np.asarray([str(r["stay"]) for r in rows])
 
-    # Per-channel z-score over the corpus, then stack the observed masks.
-    # Masks are NOT normalised: they are indicator channels.
-    N, C, T = A_val.shape
-    flat = A_val.transpose(0, 2, 1).reshape(-1, C)
-    obs = A_msk.transpose(0, 2, 1).reshape(-1, C) > 0
-    mu = np.array([flat[obs[:, c], c].mean() if obs[:, c].any() else 0.0
-                   for c in range(C)])
-    sd = np.array([flat[obs[:, c], c].std() if obs[:, c].any() else 1.0
-                   for c in range(C)])
-    sd = np.where(sd < 1e-6, 1.0, sd)
-    A_val = ((A_val - mu[None, :, None]) / sd[None, :, None]) * A_msk
-    A = np.concatenate([A_val, A_msk], axis=1).astype(np.float32)   # [N, 2C, T]
-
-    # Modality B: median-impute then z-score. Imputation uses TRAIN-eligible
-    # rows only would be ideal; the corpus median is used here because the
-    # split is drawn below, and the fields are admission-time constants.
-    med = np.nanmedian(B, axis=0)
-    B = np.where(np.isfinite(B), B, med[None, :])
-    B = _z(B).astype(np.float32)
-
+    # ORDER IS PART OF THE METHOD: cohort -> clients -> SPLIT -> statistics.
+    #
+    # Eligibility (MIN_WINDOWS) depends on how many windows an individual has,
+    # so windows must exist before the cohort is final. Everything that FITS a
+    # statistic, however, happens strictly after the split.
+    #
     # Drop individuals with too few windows: they cannot serve k-scaling and
     # they make the per-individual clipping bound meaningless.
     uniq, counts = np.unique(person, return_counts=True)
     keep_people = set(uniq[counts >= MIN_WINDOWS].tolist())
     m = np.isin(person, list(keep_people))
-    A, B, y, person, client, stay_ids = (A[m], B[m], y[m], person[m],
-                                         client[m], stay_ids[m])
+    A_val, A_msk, B, y, person, client, stay_ids = (
+        A_val[m], A_msk[m], B[m], y[m], person[m], client[m], stay_ids[m])
 
-    client, n_clients, pooled = assign_clients(client)
+    # y is passed so a hospital with zero positives is pooled as well as one
+    # that is too small; see assign_clients for why that is disclosed.
+    prepool_ids, prepool_counts = np.unique(client, return_counts=True)
+    prepool_prev = [float(y[client == h].mean()) for h in prepool_ids]
+    client, n_clients, pooled, client_report = assign_clients(client, y=y)
+    client_report["prepool_hospitals"] = int(len(prepool_ids))
+    client_report["prepool_prevalence_min"] = round(min(prepool_prev), 4) if prepool_prev else None
+    client_report["prepool_prevalence_max"] = round(max(prepool_prev), 4) if prepool_prev else None
+    client_report["prepool_zero_mortality_hospitals"] = int(sum(1 for v in prepool_prev if v == 0.0))
+    print(f"[eicu] clients: {client_report['prepool_hospitals']} hospitals -> "
+          f"{n_clients} clients "
+          f"({client_report['pooled_for_size']} pooled for size, "
+          f"{client_report['pooled_for_zero_positives']} for zero positives)")
     lo, hi = label_prevalence_spread(y, client, n_clients)
     # Stratified WITHIN client, not globally: with 208 hospitals a global split
     # can leave a small site with no deaths in its test fold.
     splits, _ = split_stratified_within_client(person, client, y, seed=seed)
+    _tr = splits["train"]
+
+    # Per-channel z-score, FITTED ON TRAIN INDIVIDUALS ONLY and then applied to
+    # every split. Until 2026-09-08 mu/sigma were fitted over the whole corpus,
+    # which leaks the val/test distribution into the training features.
+    # Patient-disjointness does not prevent that: feature statistics are a
+    # separate leakage channel from record membership.
+    # Masks are NOT normalised: they are indicator channels.
+    #
+    # CHUNKED. A_val[_tr] fancy-indexes a copy and .transpose().reshape() copies
+    # again; at 20k stays that is 68 MB and invisible, at the full 3.78M-window
+    # corpus it is ~1.4 GB per array. Together with np.concatenate allocating a
+    # second full-size A, peak hit ~8.9 GB and the OOM killer took the build
+    # after the client report and BEFORE the first np.save - leaving the
+    # previous corpus intact and silently validated in its place.
+    # Statistics are unchanged: same train-only entries, same masked selection,
+    # two-pass variance so the result matches np.std rather than a
+    # sum-of-squares approximation.
+    N, C, T = A_val.shape
+    CHUNK = 200_000
+
+    cnt = np.zeros(C, np.float64)
+    s1 = np.zeros(C, np.float64)
+    for i in range(0, len(_tr), CHUNK):
+        idx = _tr[i:i + CHUNK]
+        v, m = A_val[idx], A_msk[idx] > 0
+        for c in range(C):
+            sel = v[:, c, :][m[:, c, :]]
+            if sel.size:
+                s1[c] += sel.sum(dtype=np.float64)
+                cnt[c] += sel.size
+    mu = np.where(cnt > 0, s1 / np.maximum(cnt, 1.0), 0.0)
+
+    s2 = np.zeros(C, np.float64)
+    for i in range(0, len(_tr), CHUNK):
+        idx = _tr[i:i + CHUNK]
+        v, m = A_val[idx], A_msk[idx] > 0
+        for c in range(C):
+            sel = v[:, c, :][m[:, c, :]]
+            if sel.size:
+                d = sel.astype(np.float64) - mu[c]
+                s2[c] += float((d * d).sum())
+    sd = np.where(cnt > 0, np.sqrt(s2 / np.maximum(cnt, 1.0)), 1.0)
+    sd = np.where(sd < 1e-6, 1.0, sd)
+
+    # Fill a pre-allocated A block by block rather than concatenating, which
+    # would hold A_val, A_msk and a fresh 2x array live simultaneously.
+    A = np.empty((N, 2 * C, T), np.float32)
+    for i in range(0, N, CHUNK):
+        sl = slice(i, min(i + CHUNK, N))
+        A[sl, :C, :] = ((A_val[sl] - mu[None, :, None])
+                        / sd[None, :, None]) * A_msk[sl]
+        A[sl, C:, :] = A_msk[sl]
+    del A_val, A_msk
+
+    # Modality B: median-impute then z-score, BOTH fitted on train rows only.
+    med = np.nanmedian(B[_tr], axis=0)
+    med = np.where(np.isfinite(med), med, 0.0)       # column unobserved in train
+    B = np.where(np.isfinite(B), B, med[None, :])
+    b_mu = B[_tr].mean(axis=0)
+    b_sd = B[_tr].std(axis=0)
+    b_sd = np.where(b_sd < 1e-6, 1.0, b_sd)
+    B = ((B - b_mu[None, :]) / b_sd[None, :]).astype(np.float32)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for sub in ("vitals", "tabular", "meta"):
@@ -668,7 +829,8 @@ def build_from_rows(rows, out_dir: Path, seed=42, verbose=True,
                 out_dir.parent / "partitions" / "eicu")
     pmeta = write_partitions(part_dir, splits, client, n_clients, y, person,
                              n_edges=n_edges,
-                             extra={"window_min": WINDOW_MIN,
+                             extra={"client_construction": client_report,
+                                    "window_min": WINDOW_MIN,
                                     "slot_min": WINDOW_MIN / T_SLOTS,
                                     "signal_shape": list(A.shape),
                                     "clinical_shape": list(B.shape),
@@ -850,6 +1012,7 @@ def main():
         Path(__file__).resolve().parents[2] / "data" / "processed" / "eicu")
     print(f"[eicu] raw_dir  {raw}\n[eicu] out_dir  {out}\n")
     stays = load_patient_table(raw, max_stays=a.max_stays)
+    stays, lead_report = apply_lead_time_rule(stays)
     stay_list, mean, mask = stream_vitals(
         raw, stays, chunk_rows=a.chunk_rows, max_windows=a.max_windows,
         scratch=a.scratch or os.environ.get("TMPDIR", "."))

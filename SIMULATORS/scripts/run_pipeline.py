@@ -92,11 +92,13 @@ def build_stages(a, spec) -> list:
         ).get("n_edges", 2)
     except Exception:
         _n_edges = 2
-    try:
-        _cfg = _json.loads((_SIM / "config" / "hfl_config.json").read_text())
-        spec_params_mb = _cfg["datasets"][ds]["model_size_MB"]
-    except Exception:
-        spec_params_mb = 0.0
+    # Resolved from the model the dataset actually builds, exactly as the NS-3
+    # stage does. Reading hfl_config.json silently returned 0.0 MB for eICU
+    # (no entry there), so CloudSim priced communication for an empty model.
+    # No fallback: a wrong model size is worse than a stage that will not plan.
+    sys.path.insert(0, str(_SIM / "scripts"))
+    from ns3_phase5_integration import resolve_topology
+    spec_params_mb = resolve_topology(ds)["model_bytes_fp32"] / 1e6
     lat_out = res / f"latency_{ds}.json"
 
     S = []
@@ -137,7 +139,8 @@ def build_stages(a, spec) -> list:
         [*py, str(_SIM / "model" / "training" / "hfl_trainer.py"),
          "--dataset", ds, "--rounds", str(a.rounds),
          "--tau_e", str(a.tau_e), "--batch_size", str(a.batch_size),
-         "--epsilon", str(a.epsilon), "--seed", str(a.seed),
+         "--epsilon", str(a.epsilon), "--epsilon_conf", str(a.epsilon_conf),
+         "--seed", str(a.seed),
          "--freeze_encoders", "--pretrained_encoders", str(enc),
          "--save_checkpoint", str(model_ckpt), "--output", str(prop_csv)],
         produces=[prop_csv, model_ckpt], needs=[enc],
@@ -158,6 +161,7 @@ def build_stages(a, spec) -> list:
          "--dataset", ds, "--rounds", str(a.rounds),
          "--local_epochs", str(a.local_epochs), "--batch_size", str(a.batch_size),
          "--epsilons", *a.epsilons, "--seeds", *[str(s) for s in a.sweep_seeds],
+         "--recipes", *a.sweep_recipes,
          "--max_physical_batch_size", str(a.max_physical_batch_size),
          "--pretrained_encoders", str(enc), "--resume"],
         produces=[sweep_dir / "epsilon_sweep.csv"], needs=[enc],
@@ -175,7 +179,13 @@ def build_stages(a, spec) -> list:
         "inference_bench",
         [*py, str(_SIM / "model" / "deploy" / "inference_bench.py"),
          "--model", str(onnx_fp32), "--n_runs", str(a.bench_runs),
-         "--provider", a.provider, "--output", str(lat_out)],
+         # inference_bench.py takes ONNX Runtime's full provider names, not the
+         # short cpu/cuda this driver exposes; passing the short form made the
+         # stage die on argparse (rc=2) while a pre-existing latency file kept
+         # it looking "cached".
+         "--provider", {"cpu": "CPUExecutionProvider",
+                        "cuda": "CUDAExecutionProvider"}[a.provider],
+         "--output", str(lat_out)],
         produces=[lat_out], needs=[onnx_fp32],
         desc="end-to-end inference latency vs the <100 ms objective"))
 
@@ -217,7 +227,7 @@ def build_stages(a, spec) -> list:
         "joint_eval",
         [*py, str(_SIM / "scripts" / "joint_eval.py"),
          "--dataset", ds, "--rounds", str(a.rounds),
-         "--local_epochs", str(a.local_epochs), "--batch_size", str(a.batch_size),
+         "--tau_e", str(a.tau_e), "--batch_size", str(a.batch_size),
          "--epsilon", str(a.epsilon), "--seed", str(a.seed),
          "--pretrained_encoders", str(enc)],
         produces=[p6 / "joint_eval.csv"], needs=[enc, prop_csv],
@@ -227,8 +237,17 @@ def build_stages(a, spec) -> list:
         "component_ablation",
         [*py, str(_SIM / "scripts" / "component_ablation.py"),
          "--dataset", ds, "--rounds", str(a.rounds),
-         "--local_epochs", str(a.local_epochs), "--batch_size", str(a.batch_size),
-         "--epsilon", str(a.epsilon), "--seed", str(a.seed),
+         # No --local_epochs: component_ablation.py deliberately does not define
+         # it (see its own comments) because hfl_trainer.py has no such flag.
+         # Passing it killed this stage in ~1 s with an argparse error.
+         "--batch_size", str(a.batch_size),
+         "--epsilon", str(a.epsilon), "--epsilon_conf", str(a.epsilon_conf),
+         # component_ablation.py declares --seedS (plural). Passing "--seed 42"
+         # did NOT set the global seed: argparse prefix-matches it to --seeds
+         # and replaces the [42,43,44] default with a single seed, silently
+         # reducing every arm to n=1 and making the per-arm deltas untestable.
+         "--seeds", *[str(x) for x in a.component_ablation_seeds],
+         *(["--arms", *a.component_ablation_arms] if a.component_ablation_arms else []),
          "--pretrained_encoders", str(enc)],
         produces=[p6 / "ablation.csv"], needs=[enc],
         desc="A0-A5: remove one component at a time"))
@@ -312,8 +331,17 @@ def main():
                    help="local epochs for the BASELINE arms")
     p.add_argument("--tau_e", type=int, default=5,
                    help="edge aggregation cadence for the proposed run")
-    p.add_argument("--batch_size", type=int, default=16)
-    p.add_argument("--epsilon", type=float, default=1.0)
+    # The paper's operating point (see component_ablation.py): batch 64 with
+    # --epsilon 0.80 spends 0.7705 training, +0.20 conformal = 0.9705 <= 1.
+    # At batch 16 the same budget spends more and the composed total breaches 1.
+    p.add_argument("--batch_size", type=int, default=64)
+    # TRAINING target only. The objective is on the COMPOSED budget, so this
+    # must leave room for --epsilon_conf: 0.80 + 0.20 = 0.9705 measured <= 1.
+    p.add_argument("--epsilon", type=float, default=0.80)
+    p.add_argument("--epsilon_conf", type=float, default=0.20,
+                   help="budget per conformal calibration call. hfl_trainer "
+                        "defaults to 0.5, which composes to ~1.46 and FAILS "
+                        "the eps<=1 objective; the paper's point is 0.20.")
     p.add_argument("--pretrain_epochs", type=int, default=30)
     p.add_argument("--b0_epochs", type=int, default=5)
     p.add_argument("--b1_epochs", type=int, default=10)
@@ -322,9 +350,25 @@ def main():
                         "measured cost of splitting 64 into 8 was 5.5x slower.")
     p.add_argument("--ablation_epochs", type=int, default=8)
     p.add_argument("--ablation_seeds", type=int, nargs="+", default=[42, 43])
+    p.add_argument("--component_ablation_arms", nargs="*", default=None,
+                   help="restrict the ablation to these arms (e.g. A0 A1). "
+                        "NOTE: component_ablation.py rebuilds ablation.csv from "
+                        "only the arms it iterates, so a subset run REPLACES "
+                        "that combined table - back it up first.")
+    p.add_argument("--component_ablation_seeds", type=int, nargs="+",
+                   default=[42, 43, 44],
+                   help="seeds for the A0-A6 component ablation; >1 is required "
+                        "for the per-arm deltas to have an interval at all")
     p.add_argument("--sweep_seeds", type=int, nargs="+", default=[42])
     p.add_argument("--epsilons", nargs="+",
                    default=["0.5", "1.0", "2.0", "4.0", "8.0", "inf"])
+    p.add_argument("--sweep_recipes", nargs="+",
+                   default=["full", "full_pre", "head"],
+                   choices=["full", "full_pre", "head"],
+                   help="full=B4 (random init), full_pre=B7 (pretrained init, "
+                        "nothing frozen), head=B6. full_pre is the control that "
+                        "separates initialisation from DP scope; without it a "
+                        "full-vs-head gap conflates the two.")
     p.add_argument("--bench_runs", type=int, default=200)
     p.add_argument("--provider", default="cpu", choices=["cpu", "cuda"],
                    help="ONNX Runtime provider for the latency figure. The IoT "
@@ -418,7 +462,8 @@ def main():
         info["argv"] = [str(x) for x in st.argv]
         info["finished"] = datetime.now().isoformat(timespec="seconds")
         manifest["stages"][st.name] = info
-        manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
+        if not a.dry_run:
+            manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
 
         if info["status"] == "failed":
             failed.append(st.name)
@@ -431,7 +476,12 @@ def main():
                 break
 
     manifest["finished"] = datetime.now().isoformat(timespec="seconds")
-    manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
+    # --dry-run must never touch manifest.json: it is the provenance record
+    # tying every published number to the command that produced it, and a
+    # dry run would overwrite real "ok" entries (returncode, log path) with
+    # "dry-run"/"cached" placeholders.
+    if not a.dry_run:
+        manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
 
     print("\n" + "=" * 74)
     print(f"PIPELINE SUMMARY — {a.dataset}")
@@ -448,7 +498,8 @@ def main():
         print(f"  {mark} {name:<18} {s:<16}"
               + (f"{secs:>8.1f}s" if isinstance(secs, (int, float)) else ""))
     print("=" * 74)
-    print(f"manifest: {manifest_path}")
+    print(f"manifest: {manifest_path}"
+          + ("  (not written — dry run)" if a.dry_run else ""))
     if failed:
         print(f"\nFAILED: {failed}")
         return 1

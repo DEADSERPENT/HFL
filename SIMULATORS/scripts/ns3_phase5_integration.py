@@ -7,6 +7,10 @@ Writes: results/ns3/ns3_phase5_results.csv    (updated with Phase 5 payloads)
 """
 
 import os
+import sys as _sys_reg
+_sys_reg.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'loaders'))
+# Module scope: --dataset choices resolve from the registry.
+from datasets import REGISTRY                                   # noqa: E402
 import csv
 import json
 import math
@@ -249,7 +253,7 @@ def main():
     global N_DEVICES, N_EDGES, TAU_E, UPLOADS_PER_ROUND, MODEL_SIZE_BYTES_FP32
     parser = argparse.ArgumentParser(description="NS-3 Phase 5 network metric integration")
     parser.add_argument("--dataset", default="vitaldb",
-                        choices=["wear", "vitaldb"],
+                        choices=sorted(REGISTRY),
                         help="Topology and model size are derived from this.")
     parser.add_argument("--hfl_results", default="results/phase5/hfl_mm_hc_results.csv")
     parser.add_argument("--n_rounds", type=int, default=20)

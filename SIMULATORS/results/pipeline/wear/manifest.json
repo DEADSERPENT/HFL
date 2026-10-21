@@ -73,7 +73,7 @@
     "proposed": {
       "status": "ok",
       "returncode": 0,
-      "seconds": 612.3,
+      "seconds": 648.1,
       "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/proposed.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
@@ -88,7 +88,9 @@
         "--batch_size",
         "64",
         "--epsilon",
-        "1.0",
+        "0.8",
+        "--epsilon_conf",
+        "0.2",
         "--seed",
         "42",
         "--freeze_encoders",
@@ -99,15 +101,15 @@
         "--output",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/proposed_wear.csv"
       ],
-      "finished": "2026-08-04T20:53:59"
+      "finished": "2026-09-06T19:18:50"
     },
     "ablation": {
       "status": "cached"
     },
     "epsilon_sweep": {
-      "status": "failed",
-      "returncode": 1,
-      "seconds": 60.2,
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 9024.1,
       "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/epsilon_sweep.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
@@ -130,19 +132,176 @@
         "inf",
         "--seeds",
         "42",
+        "--recipes",
+        "full",
+        "full_pre",
+        "head",
+        "--max_physical_batch_size",
+        "16",
         "--pretrained_encoders",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt",
         "--resume"
       ],
-      "finished": "2026-08-04T20:54:59"
+      "finished": "2026-09-08T13:34:43"
+    },
+    "ns3_network": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 1.7,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/ns3_network.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/ns3_phase5_integration.py",
+        "--dataset",
+        "wear",
+        "--hfl_results",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/proposed_wear.csv",
+        "--n_rounds",
+        "10",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/ns3_wear.csv"
+      ],
+      "finished": "2026-09-06T18:03:12"
+    },
+    "collect": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.0,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/collect.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/collect_phase5_results.py",
+        "--results_dir",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5",
+        "--baselines_dir",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/baselines/wear",
+        "--hfl_results",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/proposed_wear.csv",
+        "--latency",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/latency_wear.json",
+        "--ns3_dir",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/RESULTS_wear.md"
+      ],
+      "finished": "2026-09-06T18:03:12"
+    },
+    "joint_eval": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.0,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/joint_eval.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/joint_eval.py",
+        "--dataset",
+        "wear",
+        "--rounds",
+        "10",
+        "--tau_e",
+        "5",
+        "--batch_size",
+        "64",
+        "--epsilon",
+        "0.8",
+        "--seed",
+        "42",
+        "--pretrained_encoders",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt"
+      ],
+      "finished": "2026-09-06T21:51:37"
+    },
+    "component_ablation": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 2321.1,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/component_ablation.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/component_ablation.py",
+        "--dataset",
+        "wear",
+        "--rounds",
+        "10",
+        "--batch_size",
+        "64",
+        "--epsilon",
+        "0.8",
+        "--epsilon_conf",
+        "0.2",
+        "--seeds",
+        "45",
+        "46",
+        "47",
+        "--arms",
+        "A0",
+        "A1",
+        "--pretrained_encoders",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt"
+      ],
+      "finished": "2026-09-08T01:18:04"
+    },
+    "statistics": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.1,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/statistics.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/run_statistics.py",
+        "--dataset",
+        "wear"
+      ],
+      "finished": "2026-09-06T21:51:37"
+    },
+    "figures": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 1.1,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/figures.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/make_figures.py",
+        "--dataset",
+        "wear"
+      ],
+      "finished": "2026-09-06T21:51:38"
+    },
+    "objectives": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.6,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/wear/logs/objectives.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/check_objectives.py",
+        "--dataset",
+        "wear",
+        "--results_dir",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/objectives_wear.json"
+      ],
+      "finished": "2026-09-06T21:51:39"
     }
   },
   "config": {
     "dataset": "wear",
-    "stages": null,
+    "stages": [
+      "epsilon_sweep"
+    ],
     "skip": [],
     "force": false,
-    "force_stage": [],
+    "force_stage": [
+      "epsilon_sweep"
+    ],
     "dry_run": false,
     "continue_on_error": false,
     "list": false,
@@ -151,7 +310,8 @@
     "local_epochs": 1,
     "tau_e": 5,
     "batch_size": 64,
-    "epsilon": 1.0,
+    "epsilon": 0.8,
+    "epsilon_conf": 0.2,
     "pretrain_epochs": 30,
     "b0_epochs": 5,
     "b1_epochs": 10,
@@ -160,6 +320,12 @@
     "ablation_seeds": [
       42,
       43
+    ],
+    "component_ablation_arms": null,
+    "component_ablation_seeds": [
+      42,
+      43,
+      44
     ],
     "sweep_seeds": [
       42
@@ -172,9 +338,14 @@
       "8.0",
       "inf"
     ],
+    "sweep_recipes": [
+      "full",
+      "full_pre",
+      "head"
+    ],
     "bench_runs": 200,
     "provider": "cpu"
   },
-  "started": "2026-08-04T20:06:00",
-  "finished": "2026-08-04T20:54:59"
+  "started": "2026-09-08T11:04:19",
+  "finished": "2026-09-08T13:34:43"
 }

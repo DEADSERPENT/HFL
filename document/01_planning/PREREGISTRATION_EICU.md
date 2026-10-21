@@ -188,5 +188,60 @@ route 5, the finding that survived the refutation.
 
 ## Amendment log
 
-No amendments. Any change made after the first eICU build must be appended here
-with a date and a reason, and disclosed in the paper.
+Any change made after the first eICU build must be appended here with a date
+and a reason, and disclosed in the paper.
+
+**A1 — 2026-09-18 — k ceiling lowered from 32 to 16.**
+Reason, measured on the built corpus before any k > 8 result existed: with
+`max_windows_per_stay = 24`, reaching k = 32 requires a patient with MULTIPLE
+admissions, so the k = 32 arm would be estimated on a re-admitted
+subpopulation that is systematically sicker than the cohort.
+
+    k    individuals with >= k records    % of cohort
+    8              129,839                   97.8%
+    16             120,813                   91.0%
+    32              26,791                   20.2%
+
+k = 16 retains 91% of the cohort and still doubles VitalDB's reach. The frozen
+curve puts gap(8) = 0.0876 and gap(16) = 0.0878, so k = 16 already sits in the
+plateau and P1c is testable there. Per stopping rule 5, **k = 32 is reported as
+UNTESTED on this corpus, not dropped**, and the reason above is disclosed.
+No predicted value was changed; the forecast stands as frozen.
+
+**A2 — 2026-09-21 — budget mismatch between the fit and the test, disclosed.**
+
+`k_scaling.py` never passed `--epsilon_conf`, so every k-scaling run before this
+date inherited `hfl_trainer`'s default of 0.5 rather than the operating point of
+0.20 fixed in §3. Two consequences, recorded separately because they are not
+equally serious.
+
+*Reported budget.* Composed totals for the k-scaling runs were:
+
+    VitalDB k-law   eps_train 0.9935 + eps_conf 0.5 = 1.4935
+    eICU k-law      eps_train 0.7956 + eps_conf 0.5 = 1.2956
+
+Neither is <= 1. **No k-scaling result may be described as measured at
+epsilon <= 1.** The conformal term is spent after training on the calibration
+release and does not enter the DP-SGD noise, so it does not affect either arm's
+AUPRC; the defect is in what was reported, not in what was measured. Fixed at
+source: the flag is now passed and defaults to 0.20.
+
+*Comparability — the material one.* The two corpora were trained at DIFFERENT
+privacy budgets. The forecast in §2 was **fitted** on VitalDB at
+`eps_train = 0.9935` and **tested** on eICU at `eps_train = 0.7956`, because the
+eICU driver correctly used the §3 operating point while the original VitalDB
+grid used this script's `--epsilon` default of 1.0. eICU therefore trained under
+more noise, and more noise compresses the difference between arms — the same
+direction as the observed shortfall.
+
+**The P1b refutation is therefore confounded and must not be reported as a clean
+corpus effect.** P1a, P1c and P1e are unaffected: each is internal to eICU and
+compares arms trained at one identical budget.
+
+*Correction.* The VitalDB k-grid is re-run at the §3 operating point
+(`--epsilon 0.80 --epsilon_conf 0.20`, k in {1,2,4,8}, seeds 42-44), giving a
+like-for-like comparison at a matched `eps_train` and a compliant total of
+0.9956. The forecast is **not** refitted: it stays frozen as registered, and the
+re-run is reported alongside the original so both are visible. If the matched
+VitalDB gaps fall materially below the original, the size of that shift is the
+budget's contribution and the remainder is the corpus effect.

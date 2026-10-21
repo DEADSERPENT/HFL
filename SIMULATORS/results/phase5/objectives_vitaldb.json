@@ -61,7 +61,7 @@
       "unit": "ms",
       "cmp": "<",
       "source": "ONNX Runtime inference benchmark",
-      "measured": 4.582,
+      "measured": 3.048,
       "verdict": "PASS",
       "ci_low": null,
       "ci_high": null,

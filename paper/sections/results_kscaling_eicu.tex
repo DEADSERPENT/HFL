@@ -1,0 +1,140 @@
+%==============================================================================
+% results_kscaling_eicu.tex — external validation of the records-per-individual
+% law on eICU-CRD. MERGED: \input from results.tex after "Records per
+% individual" (sec:results:kscaling).
+%
+% Every number below is read from an artifact:
+%   results/phase5/k_scaling/eicu/k{K}_seed{S}/hist_{arm}_test.json
+%       -> auprc (primary), macro_auc (secondary)
+%   results/phase5/k_scaling/eicu/k_scaling_eicu.csv   (collected summary)
+%   document/01_planning/PREREGISTRATION_EICU.md       (frozen forecast, §2;
+%                                                       amendment A1)
+%   data/processed/eicu/meta/dataset_meta.json         (corpus description)
+%
+% k = 16 COMPLETE at three seeds as of 21 September 2026; the row is in the
+% table and P1c is settled below. Per-seed gaps +0.0146, +0.0222, -0.0054.
+%==============================================================================
+
+\subsubsection{External validation of the records-per-individual law}
+\label{sec:results:kscaling:eicu}
+
+The law of Section~\ref{sec:results:kscaling} was measured on a single corpus
+whose clients are surgical specialties rather than institutions, so it is not
+established whether it characterizes patient-level private federated learning
+in general or only that cohort. It is therefore tested on a second clinical
+corpus of different construction: $3{,}782{,}805$ hourly windows from
+$132{,}736$ individuals across $187$ clients that are \emph{real hospitals},
+with a median of $444$ individuals per client and $28.50$ records per
+individual. The label is in-unit mortality, with a prevalence of $0.0422$.
+
+Two properties of this replication are relevant. First, its encoders were
+pretrained on $526{,}867$ windows verified to be disjoint from every client's
+training data, so the results do not carry the oracle-configuration caveat that
+applies elsewhere in this paper. Second, the prediction was fixed before the
+corpus was constructed. Fitting the four VitalDB points of
+Table~\ref{tab:kscaling} gives
+\begin{equation}
+\mathrm{gap}(k) = A\left(1 - e^{-b(k-1)}\right),
+\label{eq:kcurve}
+\end{equation}
+with $A = 0.0878 \pm 0.0035$ and $b = 0.883 \pm 0.129$ at a root-mean-square
+error of $0.0028$. This curve, together with an acceptance band of $\pm 0.030$
+derived from the VitalDB seed spread, was registered before any record of the
+second corpus was accessed.
+
+\begin{table}[!t]
+\centering
+\caption{Average precision by records per individual $k$ on the external
+corpus, three seeds, paired by seed. Intervals are Student-$t$ half-widths as
+elsewhere. The row $k = 16$ lies beyond the range of the first corpus. The final column is
+the value predicted by Eq.~\eqref{eq:kcurve}, fixed before the corpus was
+built.}
+\label{tab:kscaling_eicu}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{cccccc}
+\toprule
+$k$ & Record & Individual & Gap & $p$ & Predicted \\
+\midrule
+$1$ & $0.2105$ & $0.2212$ & $-0.0107 \pm 0.0211$ & $0.1594$ & $0.0000$ \\
+$2$ & $0.2245$ & $0.2185$ & $+0.0060 \pm 0.0100$ & $0.1215$ & $0.0515$ \\
+$4$ & $0.2318$ & $0.2208$ & $+0.0110 \pm 0.0714$ & $0.5746$ & $0.0816$ \\
+$8$ & $0.2374$ & $0.2239$ & $+0.0135 \pm 0.0592$ & $0.4296$ & $0.0876$ \\
+$16$ & $0.2363$ & $0.2258$ & $+0.0105 \pm 0.0354$ & $0.3310$ & $0.0878$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The control holds. At $k = 1$, the gap is $-0.0107$, with an interval covering
+zero and a magnitude within the pre-specified tolerance of $0.020$. The two arms
+are therefore not separated where the construction requires them to agree, and
+the remaining rows can be attributed to the privacy unit.
+
+The point forecasts are not confirmed. At every $k > 1$, the gap lies outside
+the $\pm 0.030$ band, and the measured cost is approximately one sixth of the
+predicted cost: $0.0135$ against $0.0876$ at $k = 8$.
+
+Two properties of the law are reproduced. The first is the ordering: the gap is
+negative at $k = 1$, positive at $k = 2$, and increases through $k = 4$ to
+$k = 8$, as described by Eq.~\eqref{eq:kcurve}. This is consistent with the
+mechanism, since the bound on an individual's summed contribution is tightest
+for individuals who contribute additional records.
+
+The second is the saturation, which the first corpus cannot test. The
+registered prediction was that the gap beyond $k = 8$ would exceed the gap at
+$k = 8$ by less than $0.015$. Across paired seeds, the increment from $k = 8$ to
+$k = 16$ is $-0.0030$, with an interval of $[-0.0316, +0.0255]$ ($p = 0.692$).
+The gap does not continue to increase, and the registered bound is met. The
+cost of the guarantee therefore approaches a ceiling in $k$ on both corpora.
+
+The asymmetry between the arms is also reproduced. Across all $k$, the
+individual-level arm varies within $[0.2185, 0.2258]$, a range of $0.0073$
+against the pre-specified $0.020$, whereas the record-level arm increases from
+$0.2105$ to $0.2374$. As on the first corpus, the widening gap reflects
+improvement of the record-level arm rather than degradation of the
+individual-level arm. The corpora therefore differ in the magnitude of the
+effect but not in its mechanism, and, as registered in advance, the shape is
+interpreted as structural and the magnitude as corpus-dependent.
+
+The statistical power of this replication is limited. At three seeds, no gap in
+Table~\ref{tab:kscaling_eicu} is resolved: every interval covers zero, and no
+$p$-value is below $0.12$. The seed standard deviation of the gap at $k = 8$ is
+of the same order as the gap, and resolving an effect of this size at
+conventional power would require approximately fifty seeds, against the three
+fixed in advance. The seed count was not increased after inspecting the
+results. The trend is therefore reported as directionally consistent with the
+VitalDB law and unresolved on this corpus. The area under the ROC curve is
+less informative: its gaps over the same values of $k$ are $-0.0012$,
+$-0.0015$, $+0.0018$, $+0.0001$ and $+0.0105$, with no trend over the range
+covered by the first corpus. Average precision is the primary measure on this
+corpus, as on the first, and the area under the ROC curve provides no evidence
+either way.
+
+One possible explanation for a preserved shape at a lower ceiling is offered as
+a hypothesis. The two tasks differ in attainable precision by approximately a
+factor of two: the arms on this corpus lie within $[0.1960, 0.2446]$ at a
+prevalence of $0.0422$, whereas those on the first corpus lie between $0.4967$
+and $0.5955$. A gap in average precision is bounded by the attainable
+precision, so a cost that is a fixed fraction of attainable performance would
+produce a smaller absolute gap on the harder task with the same ordering in
+$k$. Under this explanation, the transferable quantity is the cost relative to
+attainable precision rather than the ceiling $A$. Distinguishing this from a
+corpus-specific ceiling requires a third corpus.
+
+The range of $k$ is limited by the corpus. The registered design specified $k$
+up to $32$. On this corpus, however, a budget of twenty-four windows per
+admission means that only $20.2\,\%$ of individuals reach thirty-two records,
+and these individuals have multiple admissions and are not representative of
+the cohort. Estimating the arm at $k = 32$ would therefore measure the effect
+of readmission rather than of the privacy unit. The maximum was reduced to
+$16$, which retains $91.0\,\%$ of individuals, and $k = 32$ is reported as
+untested. This change was recorded as a dated amendment to the registration
+before any result beyond $k = 8$ was computed, and it did not alter any
+predicted value.
+
+%==============================================================================
+% COMPLETE. k = 16 landed 21 September 2026 at three seeds; P1c is settled in
+% the body above. No pending artifact remains for this subsection.
+%   artifacts : results/phase5/k_scaling/eicu/k_scaling_eicu.csv (30 rows)
+%               results/phase5/k_scaling/eicu/k{1,2,4,8,16}_seed{42,43,44}/
+%   k = 32 is reported UNTESTED, not dropped — amendment A1.
+%==============================================================================

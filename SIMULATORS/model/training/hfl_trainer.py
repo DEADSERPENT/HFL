@@ -32,6 +32,10 @@ for _sub in ("privacy", "architecture", "training", "deploy", "utils"):
     sys.path.insert(0, str(_MODEL_ROOT / _sub))
 sys.path.insert(0, str(_MODEL_ROOT.parent / "data" / "loaders"))
 
+# Module scope: the argparse --dataset choices resolve from the registry, so
+# REGISTRY must be importable here and not only inside a function.
+from datasets import REGISTRY                                   # noqa: E402
+
 from device_utils import (get_device, optimize_gpu, get_dataloader_kwargs,
                           gpu_memory_info, set_seed)
 
@@ -171,6 +175,27 @@ def _compute_metrics(labels: np.ndarray, probs: np.ndarray,
         out[f"{prefix}case_accuracy"] = float((gp.argmax(1) == gy).mean())
         out[f"{prefix}case_auc"], out[f"{prefix}case_auprc"] = _auc_ap(gy, gp)
     return out
+
+
+_ACTIVE_DATASET = [None]
+
+
+def _metric_group_rel(dataset=None):
+    """Relative path of the array that groups predictions for CASE-LEVEL
+    metrics. Resolved from the registry so nothing is hardcoded per corpus.
+
+    This is NOT the DP unit and NOT the split key — both remain the individual
+    (case_ids). It is only the unit over which per-group predictions are
+    averaged, which requires a single-valued label per group.
+    """
+    try:
+        from datasets import get_spec
+        name = dataset if dataset is not None else _ACTIVE_DATASET[0]
+        if name:
+            return get_spec(name).metric_group_file
+    except Exception:
+        pass
+    return "meta/case_ids.npy"
 
 
 def evaluate_model(model: nn.Module, loader: DataLoader,
@@ -364,6 +389,9 @@ def train_hfl_mm_hc(args) -> Dict:
     """
     Main HFL-MM-HC training loop: 2-tier FedAvg + DP-SGD + conformal.
     """
+    # Records which corpus is active so metric grouping resolves from the
+    # registry (see _metric_group_rel). Does not affect the DP unit.
+    _ACTIVE_DATASET[0] = getattr(args, "dataset", None)
     from hfl_mm_model import build_hfl_mm_hc
     from compression import GradientCompressor
     from fedconform_hc import LocalConformCalibrator, FedConformAggregator
@@ -483,7 +511,8 @@ def train_hfl_mm_hc(args) -> Dict:
     # rather than one client. Built once and reused, like full_ds.
     _pooled_val_loader, _val_order = build_pooled_loader(
         args.partition_dir, n_devices, full_ds, "val", args.batch_size)
-    _grp_path = os.path.join(args.data_dir, "meta", "case_ids.npy")
+    # METRIC grouping only — the DP unit and the split key stay case_ids.
+    _grp_path = os.path.join(args.data_dir, _metric_group_rel())
     _val_groups = (np.load(_grp_path)[_val_order]
                    if os.path.exists(_grp_path) else None)
     # Inverse-frequency class weights from the pooled TRAIN split only.
@@ -652,6 +681,7 @@ def train_hfl_mm_hc(args) -> Dict:
 
         edge_states = {e: copy.deepcopy(global_state) for e in range(n_edges)}
         round_eps_spent = []
+        round_clip_sat = []
         round_uplink_bytes = 0   # total compressed bytes uploaded this global round
 
         for edge_round in range(1, args.tau_e + 1):
@@ -680,7 +710,8 @@ def train_hfl_mm_hc(args) -> Dict:
                         n_epochs=1,
                         patients_per_batch=args.patients_per_batch,
                         accountant=_patient_accountants[dev_id],
-                        class_weight=_class_weight)
+                        class_weight=_class_weight,
+                        clip_norm=args.clip_norm)
                 else:
                     train_result = local_dp_train(
                         local_model, get_device_loaders(dev_id)["train"],
@@ -700,6 +731,13 @@ def train_hfl_mm_hc(args) -> Dict:
                 # persistent per-device PrivacyEngine composes it), not just
                 # this one call.
                 round_eps_spent.append(train_result["epsilon_spent"])
+                if "clip_saturation" in train_result:
+                    # N-D diagnostic: fraction of per-patient gradients the
+                    # clip actually bound. Measured inside the real training
+                    # loop rather than by a probe at initialisation, because
+                    # gradient norms shrink as the head fits and saturation
+                    # therefore moves over rounds.
+                    round_clip_sat.append(train_result["clip_saturation"])
                 edge_client_losses[edge_id].append(train_result["loss"])
 
                 # Compress delta
@@ -862,6 +900,12 @@ def train_hfl_mm_hc(args) -> Dict:
             "q_global": round(q_global, 4),
             "round_time_s": round(round_time, 2),
             "uplink_bytes": round_uplink_bytes,   # feeds ns3_phase5_integration.py
+            # N-D mechanism diagnostic. Empty under --dp_unit sample, where no
+            # per-patient clip exists. Written every round because saturation
+            # is expected to fall as the head fits.
+            "clip_saturation": (round(sum(round_clip_sat) / len(round_clip_sat), 4)
+                                if round_clip_sat else ""),
+            "clip_norm": getattr(args, "clip_norm", ""),
         }
         results_log.append(log_entry)
 
@@ -904,7 +948,7 @@ def train_hfl_mm_hc(args) -> Dict:
     # from one case are highly correlated, so window-level metrics overstate
     # the effective sample size. `case_ids.npy` maps each window to its case.
     _groups = None
-    _gpath = os.path.join(args.data_dir, "meta", "case_ids.npy")
+    _gpath = os.path.join(args.data_dir, _metric_group_rel())
     if os.path.exists(_gpath):
         _groups = np.load(_gpath)[_test_order]
 
@@ -913,6 +957,26 @@ def train_hfl_mm_hc(args) -> Dict:
     print(f"\nFinal Test  AUROC={test_metrics['macro_auc']:.4f} "
           f"AUPRC={test_metrics['auprc']:.4f} "
           f"Acc={test_metrics['accuracy']:.4f} | Best val {args.select_on.upper()}={best_auc:.4f}")
+    # Persist the held-out TEST metrics next to the results CSV. The CSV holds
+    # per-round VAL metrics only, so every downstream consumer previously had
+    # to scrape them from stdout - and silently fell back to VAL when the print
+    # format drifted, tabulating a val number against the baselines' test ones.
+    try:
+        import json as _json
+        _tp = os.path.splitext(args.output)[0] + "_test.json"
+        with open(_tp, "w") as _f:
+            _json.dump({"dataset": args.dataset,
+                        "split": "test",
+                        "pooled_over_devices": True,
+                        "accuracy": float(test_metrics["accuracy"]),
+                        "macro_auc": float(test_metrics["macro_auc"]),
+                        "auprc": float(test_metrics["auprc"]),
+                        "selected_on": args.select_on,
+                        "best_val_auc": float(best_auc)}, _f, indent=2)
+        print(f"[test] metrics written -> {_tp}")
+    except Exception as _e:
+        print(f"[test][WARN] could not write test metrics: {_e}")
+
     # Honest privacy accounting: the conformal calibration touches each
     # device's private validation data, so its budget composes with training.
     _cal_per_device = _conformal_calls[0] / max(n_devices, 1)
@@ -1074,7 +1138,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="HFL-MM-HC Trainer")
     parser.add_argument("--dataset", default="vitaldb",
-                        choices=["wear", "vitaldb"],
+                        choices=sorted(REGISTRY),
                         help="Registry key; sets data/partition dirs, client and "
                              "class counts and the modality-B encoder unless "
                              "explicitly overridden.")
@@ -1117,6 +1181,16 @@ if __name__ == "__main__":
                         help="Path to an encoder checkpoint (from pretrain_encoders.py) whose "
                              "encoder_a/encoder_b weights are loaded before freezing. For a "
                              "valid ε guarantee this MUST be pretrained on NON-private data.")
+    parser.add_argument("--clip_norm", choices=["none", "k", "sqrt_k"],
+                        default="none",
+                        help="claim N-D. Rescale a patient's SUMMED gradient by "
+                             "k or sqrt(k) BEFORE clipping, where k is the "
+                             "windows that patient contributed. Does NOT change "
+                             "the guarantee: the clip still bounds each "
+                             "patient's contribution to C, so sigma, epsilon "
+                             "and delta are identical and the arms compare at a "
+                             "matched budget. It changes the optimisation "
+                             "geometry only. Applies under --dp_unit patient.")
     parser.add_argument("--dp_unit", choices=["sample", "patient"], default="sample",
                         help="What one unit of privacy protects. 'sample' is standard "
                              "DP-SGD and protects ONE 10-minute WINDOW. 'patient' clips "

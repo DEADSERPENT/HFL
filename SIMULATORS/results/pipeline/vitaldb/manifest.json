@@ -105,7 +105,7 @@
     "epsilon_sweep": {
       "status": "ok",
       "returncode": 0,
-      "seconds": 5286.0,
+      "seconds": 4122.5,
       "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/epsilon_sweep.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
@@ -128,11 +128,17 @@
         "inf",
         "--seeds",
         "42",
+        "--recipes",
+        "full",
+        "full_pre",
+        "head",
+        "--max_physical_batch_size",
+        "0",
         "--pretrained_encoders",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_vitaldb.pt",
         "--resume"
       ],
-      "finished": "2026-08-04T15:06:12"
+      "finished": "2026-09-08T10:58:37"
     },
     "onnx_export": {
       "status": "ok",
@@ -153,9 +159,9 @@
       "finished": "2026-08-04T15:06:19"
     },
     "inference_bench": {
-      "status": "failed",
-      "returncode": 2,
-      "seconds": 0.1,
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 3.7,
       "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/inference_bench.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
@@ -166,15 +172,17 @@
         "--n_runs",
         "200",
         "--provider",
-        "cpu",
+        "CPUExecutionProvider",
         "--output",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/latency_vitaldb.json"
       ],
-      "finished": "2026-08-04T15:06:19"
+      "finished": "2026-09-06T11:01:10"
     },
     "ns3_network": {
-      "status": "dry-run",
-      "seconds": 0.0,
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 2.6,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/ns3_network.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
         "-u",
@@ -188,7 +196,7 @@
         "--output",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/ns3_vitaldb.csv"
       ],
-      "finished": "2026-08-04T12:54:22"
+      "finished": "2026-09-06T10:59:39"
     },
     "cloudsim_energy": {
       "status": "cached",
@@ -206,8 +214,10 @@
       "finished": "2026-08-03T23:33:57"
     },
     "collect": {
-      "status": "dry-run",
+      "status": "ok",
+      "returncode": 0,
       "seconds": 0.0,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/collect.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
         "-u",
@@ -225,11 +235,13 @@
         "--output",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/RESULTS_vitaldb.md"
       ],
-      "finished": "2026-08-04T12:54:22"
+      "finished": "2026-09-06T10:59:39"
     },
     "objectives": {
-      "status": "dry-run",
-      "seconds": 0.0,
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.6,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/objectives.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
         "-u",
@@ -241,11 +253,13 @@
         "--output",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/objectives_vitaldb.json"
       ],
-      "finished": "2026-08-04T12:54:22"
+      "finished": "2026-09-06T12:15:33"
     },
     "joint_eval": {
-      "status": "dry-run",
+      "status": "ok",
+      "returncode": 0,
       "seconds": 0.0,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/joint_eval.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
         "-u",
@@ -254,8 +268,8 @@
         "vitaldb",
         "--rounds",
         "10",
-        "--local_epochs",
-        "1",
+        "--tau_e",
+        "5",
         "--batch_size",
         "16",
         "--epsilon",
@@ -265,11 +279,13 @@
         "--pretrained_encoders",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_vitaldb.pt"
       ],
-      "finished": "2026-08-04T12:54:22"
+      "finished": "2026-09-06T12:12:18"
     },
     "component_ablation": {
-      "status": "dry-run",
-      "seconds": 0.0,
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 2904.2,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/component_ablation.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
         "-u",
@@ -278,41 +294,63 @@
         "vitaldb",
         "--rounds",
         "10",
-        "--local_epochs",
-        "1",
         "--batch_size",
-        "16",
+        "64",
         "--epsilon",
-        "1.0",
-        "--seed",
-        "42",
+        "0.8",
+        "--epsilon_conf",
+        "0.2",
+        "--seeds",
+        "45",
+        "46",
+        "47",
+        "--arms",
+        "A0",
+        "A1",
         "--pretrained_encoders",
         "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_vitaldb.pt"
       ],
-      "finished": "2026-08-04T12:54:22"
+      "finished": "2026-09-08T00:38:40"
     },
     "statistics": {
-      "status": "dry-run",
-      "seconds": 0.0,
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.1,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/statistics.log",
       "argv": [
         "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
         "-u",
-        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/statistics.py",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/run_statistics.py",
         "--dataset",
         "vitaldb"
       ],
-      "finished": "2026-08-04T12:54:22"
+      "finished": "2026-09-06T12:13:12"
     },
     "figures": {
-      "status": "cached"
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 1.1,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/vitaldb/logs/figures.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/make_figures.py",
+        "--dataset",
+        "vitaldb"
+      ],
+      "finished": "2026-09-06T12:15:32"
     }
   },
   "config": {
     "dataset": "vitaldb",
-    "stages": null,
+    "stages": [
+      "epsilon_sweep"
+    ],
     "skip": [],
     "force": false,
-    "force_stage": [],
+    "force_stage": [
+      "epsilon_sweep"
+    ],
     "dry_run": false,
     "continue_on_error": false,
     "list": false,
@@ -321,7 +359,8 @@
     "local_epochs": 1,
     "tau_e": 5,
     "batch_size": 64,
-    "epsilon": 1.0,
+    "epsilon": 0.8,
+    "epsilon_conf": 0.2,
     "pretrain_epochs": 30,
     "b0_epochs": 5,
     "b1_epochs": 10,
@@ -330,6 +369,12 @@
     "ablation_seeds": [
       42,
       43
+    ],
+    "component_ablation_arms": null,
+    "component_ablation_seeds": [
+      42,
+      43,
+      44
     ],
     "sweep_seeds": [
       42
@@ -342,9 +387,14 @@
       "8.0",
       "inf"
     ],
+    "sweep_recipes": [
+      "full",
+      "full_pre",
+      "head"
+    ],
     "bench_runs": 200,
     "provider": "cpu"
   },
-  "started": "2026-08-04T13:38:05",
-  "finished": "2026-08-04T15:06:19"
+  "started": "2026-09-08T09:49:55",
+  "finished": "2026-09-08T10:58:37"
 }

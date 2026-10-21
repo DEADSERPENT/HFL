@@ -1,46 +1,68 @@
 %==============================================================================
-% abstract.tex
+% abstract.tex — FINAL. Supersedes the placeholder; abstract_draft.tex is its
+% ancestor and is kept only for its provenance notes.
 %
-% PLACEHOLDER. The abstract is written LAST, once Results is complete, because
-% its headline numbers depend on findings that are still being measured. The
-% text below states only what has actually been established; do not quote a
-% number from it that does not appear in Results.
+% TITLE IS FIXED. The abstract's job is to EARN each element of it, and one
+% element is earned CONDITIONALLY and must stay that way:
 %
-% SCOPE NOTE: the title promises privacy-awareness AND low latency. The
-% privacy half is drafted (Related Work, Methodology); the latency/QoS half is
-% measured but not yet written up. Keep the abstract's two halves in step with
-% what the body actually delivers.
+%   HIERARCHICAL  — three tiers, edge tier INSIDE the privacy accounting.
+%                   O1 90.822% / 96.082%, O4 72.300% / 76.841%. Collapsing the
+%                   tier does NOT improve accuracy (A1-A0 = -0.0047 / -0.0052
+%                   at n=6), so the savings cost no utility. Do NOT upgrade
+%                   this to "the hierarchy improves accuracy": the flat arm
+%                   also drops from five edge rounds to one, so topology and
+%                   aggregation schedule are confounded.
+%   PRIVACY-AWARE — patient unit by construction; composed eps 0.970 / 0.966
+%                   INCLUDING the conformal quantile; MIA audit with a passing
+%                   positive control (0.625 on a memorizing configuration).
+%   LOW-LATENCY   — O3a P95 3.048 ms / 1.218 ms. Quote THIS. Never quote
+%                   absolute round latency: its compute terms are analytical.
+%   MULTIMODAL    — paired at source, and a CONDITIONAL result. +0.0370 AUROC
+%                   on vitaldb; wear cannot test it (best single 0.9976);
+%                   eICU is a NULL (+0.0037 AUROC, -0.0001 AUPRC) AND HAS MORE
+%                   HEADROOM THAN VITALDB (0.1788 vs 0.1717) — so the eICU null
+%                   is NOT explained by a ceiling. The earlier draft said
+%                   "nothing where one modality already suffices", which is
+%                   true of wear and FALSE of eICU. Never claim an
+%                   unconditional fusion benefit.
+%   IoT SYSTEMS   — packet-level NS-3, CloudSim energy, ONNX deployment.
+%
+% LENGTH: 249 words in the rendered PDF, inside the ~250 cap IEEE TII and
+% IoT-J apply. Measure it from `pdftotext` in READING ORDER, not with
+% -layout: -layout interleaves the two columns and reports ~462.
+%
+% Trimmed 2026-10-19 from 302. Every finding and every headline number was
+% kept; what went was connective prose, the second of each paired percentage
+% (now "at least X" -- uplink is 90.8/96.1, energy 72.3/76.8), and the
+% restatement of the metric in the fusion clause, which the preceding
+% sentence already establishes as area under the ROC curve.
+%
+% Keywords live in main.tex, not here — two IEEEkeywords blocks is an error.
 %==============================================================================
 
 \begin{abstract}
-Multimodal Internet-of-Things deployments in clinical settings generate
-heterogeneous data streams that cannot be centralised, because the records are
-governed by consent and by data-protection regimes that prohibit pooling.
-Federated learning removes that obstacle by communicating model updates rather
-than records, and a hierarchical organisation relieves the wide-area link that
-otherwise constrains it; neither, however, supplies a privacy guarantee, and the
-guarantee such systems do report is conventionally stated over training records
-while the guarantee a clinical setting requires concerns individuals. Where a
-single episode of care yields many records, the two differ for every
-participant. This paper presents a three-tier hierarchical federated framework
-in which the privacy unit is the patient by construction: gradients are grouped
-by individual before they are bounded, the noise scale is calibrated against
-every client simultaneously so that the interposition of the edge tier is
-reflected in the reported budget, and the cost of releasing a conformal
-calibration quantile is composed into that budget rather than omitted from it.
-Representation learning is separated from private adaptation, with encoders
-pretrained on a population disjoint from every client and frozen, so that only a
-compact fusion head is privatised. The framework is evaluated on a cohort of
-surgical cases in which both modalities originate from the same patient during
-the same operation, and the resulting guarantee is audited by mounting
-membership inference at the level of the individual, with every attack reported
-alongside a positive control on a configuration known to memorise. A further
-experiment shows that the price of the individual-level guarantee is not a fixed
-quantity but a function of how many records each individual contributes,
-vanishing when that number is one --- where the two units coincide by
-construction, so that the experiment controls itself --- and growing
-monotonically thereafter.
-\textbf{[Headline quantitative findings --- uplink reduction, privacy budget,
-inference latency, energy, and the membership-inference audit --- to be
-inserted once Results is complete.]}
+Clinical multimodal Internet-of-Things data cannot be centralized;
+hierarchical federated learning addresses that but supplies no privacy
+guarantee. Such systems guarantee privacy over records, while clinical
+practice requires it over individuals; the two differ wherever an episode of
+care yields many records. We present a three-tier framework
+whose privacy unit is the patient: gradients are grouped by individual before
+bounding, noise is calibrated against every client so the edge tier enters the
+budget, and the conformal quantile is charged to it. Across two deployments
+the composed budget is $\varepsilon \le 1$, uplink falls by at least
+$90.8\,\%$, energy per round by at least $72.3\,\%$, and $95$th-percentile
+inference latency is at most $3.0$~ms; collapsing the edge tier does not
+improve accuracy, so the savings cost no utility. Pretrained initialization,
+not head-only noise, makes a strict budget survivable: tightening
+$\varepsilon$ from $\infty$ to $0.5$ costs a randomly initialized arm $0.118$
+in area under the ROC curve and a pretrained one nothing measurable;
+restricting noise to the head adds nothing at any budget. The price of the
+guarantee grows with the records each individual contributes, vanishing where
+the units coincide, which provides a built-in control; against a forecast
+frozen before an external corpus of $187$ hospitals it reproduces in shape but
+not magnitude. Fusion is conditional on balance between streams: worth
+$0.0370$ on one cohort, untestable on a second at ceiling, and null on a third
+until its streams are equalized. An
+individual-level membership-inference audit with a passing positive control
+refutes the predicted leakage difference without establishing equivalence.
 \end{abstract}

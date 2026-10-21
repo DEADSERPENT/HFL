@@ -42,7 +42,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for _s in ("data/loaders", "model/architecture", "model/utils", "model/training"):
     sys.path.insert(0, os.path.join(_ROOT, _s))
 
-from datasets import get_spec                     # noqa: E402
+from datasets import get_spec, REGISTRY# noqa: E402
 from hfl_mm_model import (build_hfl_mm_hc, GroupNormND)   # noqa: E402
 from device_utils import get_device, set_seed     # noqa: E402
 
@@ -134,19 +134,56 @@ def run_arm(spec, mode, idx, full_ds, device, args, groups_test):
                                       batch_size=bs, shuffle=sh, num_workers=0)
     tr, va, te = dl("train", args.batch_size, True), dl("val", 256, False), dl("test", 256, False)
 
+    # Intra-epoch validation. On a small corpus one epoch is a few hundred
+    # steps and a per-epoch checkpoint lands near the model's peak. On eICU an
+    # epoch is ~41k steps and the model peaks near step ~1k before collapsing
+    # to a constant output (val AUROC exactly 0.5000), so the FIRST per-epoch
+    # eval already runs ~40x past the peak and best_state never sees it.
+    # eval_every/val_cap/max_steps all default to 0 = OFF, which reproduces the
+    # original per-epoch cadence exactly, so vitaldb and wear are unchanged.
+    every    = max(0, int(getattr(args, "eval_every", 0) or 0))
+    val_cap  = max(0, int(getattr(args, "val_cap", 0) or 0))
+    max_step = max(0, int(getattr(args, "max_steps", 0) or 0))
+
+    # A capped val loader keeps frequent checks affordable; the epoch-boundary
+    # check always uses the FULL val split so the reported number is exact.
+    va_quick = va
+    if val_cap and val_cap < len(idx["val"]):
+        sub = np.random.default_rng(args.seed).choice(
+            idx["val"], val_cap, replace=False)
+        va_quick = DataLoader(Subset(full_ds, np.sort(sub).tolist()),
+                              batch_size=256, shuffle=False, num_workers=0)
+
     best, best_state = -1.0, None
     key = "auprc" if spec.n_classes == 2 else "auroc"
+    stop = False
+
+    def _check(tag, loader):
+        nonlocal best, best_state
+        m = evaluate(model, loader, device)
+        if not np.isnan(m[key]) and m[key] > best:
+            best = m[key]
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+        print(f"      {tag}  val AUROC={m['auroc']:.4f} AUPRC={m['auprc']:.4f}", flush=True)
+        model.train()
+
+    step = 0
     for ep in range(1, args.epochs + 1):
         model.train()
         for xa, xb, _t, y in tr:
             opt.zero_grad()
             loss_fn(model(xa.to(device), xb.to(device)), y.to(device)).backward()
             opt.step()
-        m = evaluate(model, va, device)
-        if not np.isnan(m[key]) and m[key] > best:
-            best = m[key]
-            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
-        print(f"      ep{ep:2d}  val AUROC={m['auroc']:.4f} AUPRC={m['auprc']:.4f}", flush=True)
+            step += 1
+            if every and step % every == 0:
+                _check(f"ep{ep:2d} s{step:<7d}", va_quick)
+            if max_step and step >= max_step:
+                stop = True
+                break
+        _check(f"ep{ep:2d}         ", va)
+        if stop:
+            print(f"      [stop] max_steps={max_step} reached", flush=True)
+            break
     model.load_state_dict(best_state)
     return evaluate(model, te, device, groups_test)
 
@@ -194,17 +231,127 @@ def verdict(agg, ga, gp):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", required=True, choices=["wear", "vitaldb"])
+    ap.add_argument("--dataset", required=True, choices=sorted(REGISTRY))
     ap.add_argument("--epochs", type=int, default=8)
     ap.add_argument("--batch_size", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--seeds", type=int, nargs="+", default=[42])
+    ap.add_argument("--eval_every", type=int, default=0,
+                    help="validate every N optimiser steps (0 = only at epoch "
+                         "end, the original behaviour). Needed on corpora whose "
+                         "epoch is long enough to hide the model's peak.")
+    ap.add_argument("--val_cap", type=int, default=0,
+                    help="cap the val split used by intra-epoch checks "
+                         "(0 = full). Epoch-boundary checks always use full val.")
+    ap.add_argument("--max_steps", type=int, default=0,
+                    help="stop each arm after N optimiser steps (0 = unlimited).")
+    ap.add_argument("--feat_b_noise", type=str, default=None,
+                    help="IDX:ALPHA — replace modality-B feature IDX with "
+                         "ALPHA*x + sqrt(1-ALPHA^2)*eps, eps ~ N(0,1). Features "
+                         "are z-scored, so this holds the channel's variance "
+                         "fixed while degrading its signal-to-noise ratio "
+                         "monotonically: ALPHA=1 is intact, ALPHA=0 is pure "
+                         "noise. Unlike --feat_b_scale this actually removes "
+                         "information, which is what titrating a modality's "
+                         "strength requires.")
+    ap.add_argument("--feat_b_scale", type=str, default=None,
+                    help="IDX:ALPHA — multiply modality-B feature IDX by ALPHA. "
+                         "Features are z-scored, so ALPHA=1 leaves it intact, "
+                         "ALPHA=0 is equivalent to --feat_b_zero, and values "
+                         "between titrate that modality's strength. Lets the "
+                         "relative strength of the two modalities be set to a "
+                         "TARGET rather than switched off, which is what "
+                         "--feat_b_zero could not do.")
+    ap.add_argument("--arms", nargs="+", default=["a", "b", "both"],
+                    choices=["a", "b", "both"],
+                    help="which arms to run. Calibration needs only 'b'.")
+    ap.add_argument("--feat_b_zero", type=int, nargs="+", default=None,
+                    help="zero these modality-B feature indices in EVERY split. "
+                         "Features are z-scored, so zero is the mean and the "
+                         "channel becomes uninformative while dimensionality, "
+                         "architecture and all other settings stay identical. "
+                         "Used to vary the relative strength of the two "
+                         "modalities inside one corpus.")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
     spec = get_spec(args.dataset)
     device = get_device()
     full_ds = spec.build_full(spec.data_dir)
+
+    if args.feat_b_noise:
+        import torch as _t
+        _i, _al = args.feat_b_noise.split(":")
+        _i, _al = int(_i), float(_al)
+        tgt = None
+        for attr in ("clinical", "features", "B", "feat_b", "modality_b", "xb"):
+            if hasattr(full_ds, attr):
+                tgt = getattr(full_ds, attr); break
+        if tgt is None:
+            raise SystemExit("--feat_b_noise: could not locate modality-B array")
+        if _i >= tgt.shape[1]:
+            raise SystemExit(f"--feat_b_noise: index {_i} out of range for width "
+                             f"{tgt.shape[1]}")
+        _g = _t.Generator().manual_seed(12345)   # fixed: the same corruption
+        _eps = _t.randn(tgt.shape[0], generator=_g).to(tgt.dtype)
+        _b = float(_t.as_tensor(tgt[:, _i]).float().std())
+        tgt[:, _i] = _al * tgt[:, _i] + (1.0 - _al ** 2) ** 0.5 * _eps
+        print(f"  [feat_b_noise] clinical[:, {_i}] -> {_al}*x + "
+              f"{(1-_al**2)**0.5:.3f}*N(0,1)   (sd {_b:.4f} -> "
+              f"{float(_t.as_tensor(tgt[:, _i]).float().std()):.4f}) over "
+              f"{tgt.shape[0]:,} rows", flush=True)
+
+    if args.feat_b_scale:
+        print("  [warn] --feat_b_scale is INFORMATION-PRESERVING: a linear "
+              "encoder compensates with a 1/alpha weight, so any alpha>0 is "
+              "close to a no-op. Measured: alpha=0.15 left arm b at 0.8214 "
+              "against 0.8221 intact. Use --feat_b_noise to titrate strength.",
+              flush=True)
+        # Titrated version of --feat_b_zero. Same in-place-on-the-tensor
+        # reasoning: every split must see it, or the unimodal-B arm reads an
+        # untouched feature and the comparison is meaningless.
+        import torch as _t
+        _i, _a = args.feat_b_scale.split(":")
+        _i, _a = int(_i), float(_a)
+        tgt = None
+        for attr in ("clinical", "features", "B", "feat_b", "modality_b", "xb"):
+            if hasattr(full_ds, attr):
+                tgt = getattr(full_ds, attr); break
+        if tgt is None:
+            raise SystemExit("--feat_b_scale: could not locate modality-B array")
+        if _i >= tgt.shape[1]:
+            raise SystemExit(f"--feat_b_scale: index {_i} out of range for "
+                             f"modality B of width {tgt.shape[1]}")
+        _b = float(_t.as_tensor(tgt[:, _i]).float().abs().mean())
+        tgt[:, _i] = tgt[:, _i] * _a
+        _after = float(_t.as_tensor(tgt[:, _i]).float().abs().mean())
+        print(f"  [feat_b_scale] {attr}[:, {_i}] x {_a}  "
+              f"(mean |value| {_b:.4f} -> {_after:.4f}) over "
+              f"{tgt.shape[0]:,} rows", flush=True)
+
+    if args.feat_b_zero:
+        # Zero in place on the underlying tensor so train, val and test all see
+        # it; doing it in the arm loop would leave the unimodal-B arm reading
+        # the untouched feature and make the comparison meaningless.
+        import torch as _t
+        tgt, name = None, None
+        for attr in ("clinical", "features", "B", "feat_b", "modality_b", "xb"):
+            if hasattr(full_ds, attr):
+                tgt, name = getattr(full_ds, attr), attr
+                break
+        if tgt is None:
+            raise SystemExit("--feat_b_zero: could not locate modality-B array "
+                             f"on {type(full_ds).__name__}; looked for "
+                             "clinical/features/B/feat_b/modality_b/xb")
+        idx = list(args.feat_b_zero)
+        if max(idx) >= tgt.shape[1]:
+            raise SystemExit(f"--feat_b_zero: index {max(idx)} out of range for "
+                             f"modality B of width {tgt.shape[1]}")
+        before = [float(_t.as_tensor(tgt[:, i]).float().abs().mean()) for i in idx]
+        tgt[:, idx] = 0
+        print(f"  [feat_b_zero] zeroed {name}[:, {idx}] "
+              f"(mean |value| before: {[round(b,4) for b in before]}) "
+              f"over all {tgt.shape[0]:,} rows", flush=True)
     meta = json.load(open(os.path.join(spec.partition_dir, "partition_meta.json")))
     n_dev = meta["n_devices"]
 
@@ -226,7 +373,7 @@ def main():
     results = {}
     for seed in args.seeds:
         args.seed = seed
-        for mode in ("a", "b", "both"):
+        for mode in args.arms:
             print(f"\n  [seed {seed}] arm '{mode}'  ({names[mode]})")
             t0 = time.time()
             r = run_arm(spec, mode, idx, full_ds, device, args, groups_test)
@@ -243,7 +390,7 @@ def main():
     hdr = f"  {'arm':<8}{'AUROC':>18}{'AUPRC':>18}{'acc':>10}"
     print(hdr + ("" if groups_test is None else f"{'case AUROC':>14}{'case AUPRC':>14}"))
     agg = {}
-    for mode in ("a", "b", "both"):
+    for mode in args.arms:
         rs = results[mode]
         f = lambda k: (np.mean([r[k] for r in rs]), np.std([r[k] for r in rs]))
         agg[mode] = {k: f(k) for k in rs[0] if isinstance(rs[0][k], float)}
@@ -253,13 +400,25 @@ def main():
             line += f"{f('case_auroc')[0]:>14.4f}{f('case_auprc')[0]:>14.4f}"
         print(line)
 
-    ga = agg["both"]["auroc"][0] - max(agg["a"]["auroc"][0], agg["b"]["auroc"][0])
-    gp = agg["both"]["auprc"][0] - max(agg["a"]["auprc"][0], agg["b"]["auprc"][0])
-    v = verdict(agg, ga, gp)
-    print(f"\n  fusion gain over the BEST unimodal arm:  "
-          f"AUROC {ga:+.4f}   AUPRC {gp:+.4f}"
-          f"   ({v['gain_over_sd']:.1f}x seed-sd)")
-    print("  => " + v["text"])
+    # A fusion verdict needs all three arms. Under --arms this run may be a
+    # calibration of one modality's strength, which has no fusion gain to report.
+    if {"a", "b", "both"} <= set(args.arms):
+        ga = agg["both"]["auroc"][0] - max(agg["a"]["auroc"][0], agg["b"]["auroc"][0])
+        gp = agg["both"]["auprc"][0] - max(agg["a"]["auprc"][0], agg["b"]["auprc"][0])
+        v = verdict(agg, ga, gp)
+        print(f"\n  fusion gain over the BEST unimodal arm:  "
+              f"AUROC {ga:+.4f}   AUPRC {gp:+.4f}"
+              f"   ({v['gain_over_sd']:.1f}x seed-sd)")
+        print("  => " + v["text"])
+        if "a" in agg and "b" in agg:
+            print(f"  arm imbalance |A-B| AUROC: "
+                  f"{abs(agg['a']['auroc'][0]-agg['b']['auroc'][0]):.4f}")
+    else:
+        ga = gp = None
+        v = {"verdict": "not_a_fusion_test", "arms": list(args.arms),
+             "text": "calibration run — a fusion gain needs all three arms"}
+        print(f"\n  arms run: {args.arms} — no fusion verdict "
+              f"(calibration run, not a test).")
 
     out = args.out or f"results/phase5/ablation_{args.dataset}.json"
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -267,6 +426,8 @@ def main():
                "epochs": args.epochs, "seeds": args.seeds,
                "n_train": int(len(idx["train"])), "n_test": int(len(idx["test"])),
                "runs": results,
+               # Absent on a partial-arm run: a fusion gain needs all three arms.
+               "arms": args.arms,
                "fusion_gain_auroc": ga, "fusion_gain_auprc": gp,
                "verdict": v},
               open(out, "w"), indent=2)

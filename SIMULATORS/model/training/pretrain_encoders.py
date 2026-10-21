@@ -38,7 +38,7 @@ sys.path.insert(0, str(_MODEL_ROOT.parent / "data" / "loaders"))
 
 from device_utils import get_device, get_dataloader_kwargs, set_seed  # noqa: E402
 from hfl_mm_model import build_hfl_mm_hc  # noqa: E402
-from datasets import get_spec  # noqa: E402
+from datasets import get_spec, REGISTRY# noqa: E402
 
 
 def pooled_train_indices(partition_dir: str, n_devices: int) -> np.ndarray:
@@ -85,7 +85,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dataset", default="vitaldb",
-                    choices=["wear", "vitaldb"],
+                    choices=sorted(REGISTRY),
                     help="Resolves data_dir / partition_dir / n_devices / n_classes / "
                          "encoder shapes from the dataset registry.")
     ap.add_argument("--data_dir", default=None, help="override registry path")
@@ -101,6 +101,11 @@ def main():
     ap.add_argument("--select_on", choices=["auc", "auprc", "auto"], default="auto",
                     help="checkpoint-selection metric; auto = auprc for binary")
     ap.add_argument("--epochs", type=int, default=30)
+    ap.add_argument("--eval_every", type=int, default=0,
+                    help="validate every N optimiser steps (0 = only at epoch "
+                         "end, the original behaviour). These encoders are "
+                         "frozen downstream, so on a large corpus this is what "
+                         "stops a collapsed state being selected.")
     ap.add_argument("--batch_size", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--val_frac", type=float, default=0.15,
@@ -218,6 +223,32 @@ def main():
     loss_fn = nn.CrossEntropyLoss(weight=cw)
 
     best_sel, best_auc, best_ap, best_state = -1.0, float("nan"), float("nan"), None
+
+    # Intra-epoch validation. These encoders are later FROZEN by k_scaling, so
+    # whatever state is selected here propagates into every downstream number.
+    # On a large corpus one epoch is many thousands of steps and the model can
+    # peak and then collapse to a constant well inside epoch 1, which a
+    # once-per-epoch checkpoint never sees. 0 = OFF reproduces the original
+    # per-epoch cadence exactly, so existing encoders are unaffected.
+    every = max(0, int(getattr(args, "eval_every", 0) or 0))
+
+    def _check(tag):
+        nonlocal best_sel, best_auc, best_ap, best_state
+        acc, auc, apr = _evaluate(model, val_loader, device)
+        sel = apr if args.select_on == "auprc" else auc
+        print(f"[pretrain] {tag} | val_acc={acc:.4f} | val_auc={auc:.4f} "
+              f"| val_auprc={apr:.4f}", flush=True)
+        if not np.isnan(sel) and sel > best_sel:
+            best_sel, best_auc, best_ap = sel, auc, apr
+            best_state = {
+                "encoder_a": {k: v.detach().cpu().clone()
+                              for k, v in model.encoder_a.state_dict().items()},
+                "encoder_b": {k: v.detach().cpu().clone()
+                              for k, v in model.encoder_b.state_dict().items()},
+            }
+        model.train()
+
+    step = 0
     for ep in range(1, args.epochs + 1):
         model.train()
         run_loss, seen = 0.0, 0
@@ -229,18 +260,12 @@ def main():
             opt.step()
             run_loss += loss.item() * len(y)
             seen += len(y)
-        acc, auc, apr = _evaluate(model, val_loader, device)
-        sel = apr if args.select_on == "auprc" else auc
-        print(f"[pretrain] epoch {ep:3d}/{args.epochs} | loss={run_loss/max(seen,1):.4f} "
-              f"| val_acc={acc:.4f} | val_auc={auc:.4f} | val_auprc={apr:.4f}")
-        if not np.isnan(sel) and sel > best_sel:
-            best_sel, best_auc, best_ap = sel, auc, apr
-            best_state = {
-                "encoder_a": {k: v.detach().cpu().clone()
-                              for k, v in model.encoder_a.state_dict().items()},
-                "encoder_b": {k: v.detach().cpu().clone()
-                              for k, v in model.encoder_b.state_dict().items()},
-            }
+            step += 1
+            if every and step % every == 0:
+                _check(f"epoch {ep:3d}/{args.epochs} step {step:<7d} "
+                       f"loss={run_loss/max(seen,1):.4f}")
+        _check(f"epoch {ep:3d}/{args.epochs}            "
+               f"loss={run_loss/max(seen,1):.4f}")
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     torch.save({"encoders": best_state,

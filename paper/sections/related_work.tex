@@ -13,6 +13,8 @@
 % User-level DP (McMahan 2018), parameter-efficient DP fine-tuning (Li 2021,
 % Yu 2021) and DP quantile release (Smith 2011) are PRIOR ART and are named as
 % such before any gap is claimed.
+% READABILITY PASS 2026-10-21: formal register, shorter sentences; every
+% citation unchanged (checked by script).
 %==============================================================================
 
 \section{Related Work}
@@ -20,226 +22,186 @@
 
 \subsection{Federated Learning and Hierarchical Aggregation}
 
-The formulation of distributed training as the communication of model updates
-rather than of data \cite{ref1} established the basis upon which
-subsequent federated systems were constructed. In its flat form, however, every
-participating client transmits to a central server in every round, so that the
-wide-area link rather than local computation determines how frequently the
-global model may be revised. Client--edge--cloud designs \cite{ref2}
-addressed this by interposing an intermediate tier at which several rounds of
-local optimisation are absorbed before one round of central aggregation is
-performed. HED-FL \cite{ref3} developed the principle for
-constrained deployments, clustering devices dynamically at the edge and
-demonstrating that the avoidance of long-range transmission substantially
-extends the operational lifetime of an installation, while HCEF
-\cite{ref4} introduced heterogeneity awareness, adjusting per-device
-computation frequency and compression ratio online so that the slowest
-participant does not dictate the duration of a round. Mhaisen \emph{et al.}
-\cite{ref5} treated the assignment of clients to aggregators as
-the object of optimisation, showing that an assignment informed by the
-statistical properties of local data reduces model divergence under
-non-identically distributed conditions. These works establish the
-communication and energy case for hierarchy convincingly, and the present study
-adopts rather than re-derives it. None of them, however, carries a formal
-privacy guarantee: HED-FL provides none, and the assignment strategy of
-\cite{ref5} requires clients to disclose local label
-statistics, which is itself a release of information about the protected
-population and is difficult to reconcile with a strict budget.
+Federated learning trains a shared model by exchanging model updates instead
+of data \cite{ref1}. In its flat form, every client communicates with a central
+server in every round, so the wide-area link, rather than local computation,
+limits how often the global model can be updated. Client--edge--cloud designs
+\cite{ref2} address this with an intermediate tier that performs several
+rounds of local aggregation before each round of central aggregation. HED-FL
+\cite{ref3} applies this principle to constrained deployments, clustering
+devices dynamically at the edge and extending the operational lifetime of an
+installation by avoiding long-range transmission. HCEF \cite{ref4} adds
+heterogeneity awareness, adjusting per-device computation frequency and
+compression ratio online so that the slowest participant does not determine
+the round duration. Mhaisen \emph{et al.} \cite{ref5} optimize the assignment
+of clients to aggregators and show that an assignment based on the statistics
+of local data reduces model divergence under non-identically distributed data.
+These works establish the communication and energy benefits of hierarchy,
+which the present study adopts. None of them, however, provides a formal
+privacy guarantee. HED-FL provides none, and the assignment strategy of
+\cite{ref5} requires clients to disclose local label statistics, which is
+itself a release of information about the protected population.
 
 \subsection{Differential Privacy in Federated Learning}
 
-Differentially private stochastic gradient descent \cite{ref6}
-supplies the guarantee that hierarchical designs omit, bounding the influence of
-a training record by clipping its gradient to a fixed norm and perturbing the
-aggregate with calibrated noise, with the accumulated cost tracked by a moments
-or R\'enyi accountant \cite{ref7} within the framework of
-\cite{ref8}. Within federated learning the mechanism has been
-developed in two principal directions. FL2DP \cite{ref9} combines an
-exponential noise mechanism with a shuffling entity that severs the association
-between a client and the update it contributes, reporting improved accuracy at
-an equivalent formal guarantee, while RoPPFL \cite{ref10} pairs local
-differential privacy with similarity-based robust aggregation performed at the
-edge, so that the intermediate tier serves as a verifier against corrupted
-updates as well as a relay. Both establish that a formal guarantee is
-attainable in the federated setting at acceptable cost. Both, however, are
-organised flatly with respect to the property considered here: FL2DP provides
-differential privacy without a hierarchy in the sense that the edge tier plays
-no part in the accounting, and neither examines how the interposition of such a
-tier alters the frequency with which each client's budget is expended, which is
-the quantity upon which the calibration of the noise ultimately depends.
+Differentially private stochastic gradient descent \cite{ref6} bounds the
+influence of each training record by clipping its gradient to a fixed norm and
+adding calibrated noise to the aggregate. The accumulated privacy cost is
+tracked by a moments or R\'enyi accountant \cite{ref7} within the framework of
+\cite{ref8}. In federated learning, the mechanism has been developed in two
+main directions. FL2DP \cite{ref9} combines an exponential noise mechanism with
+a shuffler that removes the association between a client and its update,
+improving accuracy at an equivalent guarantee. RoPPFL \cite{ref10} combines
+local differential privacy with similarity-based robust aggregation at the
+edge, so that the intermediate tier also verifies updates. Both show that a
+formal guarantee is attainable in federated learning at acceptable cost.
+Neither, however, accounts for the edge tier: in FL2DP the edge plays no role
+in the privacy accounting, and neither work examines how an intermediate tier
+changes the frequency with which each client's budget is spent, which
+determines the calibration of the noise.
 
-\subsection{The Unit to Which a Guarantee Attaches}
+\subsection{The Unit to Which a Guarantee Applies}
 
-The distinction between a guarantee stated over records and one stated over
-individuals is long established and is not a contribution of the present work.
-McMahan \emph{et al.} \cite{ref11} introduced user-level
-differential privacy for federated language models, bounding the contribution of
-each user rather than of each example, and the group-privacy relation by which
-one may be converted into the other is standard \cite{ref8}.
-The mechanism is therefore available; what is not available is a measurement of
-what it costs in the setting that most requires it. In clinical monitoring the
-grouping of records under an individual is not a property of a few atypical
-participants but of every participant, since a single episode of care yields
-many time-aligned records, and the conversion factor is consequently applied to
-the whole population rather than to its tail. The literature supplies neither
-the utility forgone when the unit is moved from the record to the individual on
-genuinely paired multimodal clinical data, nor the manner in which that cost
-varies with the number of records an individual contributes, and in the absence
-of the latter a single measurement cannot be distinguished from a property of
-the particular cohort on which it was obtained.
+The distinction between record-level and individual-level guarantees is well
+established. McMahan \emph{et al.} \cite{ref11} introduced user-level
+differential privacy for federated language models, bounding the contribution
+of each user rather than each example, and group privacy provides the standard
+conversion between the two \cite{ref8}. What is missing is a measurement of the
+cost of the individual-level guarantee in the setting that most requires it.
+In clinical monitoring, every participant contributes many records, because a
+single episode of care yields many time-aligned windows. The conversion factor
+therefore applies to the entire population rather than to a few atypical
+participants. The literature reports neither the utility lost when the unit is
+moved from the record to the individual on genuinely paired multimodal
+clinical data, nor how that cost varies with the number of records per
+individual. Without the latter, a single measurement cannot be distinguished
+from a property of the particular cohort.
 
 \subsection{Parameter-Efficient Private Adaptation}
 
-The perturbation that a parameter vector must absorb under a fixed budget grows
-with its dimensionality, so that private training of an entire network degrades
-severely at the budgets a clinical claim requires. Restricting the private
-optimisation to a compact trainable subset situated above frozen pretrained
-representations is an established remedy, and Li \emph{et al.}
-\cite{ref12} and Yu \emph{et al.} \cite{ref13} demonstrate
-that parameter-efficient differentially private fine-tuning is markedly more
-robust at small $\varepsilon$ than end-to-end private training. The present
-work adopts this recipe and claims no novelty for it. The recipe nevertheless
-carries a precondition that is frequently left implicit: the corpus upon which
-the frozen representations are obtained must be disjoint from the protected
-population, since otherwise the representations have already been derived from
-that population without a guarantee and the budget subsequently reported for
-the trainable component does not describe the system as a whole. Where the
-precondition is honoured it is seldom priced, so the utility conceded in order
-to obtain a guarantee that is valid end-to-end remains unquantified; and the
-consequences of the recipe for what the resulting model retains of its training
-population have received little attention.
+The noise a parameter vector must absorb under a fixed budget grows with its
+dimension, so private training of a full network degrades severely at the
+budgets required for clinical use. Restricting private optimization to a
+compact trainable subset above frozen pretrained representations is an
+established remedy: Li \emph{et al.} \cite{ref12} and Yu \emph{et al.}
+\cite{ref13} show that parameter-efficient differentially private fine-tuning
+is considerably more robust at small $\varepsilon$ than end-to-end private
+training. The present work adopts this approach and claims no novelty for it.
+The approach, however, is valid only if the corpus used to obtain the frozen
+representations is disjoint from the protected population. Otherwise, the
+representations are derived from that population without a guarantee, and the
+budget reported for the trainable component does not describe the system as a
+whole. This condition is often left implicit, and where it is satisfied, its
+cost in utility is rarely reported.
 
 \subsection{Membership Inference as Empirical Auditing}
 
-A differential privacy guarantee is an upper bound upon the influence of a
-participant and does not by itself establish what an adversary attains in
-practice, for which membership inference supplies the complementary
-measurement. Shokri \emph{et al.} \cite{ref14} introduced the
-shadow-model formulation, and thresholding of the loss or confidence
-\cite{ref15} remains the most commonly reported attack. Such
-attacks are weak by construction: a single global threshold is confounded by
-the varying difficulty of individual examples, so that an easily fitted
-non-member may be scored above a poorly fitted member and the reported strength
-constitutes a lower bound upon leakage rather than an estimate of it. Watson
-\emph{et al.} \cite{ref16} demonstrated that calibrating against
-per-example difficulty alters conclusions materially, and Carlini \emph{et al.}
-\cite{ref17} formalised the calibration as a likelihood-ratio test
-between per-example in- and out-distributions estimated from shadow models,
-arguing further that attacks should be assessed by their true-positive rate at
-low false-positive rate rather than by an average-case summary that conceals
-confident identification of a minority. Two limitations persist. Membership is
-almost invariably evaluated at the granularity of the training record, which is
-precisely the quantity that a record-level guarantee already protects and not
-the quantity a clinical guarantee concerns; and negative results are rarely
-accompanied by evidence that the attack employed was capable of a positive one,
-so that an absence of detected leakage cannot be distinguished from an
-inadequate adversary.
+A differential privacy guarantee is an upper bound on the influence of a
+participant; it does not show what an adversary achieves in practice.
+Membership inference provides this complementary measurement. Shokri \emph{et
+al.} \cite{ref14} introduced the shadow-model formulation, and thresholding of
+the loss or confidence \cite{ref15} remains the most commonly reported attack.
+Such attacks are weak, because a single global threshold ignores the varying
+difficulty of individual examples. An easily fitted non-member may therefore
+score above a poorly fitted member, and the reported attack strength is a lower
+bound on leakage rather than an estimate of it. Watson \emph{et al.}
+\cite{ref16} showed that calibrating for per-example difficulty changes
+conclusions substantially. Carlini \emph{et al.} \cite{ref17} formalized this
+calibration as a likelihood-ratio test between per-example in- and
+out-distributions estimated from shadow models, and recommended evaluating
+attacks by their true-positive rate at a low false-positive rate. Two
+limitations remain. First, membership is almost always evaluated at the level
+of the training record, which a record-level guarantee already protects, rather
+than at the level of the individual. Second, negative results are rarely
+accompanied by evidence that the attack could produce a positive one, so the
+absence of detected leakage cannot be distinguished from a weak adversary.
 
 \subsection{Multimodal and Clinical Federated Learning}
 
-The motivation for federated learning is particularly clear in medicine, where
-governance rather than volume prevents the assembly of data at a single site
-\cite{ref18, ref19}. The majority of federated work,
-including the systems discussed above \cite{ref9, ref3, ref4, ref10}, nevertheless treats the local objective as the
-aggregation of generic parameter vectors and does not represent multiple
-modalities per record, notwithstanding that clinical evidence is characteristically
-multimodal and that the modalities available at one institution may differ from
-those available at another. Where multimodal federated benchmarks have been
-assembled, the modalities are frequently associated by a construction rule
-rather than by common provenance, so that an apparent benefit of fusion may
-reflect the regularity of the rule rather than genuinely complementary
-information; a benchmark of this kind cannot support a claim about fusion at
-all. Corpora in which both modalities originate from the same individual during
-the same episode and are aligned at the point of capture
-\cite{ref20}, or are synchronised in hardware
-\cite{ref21}, avoid the difficulty entirely, since the association is a
-property of the source and requires no defence.
+Federated learning is particularly well motivated in medicine, where data
+governance rather than data volume prevents pooling at a single site
+\cite{ref18, ref19}. Most federated work, including the systems discussed above
+\cite{ref9, ref3, ref4, ref10}, treats the local objective as the aggregation
+of generic parameter vectors and does not model multiple modalities per record,
+although clinical data are typically multimodal and the available modalities
+may differ between institutions. In existing multimodal federated benchmarks,
+the modalities are often paired by a construction rule rather than by common
+origin. An apparent fusion benefit on such a benchmark may reflect the pairing
+rule rather than complementary information, so it cannot support a claim about
+fusion. Corpora in which both modalities come from the same individual during
+the same episode and are aligned at capture \cite{ref20}, or synchronized in
+hardware \cite{ref21}, avoid this problem, because the pairing is a property of
+the source.
 
 \subsection{Uncertainty Quantification under a Privacy Budget}
 
-Conformal prediction provides prediction sets carrying a distribution-free
+Conformal prediction produces prediction sets with a distribution-free
 coverage guarantee and requires neither retraining nor distributional
-assumptions \cite{ref22, ref23}, which
-recommends it for clinical deployment, where a point prediction unaccompanied
-by a statement of confidence is of limited use. Its application within a
-private system introduces a complication that is easily overlooked: the
-procedure requires the release of a quantile of nonconformity scores computed
-upon held-out data belonging to the protected population, and such a release is
-a disclosure in exactly the sense the surrounding framework exists to bound.
-Differentially private release of a quantile by the exponential mechanism is
-itself standard \cite{ref24}, so the mechanism is not at issue.
-What is at issue is the accounting: the cost of calibration composes with the
-cost of training, and a system that reports only the latter understates the
-budget it has expended, by a factor that grows with the number of occasions on
-which calibration is performed.
+assumptions \cite{ref22, ref23}. This makes it suitable for clinical
+deployment, where a point prediction without a confidence statement is of
+limited use. In a private system, however, conformal calibration requires the
+release of a quantile of nonconformity scores computed on held-out data from
+the protected population, and this release is itself a disclosure.
+Differentially private quantile release by the exponential mechanism is
+standard \cite{ref24}. The open issue is accounting: the cost of calibration
+composes with the cost of training, and a system that reports only the latter
+understates its total budget, by an amount that grows with the number of
+calibration releases.
 
 \subsection{Real-Time Inference and Quality of Service at the Edge}
 
-A federated system is trained once and queried continuously, and the constraint
-that governs its clinical usefulness after deployment is the delay between a
-measurement arriving and a decision being available, rather than the time taken
-to reach convergence. The federated literature has addressed the latter
-extensively and the former hardly at all: HCEF \cite{ref4} adapts computation
-frequency and compression ratio online, but the quantity it optimises is the
-duration of a training round; RoPPFL \cite{ref10} places verification at the
-edge in order to reject corrupted updates, prioritising robustness over
-response time; and HED-FL \cite{ref3} is concerned with the energy consumed in
-reaching a model rather than the latency of using one. Where inference cost has
-been considered it has generally been within the edge-computing literature
-rather than the federated one \cite{ref25}, and the principal instrument is
-reduced-precision arithmetic, integer quantisation in particular being well
-established as a means of lowering both memory footprint and inference time on
-commodity hardware \cite{ref26}. The consequence is a gap that matters
-precisely for the systems this work targets: a federated design may satisfy a
-strict privacy budget and still be unusable at the bedside if the delay between
-observation and prediction exceeds the window in which a clinician can act,
-and no existing federated system reports an end-to-end inference latency
-measured under the privacy mechanism it deploys, alongside the communication
-and energy costs incurred in producing the model that serves it.
+A federated model is trained once and queried continuously. After deployment,
+its clinical usefulness depends on the delay between the arrival of a
+measurement and the availability of a prediction, not on the time to
+convergence. The federated literature has studied the latter extensively and
+the former very little. HCEF \cite{ref4} adapts computation frequency and
+compression ratio online, but it optimizes the duration of a training round.
+RoPPFL \cite{ref10} verifies updates at the edge, prioritizing robustness over
+response time. HED-FL \cite{ref3} minimizes the energy needed to train a model
+rather than the latency of using it. Inference cost has mainly been studied in
+the edge-computing literature rather than the federated literature
+\cite{ref25}, where reduced-precision arithmetic, in particular integer
+quantization, is an established way to lower memory footprint and inference
+time on commodity hardware \cite{ref26}. A federated system may therefore meet
+a strict privacy budget and still be unusable at the bedside if its prediction
+latency exceeds the time within which a clinician can act. No existing
+federated system reports end-to-end inference latency under its deployed
+privacy mechanism together with the communication and energy costs of training
+the model.
 
 \subsection{Summary and Research Gap}
 
-These lines of work converge upon the setting from which the present study
-proceeds, and five observations remain. First, hierarchy and formal privacy
-have been developed largely in separation --- the hierarchical systems provide
-no guarantee, and the private systems do not examine how an intermediate tier
-alters the expenditure of the budget --- so that the interaction between the two
-is unmeasured although each is individually well understood. Second, the
-mechanism for stating a guarantee over individuals rather than records is
-established, but its cost on genuinely paired clinical multimodal data is not,
-and in the absence of any characterisation of how that cost varies with the
-number of records an individual contributes, a single measurement cannot be
-distinguished from an artefact of the cohort upon which it was obtained. Third,
-parameter-efficient private adaptation is widely adopted, yet the disjointness
-of the pretraining corpus upon which its validity depends is frequently left
-implicit and, where honoured, is not priced. Fourth, guarantees are typically reported from the parameters of the mechanism
-rather than audited by attack; where an audit is conducted it is performed at
-the granularity of the record, and a null result is seldom accompanied by the
-evidence that would distinguish an effective defence from an inadequate
-adversary. Fifth, and cutting across the foregoing, the cost of a federated
-design is reported in the currency of training --- rounds to convergence,
-bytes exchanged, energy expended --- while the delay experienced by the
-clinician who queries the deployed model is left unmeasured, notwithstanding
-that it is this delay which determines whether the system can be used at the
-point of care at all.
+Five gaps follow from this review. First, hierarchy and formal privacy have
+been developed largely separately: hierarchical systems provide no guarantee,
+and private systems do not examine how an intermediate tier affects budget
+expenditure. Their interaction is therefore unmeasured. Second, the mechanism
+for stating a guarantee over individuals is established, but its cost on
+genuinely paired clinical multimodal data is not. Without a characterization of
+how this cost varies with the number of records per individual, a single
+measurement cannot be distinguished from an artifact of the cohort. Third,
+parameter-efficient private adaptation is widely used, but the disjointness of
+the pretraining corpus on which its validity depends is often left implicit,
+and its cost is not reported. Fourth, guarantees are usually reported from the
+mechanism's parameters rather than audited by attack. Where audits exist, they
+operate at the record level, and null results are rarely accompanied by
+evidence that the attack could detect leakage. Fifth, the cost of federated
+designs is reported in training terms, such as rounds to convergence, bytes
+exchanged and energy consumed, while the inference latency experienced by the
+clinician is not measured, although it determines whether the system can be
+used at the point of care.
 
-The present work addresses these five points together. It combines a two-tier
-hierarchy with a guarantee whose sensitivity is enforced at the level of the
-individual at the point of clipping rather than recovered by conversion
-afterwards, and calibrates the noise against every client simultaneously so
-that the interposition of the edge tier is reflected in the reported budget. It
-measures the utility conceded by moving the unit from the record to the
-individual, and characterises that cost as a function of the number of records
-each individual contributes rather than at a single operating point. It
-enforces and verifies the disjointness of the pretraining population, and
-reports the utility forgone in order that the resulting guarantee be valid
-end-to-end. Finally, it audits the guarantee by mounting membership inference
-at the level of the individual, using both a threshold attack and a
-likelihood-ratio attack calibrated per individual, and reports every result
-alongside a positive control on a configuration known to memorise, so that a
-negative finding may be attributed to the defence rather than to the adversary.
-Finally, it specifies and instruments the deployment path, so that the
-end-to-end latency of a prediction, the volume of traffic the hierarchy
-carries, and the energy each tier expends are reported for the same
-configuration that carries the privacy guarantee, rather than for a
-differently-configured system.
+The present work addresses these five gaps together. It combines a two-tier
+hierarchy with a guarantee enforced at the level of the individual at the point
+of clipping, rather than obtained by conversion afterwards, and calibrates the
+noise against every client simultaneously so that the reported budget reflects
+the edge tier. It measures the utility lost by moving the unit from the record
+to the individual, and characterizes this cost as a function of the number of
+records per individual rather than at a single operating point. It enforces
+and verifies the disjointness of the pretraining population and reports the
+utility cost of an end-to-end valid guarantee. It audits the guarantee by
+individual-level membership inference, using both a threshold attack and a
+per-individual calibrated likelihood-ratio attack, each reported with a
+positive control on a configuration known to memorize. Finally, it reports the
+end-to-end prediction latency, the traffic carried by the hierarchy and the
+energy consumed by each tier for the same configuration that carries the
+privacy guarantee.

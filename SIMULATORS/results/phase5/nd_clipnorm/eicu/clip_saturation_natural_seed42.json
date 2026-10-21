@@ -1,0 +1,15 @@
+{
+  "dataset": "eicu",
+  "k": 8,
+  "seed": 42,
+  "max_grad_norm": 1.0,
+  "n_patients": 2965,
+  "partition_dir": "/home/mit/DEADSERPENT/HFL/SIMULATORS/data/processed/partitions/eicu",
+  "windows_per_patient_sd": 18.125111586190535,
+  "saturation": {
+    "none": 0.3944577488881286,
+    "k": 0.20390010263427985,
+    "sqrt_k": 0.2938761546356483
+  },
+  "N1_held": false
+}

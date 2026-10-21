@@ -1,0 +1,94 @@
+%==============================================================================
+% abstract_draft.tex — DRAFT replacement for abstract.tex.
+%
+% TITLE IS FIXED AND DOES NOT CHANGE:
+%   "Hierarchical Federated Learning for Privacy-Aware, Low-Latency
+%    Multimodal IoT Systems"
+%
+% The abstract's job is therefore to EARN each element of that title. All five
+% are supported by artefacts; one of them is supported conditionally and must
+% be stated that way or a reviewer will falsify it.
+%
+%   HIERARCHICAL  — three tiers, and the edge tier is inside the privacy
+%                   accounting rather than outside it. O1 uplink 90.822% /
+%                   96.082%. The hierarchy costs ~0.005 AUROC and buys
+%                   communication; state it as a deliberate trade, never as an
+%                   accuracy benefit.   [objectives_*.json, c1_hierarchy]
+%   PRIVACY-AWARE — patient-level DP by construction; composed budget
+%                   eps 0.970 / 0.966 <= 1 INCLUDING the conformal quantile;
+%                   individual-level membership-inference audit carried with a
+%                   positive control.   [privacy_total_*.json, lira/]
+%   LOW-LATENCY   — O3a P95 inference 3.048 ms / 1.218 ms against a 100 ms
+%                   target, measured through ONNX Runtime. Quote THIS. Do NOT
+%                   quote absolute round latency: its compute terms are
+%                   analytical, only the network terms are packet-level.
+%   MULTIMODAL    — supported as (a) a benchmark genuinely paired at source —
+%                   one patient, one operation, pairing a property of the
+%                   instrument, not a join rule — and (b) a CONDITIONAL result:
+%                   fusion pays only where the task leaves headroom. It gains
+%                   0.0370 AUROC on VitalDB; WEAR cannot test it (better single
+%                   modality 0.9976); on eICU it is a null (+0.0037, 0.2x seed
+%                   sd, AUPRC -0.0001). Three corpora spanning both outcomes is
+%                   what licenses a per-task criterion. NEVER claim an
+%                   unconditional fusion benefit — that is the one sentence in
+%                   this paper a reviewer can falsify in ten minutes.
+%   IoT SYSTEMS   — packet-level NS-3, CloudSim energy 72.300% / 76.841%,
+%                   ONNX deployment. O3b reliability 100% / 99.944%.
+%
+% Numbers, all from artefacts under SIMULATORS/results/:
+%   objectives_{vitaldb,wear}.json ; privacy_total_*.json ;
+%   epsilon_sweep/vitaldb/ 3 seeds, 2026-09-21:
+%       B4 sensitivity -0.1181 [-0.1488,-0.0874] p=.004
+%       B7 sensitivity +0.0079 [-0.0291,+0.0449] p=.456  <- covers zero
+%       B7->B6 gap covers zero at every budget (p >= .099)
+%     DO NOT QUOTE "19x"/"79x": a ratio whose denominator is measured at
+%     +0.0079 with per-seed values straddling zero (-0.0062,+0.0064,+0.0235).
+%     Noise-dominated and can print anything. Report the difference.
+%     wear still single-seed at time of writing; revise when it lands.
+%   k_scaling/{vitaldb,eicu}/ ;
+%   phase5/ablation_{vitaldb,eicu}.json ; lira/vitaldb/ ;
+%   data/processed/eicu/meta/dataset_meta.json (187 clients, 132,736 people)
+%==============================================================================
+
+\begin{abstract}
+Multimodal Internet-of-Things deployments in clinical settings generate streams
+that cannot be centralised; federated learning removes that obstacle and a
+hierarchical organisation relieves the wide-area link, but neither supplies a
+privacy guarantee. The guarantee such systems report is stated over training
+records while the one a clinical setting requires concerns individuals, and
+wherever an episode of care yields many records the two differ for every
+participant: converting between them after the fact degrades a budget of
+$\varepsilon \approx 1$ to $\varepsilon \approx 8$ at an unusable $\delta$.
+This paper presents a three-tier framework in which the privacy unit is the
+patient by construction --- gradients are grouped by individual before they are
+bounded, the noise scale is calibrated against every client so that the edge
+tier enters the reported budget, and the conformal calibration quantile is
+charged to that budget rather than omitted from it. Accounted directly the
+guarantee costs $1.77\times$ the noise of a record-level one, not eight times
+the budget. Encoders pretrained on a population disjoint from every client are
+frozen, so only a compact fusion head is privatised and transmitted: the
+composed budget is $\varepsilon \le 1$, uplink traffic falls by $90.8\,\%$ and
+$96.1\,\%$, and $95$th-percentile inference latency is $3.0$~ms. Three findings
+qualify the design rather than advertise it. Pretrained initialisation, not the
+restriction of noise to the head, is what makes a strict budget survivable: as
+the budget tightens from $\varepsilon = \infty$ to $\varepsilon = 0.5$, a
+full-model private arm trained from a random start loses $0.118$ in area under
+the ROC curve while the same arm from a pretrained start loses nothing
+measurable, and restricting noise to the head adds no accuracy over that at any
+budget. The cost
+of the guarantee grows with the records each individual contributes and
+vanishes where the units coincide, so the experiment controls itself; against a
+forecast frozen before an external corpus of $187$ hospitals was built it
+reproduces in shape but not in magnitude. Fusion is likewise conditional, worth
+$0.0370$ in area under the ROC curve where the task leaves headroom and nothing
+where one modality already suffices. An individual-level membership-inference
+audit, reported alongside a positive control on a configuration known to
+memorise, refutes the leakage difference the design was predicted to produce
+without establishing that the two guarantees are equivalent.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Federated learning, differential privacy, hierarchical aggregation, edge
+computing, conformal prediction, membership inference, clinical decision
+support, Internet of Things.
+\end{IEEEkeywords}

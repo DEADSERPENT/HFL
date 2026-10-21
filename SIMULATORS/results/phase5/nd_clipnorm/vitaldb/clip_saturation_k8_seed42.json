@@ -1,0 +1,13 @@
+{
+  "dataset": "vitaldb",
+  "k": 8,
+  "seed": 42,
+  "max_grad_norm": 1.0,
+  "n_patients": 1386,
+  "saturation": {
+    "none": 0.6846846846846847,
+    "k": 0.4069069069069069,
+    "sqrt_k": 0.5555555555555556
+  },
+  "N1_held": false
+}

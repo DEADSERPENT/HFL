@@ -153,6 +153,13 @@ def main():
     ap.add_argument("--rounds", type=int, default=10)
     ap.add_argument("--tau_e", type=int, default=5)
     ap.add_argument("--epsilon", type=float, default=1.0)
+    ap.add_argument("--epsilon_conf", type=float, default=0.20,
+                    help="Budget per conformal calibration call, composed into "
+                         "the reported total. hfl_trainer defaults this to 0.5, "
+                         "which with --epsilon 1.0 composes to 1.49 and FAILS "
+                         "the eps<=1 objective; runs before 2026-09-21 inherited "
+                         "that default because this script never passed the flag. "
+                         "The default here is the pre-registered operating point.")
     ap.add_argument("--batch_size", type=int, default=32,
                     help="units per step. Deliberately used for BOTH "
                          "--batch_size and --patients_per_batch so the two "
@@ -183,7 +190,9 @@ def main():
     print("=" * 74)
     print(f"k-SCALING — {a.dataset}   k={a.k}  seeds={a.seeds}  arms={a.arms}")
     print("=" * 74)
-    print(f"  units per step: {a.batch_size} (both arms)   eps={a.epsilon}")
+    print(f"  units per step: {a.batch_size} (both arms)   "
+          f"eps_train={a.epsilon}  eps_conf={a.epsilon_conf}  "
+          f"total<={a.epsilon + a.epsilon_conf:.2f}")
     print(f"  output: {out_root}\n")
 
     rows = []
@@ -205,6 +214,7 @@ def main():
                            "--dataset", a.dataset,
                            "--rounds", str(a.rounds), "--tau_e", str(a.tau_e),
                            "--epsilon", str(a.epsilon),
+                           "--epsilon_conf", str(a.epsilon_conf),
                            "--batch_size", str(a.batch_size),
                            "--patients_per_batch", str(a.batch_size),
                            "--dp_unit", arm,
@@ -255,7 +265,7 @@ def main():
     print(f"  {'k':>3}{'record AUROC':>15}{'patient AUROC':>16}"
           f"{'gap':>10}   {'95% CI of gap':>22}")
     print("  " + "-" * 68)
-    gaps = {}
+    gaps, observed = {}, {}
     for k in a.k:
         s = by.get((k, "sample"), {})
         p = by.get((k, "patient"), {})
@@ -266,6 +276,10 @@ def main():
         t = paired_test(pv, sv)          # sample - patient
         ms, _, _ = mean_ci(sv); mp, _, _ = mean_ci(pv)
         gaps[k] = t
+        # paired_test returns None with fewer than two seeds. Record the
+        # observed difference separately so "no interval" is never reported as
+        # "not run" — at k=1 that distinction is the validity anchor itself.
+        observed[k] = (float(np.mean(sv)) - float(np.mean(pv)), len(common))
         ci = f"[{t['ci_low']:+.4f}, {t['ci_high']:+.4f}]" if t else "—"
         g = f"{t['mean_diff']:+.4f}" if t else "—"
         print(f"  {k:>3}{ms:>15.4f}{mp:>16.4f}{g:>10}   {ci:>22}")
@@ -275,8 +289,16 @@ def main():
     print("  VALIDITY CHECK — the two arms must COLLAPSE at k=1")
     print("=" * 74)
     t1 = gaps.get(1)
-    if t1 is None:
+    if t1 is None and 1 not in observed:
         print("    k=1 not run — the curve has no validity anchor.")
+    elif t1 is None:
+        d, n = observed[1]
+        verdict = "consistent with" if abs(d) < 0.02 else "OUTSIDE"
+        print(f"    gap at k=1 = {d:+.4f} over {n} seed(s) — {verdict} the "
+              f"|gap| < 0.02 anchor.")
+        print("          A paired interval needs at least two seeds; this is "
+              "the observed\n          difference, not a resolved test. Run "
+              "more seeds before quoting it.")
     elif not t1["significant"]:
         print(f"    PASS  gap at k=1 = {t1['mean_diff']:+.4f} "
               f"[{t1['ci_low']:+.4f}, {t1['ci_high']:+.4f}] — includes zero.")

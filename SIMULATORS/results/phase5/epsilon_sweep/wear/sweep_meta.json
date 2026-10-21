@@ -10,15 +10,18 @@
   ],
   "recipes": [
     "full",
+    "full_pre",
     "head"
   ],
   "seeds": [
-    42
+    42,
+    43,
+    44
   ],
   "rounds": 10,
   "select_on": "auc",
   "class_weight": false,
-  "pretrained_encoders": "checkpoints/pretrained_encoders_wear.pt",
+  "pretrained_encoders": "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt",
   "n_devices": 22,
   "metric": "macro_auc"
 }

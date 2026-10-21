@@ -3,9 +3,9 @@
 % Self-contained \section{}; \input this into main.tex (never compile alone).
 %
 % STATUS: partial. Only subsections whose experiments are COMPLETE and whose
-% numbers are read from a results artefact appear here. Pending subsections are
+% numbers are read from a results artifact appear here. Pending subsections are
 % listed at the end of this file as comments, each naming the experiment and
-% the artefact that will supply it. Do not write a number into this file that
+% the artifact that will supply it. Do not write a number into this file that
 % does not appear in a file under SIMULATORS/results/.
 %
 % Every figure quoted below is traceable:
@@ -22,22 +22,19 @@
 \subsection{System-Level Objectives}
 \label{sec:results:objectives}
 
-The framework is evaluated on two deployments that differ in the property most
-relevant to it. In the clinical deployment, nine institutional clients hold the
-records of $6{,}257$ patients, so a client contains many individuals and each
-individual contributes $7.8$ records on average. In the wearable deployment,
-each of twenty-two clients corresponds to a single participant contributing
-some $1{,}750$ records. The two therefore exercise the same framework under
-opposite groupings, and the second serves as a check that the system-level
-behaviour is not particular to one topology or payload size.
+The framework is evaluated on two deployments that differ in client
+composition. In the clinical deployment, nine institutional clients hold the
+records of $6{,}257$ patients, so each client contains many individuals, and
+each individual contributes $7.8$ records on average. In the wearable
+deployment, each of the twenty-two clients corresponds to a single participant
+who contributes approximately $1{,}750$ records. The second deployment also
+tests whether the system-level behavior generalizes across topology and payload
+size.
 
 Table~\ref{tab:results_objectives} reports the measured value of each design
-objective of Table~\ref{tab:objectives} on both. Every target is attained on
-the clinical deployment; on the wearable deployment every target is attained
-except the accuracy bound, which is inconclusive for the reason given below.
-Two of the measurements warrant comment before the individual objectives are
-discussed, because both concern how the numbers were obtained rather than what
-they are.
+objective of Table~\ref{tab:objectives}. All targets are met on the clinical
+deployment. On the wearable deployment, all targets are met except the accuracy
+bound, which is inconclusive.
 
 \begin{table}[!t]
 \centering
@@ -67,7 +64,10 @@ O4  & Energy saving      & $72.3\%$   & $76.8\%$   & $\ge 20\%$ \\
 
 \begin{table}[!t]
 \centering
-\caption{Inference latency decomposition, integer-quantised graph on a CPU
+% !! STALE: latency_vitaldb.json (2026-09-06) gives total mean 2.912 / P95 3.048 ms
+% !! on the FP32 graph, 200 runs. Values and caption below are from an older run.
+% !! Resolve before submission (see session notes 2026-10-21).
+\caption{Inference latency decomposition, integer-quantized graph on a CPU
 provider, 1000 timed executions after 100 discarded warm-up executions.}
 \label{tab:latency}
 \begin{tabular}{lrr}
@@ -88,227 +88,227 @@ Total                      & 4.401 & 4.582 \\
 \centering
 \includegraphics[width=\textwidth]{fig7_energy.pdf}
 \caption{Energy per training round, attributed by tier, on both deployments.
-The hierarchy alone relocates work without reducing it --- device energy is
-unchanged and edge energy is added --- and only the proposed configuration
-reduces the constrained tier.}
+The hierarchy alone redistributes work without reducing it: device energy is
+unchanged and edge energy is added. Only the proposed configuration reduces the
+energy of the constrained tier.}
 \label{fig:energy}
 \end{figure*}
 
-First, the network quantities are measured rather than modelled. An earlier
-configuration of the simulator evaluated the packet-level topology on one round
-in ten and composed the remaining rounds analytically, and the two do not
-agree: the analytical model placed the communication term of the centralised
-baseline at $256$ ms where the simulated network delivers $23.6$ ms, which
-inflated the apparent latency benefit of the hierarchy roughly fourfold. Every
-network figure reported here is therefore drawn from rounds in which the
-payload traversed the simulated topology, with no analytically composed rows
-contributing to any mean.
+All network quantities are measured on every simulated round. An earlier
+simulator configuration evaluated one round in ten at packet level and composed
+the remaining rounds analytically. The two approaches disagree: the analytical
+model placed the communication term of the centralized baseline at $256$ ms,
+whereas the simulated network delivers $23.6$ ms, which overstated the latency
+benefit of the hierarchy by a factor of about four. No analytically composed
+rounds contribute to the values reported here.
 
-Second, the reported privacy budget is the composed total. Training accounts
-for $\varepsilon = 0.7705$ and the release of the conformal calibration
-quantile for a further $0.2000$, giving $0.970$ against a budget of unity. Had
-only the training term been reported --- which is the quantity a naive
-accounting produces --- the system would have appeared to spend $23\,\%$ less
-than it did.
+The reported privacy budget is the composed total. Training accounts for
+$\varepsilon = 0.7705$ and the release of the conformal calibration quantile
+for a further $0.2000$, giving $0.970$ against a budget of one. Reporting only
+the training term would understate the expenditure by $23\,\%$.
 
 \subsubsection{Communication and latency}
 Two-tier aggregation reduces uplink traffic by $90.8\,\%$ relative to
-centralised training, against a required $50\,\%$. The measurement is taken
-from the compressor as deployed and includes the index array that top-$\kappa$
-sparsification must transmit alongside the retained values, which an
-analytical payload estimate omits and which is not negligible at high
-sparsity.
+centralized training, against a target of $50\,\%$. The measurement is taken
+from the deployed compressor and includes the index array that top-$\kappa$
+sparsification transmits with the retained values, which analytical payload
+estimates omit and which is not negligible at high sparsity.
 
-The hierarchy also reduces the end-to-end latency of a training round, from
-$90.5$ ms to $75.2$ ms in the clinical deployment, a reduction of
-$16.9\,\%$. The benefit is consistent rather than incidental: it is positive in
-every simulated round, with a minimum of $8.2\,\%$ and a maximum of
-$25.8\,\%$. It is, however, considerably smaller than the reduction in
-traffic, and the reason is visible in the decomposition: the communication term
-falls from $23.6$ ms to $16.5$ ms, while the compute terms --- sensing,
-preprocessing, inference and aggregation --- are common to every topology and
-dominate the total. A hierarchy relieves the link, not the computation, and a
-latency claim that did not separate the two would attribute to the topology an
-improvement it cannot produce.
+The hierarchy also reduces the end-to-end latency of a training round from
+$90.5$ ms to $75.2$ ms in the clinical deployment, a reduction of $16.9\,\%$.
+The reduction is positive in every simulated round, ranging from $8.2\,\%$ to
+$25.8\,\%$. It is smaller than the traffic reduction because the communication
+term falls from $23.6$ ms to $16.5$ ms, while the compute terms (sensing,
+preprocessing, inference and aggregation) are common to all topologies and
+dominate the total. The hierarchy reduces link time, not computation.
 
-The wearable deployment reduces round latency further, from $104.5$ ms to
-$81.8$ ms, or $21.7\,\%$, with the communication term falling from $37.6$ ms to
-$23.2$ ms. That the larger topology benefits more is consistent with the
-mechanism rather than incidental to it: twenty-two stations contend for the
-same wireless medium where nine do not, so the latency attributable to the
-uplink is a larger share of the total and relieving it recovers more. The
-effect is in the direction the design predicts, and it is the reason the
-benefit should not be quoted as a single number divorced from the topology that
-produced it.
+In the wearable deployment, round latency falls from $104.5$ ms to $81.8$ ms,
+or $21.7\,\%$, with the communication term falling from $37.6$ ms to
+$23.2$ ms. The larger reduction is consistent with the larger topology:
+twenty-two stations contend for the same wireless medium rather than nine, so
+uplink latency is a larger share of the total. The latency benefit of the
+hierarchy therefore depends on the topology.
 
 \subsubsection{Cost of a valid guarantee}
-The results above were obtained under the oracle encoder configuration, in
-which the frozen representation was pretrained on the pooled client training
-data. That configuration does not carry a valid end-to-end guarantee, and the
-utility it reports is consequently an upper bound. Re-running the proposed
-system under the disjoint configuration, in which the encoders see only a
-population reserved before federated training and disjoint from every client,
-costs $0.0322$ in area under the ROC curve $(0.8429 \rightarrow 0.8107)$,
-$0.0310$ at the case level and $0.0763$ in average precision.
-
-That figure is the price of the guarantee rather than a deficiency of the
-method, and reporting it is the point: a system that pretrains on its own
-clients' data and reports a budget for the head alone has not made an
-end-to-end statement, and the difference quantifies exactly how much of the
-apparent performance depended on that shortcut. The comparisons between arms
-are unaffected, since every arm shares the same encoders; what changes is the
-level at which all of them sit.
+The results above were obtained with the oracle encoder configuration, in which
+the frozen representation was pretrained on the pooled client training data.
+This configuration does not provide a valid end-to-end guarantee, and its
+utility is therefore an upper bound. With the disjoint configuration, in which
+the encoders are pretrained only on a population reserved before federated
+training and disjoint from every client, the area under the ROC curve decreases
+by $0.0322$ $(0.8429 \rightarrow 0.8107)$, by $0.0310$ at the case level, and
+average precision by $0.0763$. This difference is the cost of an end-to-end
+valid guarantee. Comparisons between arms are unaffected, because all arms
+share the same encoders.
 
 \subsubsection{Privacy and utility}
-The composed budget of $0.970$ satisfies the $\varepsilon \le 1$ requirement.
-Against a non-private reference trained under the identical recipe, the change
-in balanced accuracy under that budget is $-0.92$ pp with a paired $95\,\%$
-confidence interval of $[-2.82, +0.99]$ over five seeds. The interval contains
-zero, so the correct reading is that no accuracy cost is detectable at this
-sample size, not that privacy improved the model; the point estimate is
-negative but the experiment cannot resolve an effect of that magnitude. The
-requirement of at most $2$ pp is met on either reading.
+The composed budget of $0.970$ satisfies the requirement $\varepsilon \le 1$.
+Relative to a non-private reference trained with the same recipe, the change in
+balanced accuracy is $-0.92$ pp, with a paired $95\,\%$ confidence interval of
+$[-2.82, +0.99]$ over five seeds. The interval contains zero, so no accuracy
+cost is detectable at this sample size. The requirement of at most $2$ pp is
+met.
 
-On the wearable deployment the same comparison yields $1.967$ pp with an
+On the wearable deployment, the same comparison gives $1.967$ pp with an
 interval of $[1.760, 2.173]$ over fifteen seeds. The interval spans the $2$ pp
-threshold, so this objective is \emph{inconclusive}: the sample size cannot
-determine on which side of the requirement the true value lies. The seed count
-was fixed in advance, and it is left at fifteen deliberately --- extending it
-until the interval falls on the favourable side of a threshold would convert a
-pre-registered test into a search, and the resulting verdict would carry no
-evidential weight. The point estimate lies below the threshold and the upper
-bound above it; both are reported.
+threshold, so this objective is \emph{inconclusive}. The seed count was fixed
+in advance and was not increased after inspecting the interval.
 
 \subsubsection{Quality of service}
-The interesting question at inference time is not whether the model is fast
-enough. It is whether the machinery that carries the guarantees is affordable,
-because the standing objection to privacy-preserving learning in real-time
-settings is that its apparatus costs more than the response budget allows.
-Table~\ref{tab:latency} answers that directly.
+Table~\ref{tab:latency} decomposes the inference latency. Construction of the
+conformal prediction set, which provides the coverage guarantee, takes
+$0.030$ ms of the $4.401$ ms mean inference time, or $0.68\,\%$, and $0.037$ ms
+at the $95$th percentile. The differentially private mechanism adds no
+inference cost, because its noise is applied to gradients during training and
+changes only the parameter values. The conformal set is therefore the only
+guarantee-related component with an inference cost, at less than one percent
+of the total.
 
-Constructing the conformal prediction set --- the component that delivers the
-coverage guarantee --- costs $0.030$ ms of a $4.401$ ms mean inference path, or
-$0.68\,\%$ of it, and $0.037$ ms at the $95$th percentile. The differentially
-private mechanism contributes nothing to this path at all, and it is worth
-being exact about why: its noise is applied to gradients during training, so it
-alters the parameters that are served but adds no operation to serving them.
-The guarantee is therefore not made cheap by engineering; it is free by
-construction, and the only guarantee-bearing component that must be paid for at
-inference is the conformal set, at under one percent of the budget. That is the
-property which makes the framework deployable where response time binds, and it
-holds independently of how fast the underlying network happens to be.
+The 95th-percentile latency is $4.58$ ms in the clinical deployment and
+$1.22$ ms in the wearable deployment, against a budget of $100$ ms, both
+measured on the integer-quantized graph on a CPU provider. This twentyfold
+margin is due to the compact fusion head and integer arithmetic, not to the
+hierarchy or the privacy mechanism. The difference between the deployments
+follows from the input dimension. The margin allows a larger backbone to be
+used within the same latency budget.
 
-The absolute figures are $4.58$ ms at the $95$th percentile in the clinical
-deployment and $1.22$ ms in the wearable one, against a $100$ ms budget, both
-measured on the integer-quantised graph executed on a CPU provider. The
-twentyfold margin should be attributed where it belongs: to a compact fusion
-head executed in integer arithmetic, not to the hierarchy or to any privacy
-mechanism. The difference between the two deployments follows input
-dimensionality rather than anything in the framework. What the margin
-establishes is not speed but headroom --- that a deployment may spend its
-latency budget on a larger backbone without the guarantees becoming the
-constraint.
-
-
-Update delivery succeeds on $100.00\,\%$ of transmissions in the clinical
-deployment and $99.94\,\%$ in the wearable one, against a $99\,\%$
-requirement. Both figures are measured on every round rather than extrapolated;
-under the earlier configuration the clinical quantity read $99.27\,\%$, of
-which nine rounds in ten were analytically composed. The wearable deployment
-does not reach perfect delivery --- its per-round minimum is $99.15\,\%$ ---
-which is expected where twenty-two stations contend for one medium, and is the
-more representative of the two figures.
+Update delivery succeeds for $100.00\,\%$ of transmissions in the clinical
+deployment and $99.94\,\%$ in the wearable deployment, against a target of
+$99\,\%$. Both values are measured on every round. Under the earlier
+configuration, in which nine rounds in ten were composed analytically, the
+clinical value was $99.27\,\%$. The wearable deployment does not reach perfect
+delivery, with a per-round minimum of $99.15\,\%$, as expected when twenty-two
+stations share one medium.
 
 \subsubsection{Energy}
-Per-round energy falls from $1266.2$ J to $350.8$ J in the clinical deployment,
-a saving of $72.3\,\%$, and from $3086.2$ J to $714.8$ J in the wearable one, a
-saving of $76.8\,\%$, against a required $20\,\%$. Energy is attributed by tier rather than reported
-in aggregate, because a hierarchy relocates computation rather than
-eliminating it, and an aggregate figure would conceal a saving at one tier
-purchased by an increase at another. Fig.~\ref{fig:energy} shows why this
-matters. Introducing the edge tier \emph{alone} does not reduce what the
-constrained device tier spends; it leaves that unchanged and adds edge energy
-on top, so the total rises from $1266$ J to $1344$ J and the hierarchy is, by
-itself, a net cost. The saving arises only in the configuration that also
-shortens what each device computes and transmits, which reduces the device
-term fivefold. A total reported without the decomposition would have credited
-the topology with a benefit the topology does not produce.
-
+Energy per round decreases from $1266.2$ J to $350.8$ J in the clinical
+deployment, a saving of $72.3\,\%$, and from $3086.2$ J to $714.8$ J in the
+wearable deployment, a saving of $76.8\,\%$, against a target of $20\,\%$.
+Energy is reported per tier because a hierarchy redistributes computation
+rather than eliminating it (Fig.~\ref{fig:energy}). Introducing the edge tier
+\emph{alone} leaves device energy unchanged and adds edge energy, so the total
+increases from $1266$ J to $1344$ J. The saving occurs only in the configuration
+that also reduces device-side computation and transmission, which lowers the
+device term fivefold.
 
 \subsection{The Privacy Unit and the Budget}
 \label{sec:results:unit}
 
-Two comparisons quantify what the design decisions of
-Section~\ref{sec:method:privacy} cost. Both are paired by seed against an arm
-that differs only in the factor under test.
+Two comparisons quantify the cost of the design decisions of
+Section~\ref{sec:method:privacy}. Both are paired by seed against an arm that
+differs only in the factor under test.
 
 \subsubsection{Cost of moving the unit from the record to the individual}
 Enforcing the guarantee over individuals rather than records reduces the area
 under the ROC curve by $0.0188$, with a paired $95\,\%$ interval of
-$[-0.0255, -0.0120]$ over five seeds; the case-level figure is $-0.0193$
-$[-0.0266, -0.0120]$ and average precision falls by $0.0783$
-$[-0.1046, -0.0520]$. Unlike the accuracy comparison against a non-private
-reference, these intervals exclude zero: the cost is small but it is real, and
-it is larger in average precision than in the ranking measure, which is what
-one expects when the minority class is the harder one to fit under a coarser
-unit of sampling.
+$[-0.0255, -0.0120]$ over five seeds. The case-level change is $-0.0193$
+$[-0.0266, -0.0120]$, and average precision decreases by $0.0783$
+$[-0.1046, -0.0520]$. These intervals exclude zero. The cost is larger in
+average precision than in the area under the ROC curve, consistent with the
+minority class being harder to fit under a coarser sampling unit.
 
-The mechanism of that cost is visible in the construction rather than
-mysterious. Sampling patients rather than records reduces the number of
-effective units per step from $34{,}044$ to $4{,}372$ on this partition, and
-bounding a patient's summed gradient constrains an individual contributing
-many records more tightly than one contributing few. Whether that second effect
-dominates --- whether the cost grows with the number of records an individual
-contributes --- is separated from the first in
-Section~\ref{sec:results:kscaling}, where the number of units per step is held
-equal across the two arms so that only the clipping geometry differs.
+Two effects contribute to this cost. Sampling patients rather than records
+reduces the number of effective units per step from $34{,}044$ to $4{,}372$ on
+this partition, and clipping a patient's summed gradient constrains
+individuals with many records more strongly than those with few.
+Section~\ref{sec:results:kscaling} isolates the second effect by holding the
+number of units per step equal in both arms.
 
-\subsubsection{Why the privatised subset is restricted to the head}
-Fig.~\ref{fig:epsilon} reports both recipes across the budget. Privatising only
-the fusion head is not merely a better initialisation: if it were, its
-advantage would be roughly constant in $\varepsilon$. It is not. At
-$\varepsilon = \infty$, where no noise is added, the two recipes are nearly
-indistinguishable, separated by $0.009$; the gap grows monotonically as the
-budget tightens, reaching $0.060$ at $\varepsilon = 8$ and $0.131$ at
-$\varepsilon = 0.5$. The head-only curve is essentially flat across the whole
-range, moving by under $0.008$ from $\varepsilon = 0.5$ to $\varepsilon =
-\infty$, while the full-model curve loses $0.119$ over the same interval.
+\subsubsection{Initialization, not the privatized subset}
+The proposed recipe differs from conventional private training in two
+respects: it starts from pretrained encoders, and it privatizes only the
+fusion head. A two-arm comparison cannot separate these factors, so three arms
+are compared. B4 is full-model private training from a random initialization,
+the prior-art configuration. B7 is full-model private training from the
+pretrained initialization, which changes only the initialization. B6 is
+head-only private training from the pretrained initialization, which changes
+only the privatized subset. Fig.~\ref{fig:epsilon} shows the three arms on the
+clinical corpus, and Table~\ref{tab:recipe} reports both steps on both
+deployments over three seeds.
 
-That pattern is the signature of a dimensionality effect rather than an
-optimisation one. The perturbation a parameter vector must absorb scales with
-its size, so restricting the privatised subset to $30\,\%$ of the network
-buys nothing when there is no perturbation and buys most when the perturbation
-is largest. It also means the recipe should not be recommended on the basis of
-non-private performance, where it is worth almost nothing.
+\begin{table}[!t]
+\centering
+\caption{Decomposition of the recipe in macro AUROC, three seeds. The
+initialization step B4$\rightarrow$B7 holds the privatized subset at the whole
+network and changes only the starting point; the subset step
+B7$\rightarrow$B6 holds the starting point and privatizes $30\,\%$ of the
+network instead of all of it, and is reported as mean $\pm$ a Student-$t$
+half-width because it is the step the claim turns on.}
+\label{tab:recipe}
+\setlength{\tabcolsep}{3.5pt}
+\small
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{Clinical} & \multicolumn{2}{c}{Wearable} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+$\varepsilon$ & B4$\rightarrow$B7 & B7$\rightarrow$B6 & B4$\rightarrow$B7 & B7$\rightarrow$B6 \\
+\midrule
+$\infty$ & $+0.0187$ & $+0.0036 \pm 0.0329$ & $+0.0021$ & $-0.0002 \pm 0.0003$ \\
+$8$      & $+0.0649$ & $+0.0014 \pm 0.0084$ & $+0.0883$ & $+0.0001 \pm 0.0002$ \\
+$4$      & $+0.0803$ & $+0.0033 \pm 0.0049$ & $+0.1257$ & $+0.0001 \pm 0.0002$ \\
+$2$      & $+0.0985$ & $+0.0031 \pm 0.0063$ & $+0.1918$ & $+0.0002 \pm 0.0001$ \\
+$1$      & $+0.1221$ & $+0.0026 \pm 0.0122$ & $+0.2827$ & $+0.0003 \pm 0.0008$ \\
+$0.5$    & $+0.1447$ & $+0.0030 \pm 0.0204$ & $+0.3580$ & $+0.0013 \pm 0.0088$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-These points are single-seed, and the monotonicity rather than any individual
-value is what the claim rests on; the head-only and full-model arms at
-$\varepsilon = 1$ are separately confirmed over five seeds in the baseline
-comparison.
+Almost the entire effect is due to the initialization, and it increases as the
+budget tightens. On the clinical corpus, the change from random to pretrained
+initialization is worth $0.0187$ without noise and $0.1447$ at the tightest
+budget, increasing monotonically in between; on the wearable corpus it ranges
+from $0.0021$ to $0.3580$. Restricting the privatized subset is worth at most
+$0.0036$ on the clinical corpus and $0.0013$ on the wearable corpus at any
+budget, and its intervals cover zero throughout.
+
+This result contradicts a dimensionality explanation. If the advantage arose
+because a smaller parameter vector absorbs less noise, B7, which privatizes all
+$1{,}864{,}227$ parameters, should perform worse than B6, which privatizes
+$559{,}874$, and the difference should be largest at the tightest budget. At
+$\varepsilon = 0.5$, however, the two arms differ by only $0.0030$, with an
+interval covering zero, although B7 privatizes $3.3$ times as many parameters
+under the same budget. This is consistent with the noise scale being determined
+by the budget, the number of steps and the sampling rate rather than by the
+number of parameters.
+
+The same pattern appears in sensitivity to the budget. Across the full range,
+the randomly initialized arm loses $0.1181$ on the clinical corpus and $0.3716$
+on the wearable corpus, where it falls to $0.6247$, close to chance. Both
+pretrained arms change by less than $0.016$ on either deployment. Robustness to
+a tight budget is therefore determined by the initialization. Under a fixed
+budget, a legitimate pretrained initialization should take priority over the
+choice of privatized parameters.
+
+Restricting the privatized subset does reduce communication. Only head
+parameters are transmitted, which produces the uplink reductions reported in
+Section~\ref{sec:results:objectives}, and Table~\ref{tab:recipe} shows that this
+comes at no measurable cost in accuracy. It is not, however, an accuracy
+mechanism, and a two-arm comparison of head-only training from a pretrained
+initialization against full-model training from a random initialization does
+not support such a claim, because the two arms differ in both respects.
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\columnwidth]{fig8_epsilon.pdf}
-\caption{Head-only against full-model private training across the budget. The
-advantage of privatising only the fusion head is negligible when no noise is
-added and grows monotonically as the budget tightens, which identifies it as a
-consequence of the privatised dimensionality rather than of a better starting
-point.}
+\caption{Decomposing the recipe across the budget on the clinical corpus. The
+shaded band is the initialization effect, obtained with the privatized subset
+held at the whole network, and it is nearly the entire advantage. The two
+pretrained arms nearly coincide at every budget, although one privatizes $3.3$
+times as many parameters as the other, which excludes an explanation based on
+privatized dimensionality. Three seeds per point.}
 \label{fig:epsilon}
 \end{figure}
 
 \subsubsection{Records per individual}
 \label{sec:results:kscaling}
-The comparison above prices the unit at one operating point. Because a
-patient-level guarantee bounds the \emph{summed} contribution of an individual,
-that price should not be a constant: it should grow with the number of records
-each individual contributes, and it should vanish when that number is one, since
-a patient who contributes a single record is a record. Table~\ref{tab:kscaling}
-reports both arms as $k$, the number of records retained per patient in
-training, is varied over $\{1, 2, 4, 8\}$ at three seeds. The number of units
-drawn per step is held equal in the two arms, so the sampling-rate effect
-identified above is removed by construction and only the clipping geometry
-differs. Validation and test partitions are untouched.
+Because a patient-level guarantee bounds the \emph{summed} contribution of an
+individual, its cost is expected to increase with the number of records per
+individual and to vanish when each individual contributes a single record.
+Table~\ref{tab:kscaling} reports both arms as $k$, the number of training
+records retained per patient, is varied over $\{1, 2, 4, 8\}$ with three seeds.
+The number of units sampled per step is equal in both arms, which removes the
+sampling-rate effect, so only the clipping geometry differs. The validation and
+test partitions are unchanged.
 
 \begin{table}[!t]
 \centering
@@ -330,77 +330,196 @@ $8$ & $0.5955$ & $0.5089$ & $0.0866 \pm 0.0263$ & $0.0049$ \\
 \end{tabular}
 \end{table}
 
-At $k = 1$ the two arms are indistinguishable: the gap is $-0.0052$ with an
-interval covering zero. This is the prediction the construction makes, and it is
-the reason the remaining rows can be read as an effect of the unit rather than
-of the harness --- an apparatus that separated the arms at $k = 1$ would be
-separating them for some reason other than the guarantee. From $k = 2$ the gap
-is resolved and grows monotonically, reaching $0.0866$ at $k = 8$ with the
-increment between $k = 4$ and $k = 8$ an order of magnitude smaller than the
-increment before it.
+At $k = 1$, the two arms are indistinguishable, with a gap of $-0.0052$ and an
+interval covering zero, as required by the construction. The divergence at
+larger $k$ can therefore be attributed to the privacy unit rather than to the
+experimental setup. From $k = 2$ onward, the gap is resolved and increases
+monotonically, reaching $0.0866$ at $k = 8$; the increment from $k = 4$ to
+$k = 8$ is an order of magnitude smaller than the preceding one.
 
-The direction of the divergence is worth stating precisely, because the
-aggregate gap conceals it. The individual-level arm is flat in $k$, moving
-within $[0.4967, 0.5176]$ across every configuration, while the record-level arm
-rises from $0.5015$ to $0.5955$. The widening gap is therefore not degradation
-under the stricter unit but the absence of improvement: additional records per
-patient are additional signal that the record-level arm converts into accuracy
-and the individual-level arm cannot, because a bound on the summed contribution
-tightens on exactly the individuals who supply the extra records. A practitioner
-reading this should not expect an individual-level guarantee to become cheaper
-by collecting more data per patient; on this corpus it becomes more expensive,
-and it does so by forgoing what the extra data would otherwise buy.
+The individual-level arm remains flat in $k$, within $[0.4967, 0.5176]$ across
+all configurations, whereas the record-level arm increases from $0.5015$ to
+$0.5955$. The widening gap therefore reflects a lack of improvement under the
+stricter unit rather than a degradation. Additional records per patient provide
+signal that the record-level arm exploits and the individual-level arm cannot,
+because the bound on the summed contribution is tightest for the individuals
+who contribute the additional records. On this corpus, collecting more data per
+patient therefore increases the relative cost of an individual-level guarantee.
 
-The ranking measure moves in the same direction --- $0.0006$, $0.0094$, $0.0133$
-and $0.0132$ over the same $k$ --- but every interval covers zero at three
-seeds, so the effect is resolved in average precision only and the AUROC trend
-is reported as consistent rather than established. Accuracy is not reported for
-these arms: it is pinned near the majority rate throughout by an uncalibrated
-decision threshold on an imbalanced corpus, and an area under a curve of
-approximately $0.835$ confirms the models rank well despite it.
+The area under the ROC curve changes in the same direction, by $0.0006$,
+$0.0094$, $0.0133$ and $0.0132$ over the same values of $k$, but every interval
+covers zero at three seeds. The effect is therefore resolved in average
+precision only. Accuracy is not reported for these arms, because an
+uncalibrated decision threshold on an imbalanced corpus keeps it near the
+majority rate; an area under the ROC curve of approximately $0.835$ confirms
+that the models rank well.
+
+% --- external replication of the k-law, and its matched-budget control ----
+% Both are \subsubsection fragments and belong inside
+% \subsection{The Privacy Unit and the Budget}, beside "Records per
+% individual" above. Keep them in this order: the second explains a confound
+% in the first.
+\input{sections/results_kscaling_eicu}
+\input{sections/results_a2_budget}
+
+\subsubsection{Is the cost an artifact of the clipping rule?}
+\label{sec:results:kscaling:nd}
+
+% Artifacts:
+%   results/phase5/nd_clipnorm/eicu/nd_clipnorm_eicu_natural.json  (9 runs)
+%   results/phase5/nd_clipnorm/eicu/hist_natural_seed*_*.csv       saturation
+%   results/phase5/nd_clipnorm/eicu/clip_saturation_natural_seed42.json
+%   document/01_planning/PREREGISTRATION_ND_CLIPNORM.md  amendments N-A1, N-A2
+
+The individual-level arm clips each individual's \emph{summed} gradient to a
+fixed norm, so clipping is strongest for individuals with many records. The
+flatness of this arm in $k$ could therefore result from the clipping rule
+rather than from the guarantee. In that case, it should be partly recoverable
+by dividing the summed gradient by the record count, or by its square root,
+before clipping. Neither normalization changes the guarantee: sensitivity is
+determined by the clipping norm, so the noise scale and the budget are
+identical under all three rules, and any difference is due to optimization.
+
+The premise holds in direction but not in magnitude. On the external corpus,
+the fraction of individuals whose gradient is clipped increases from $0.148$
+for those with one to four records to $0.502$ for those with forty-nine or
+more, but the rank correlation between record count and clipping is only
+$0.138$. Normalizing by the count halves the clipped fraction, from $0.3945$ to
+$0.2039$, rather than eliminating it. The first corpus cannot test this
+question, because nearly every individual contributes exactly eight records, so
+normalization by the count is a uniform rescaling. The test is therefore
+performed on the external corpus only, using its natural partition rather than
+the capped partitions of the scaling grid, since capping would remove the
+variation in records per individual, which ranges from two to $192$.
+
+Normalization does not recover utility. At the operating budget and three
+pre-specified seeds, the individual-level arm attains an average precision of
+$0.2266$ with the fixed bound, $0.2265$ with normalization by the count, and
+$0.2242$ with normalization by its square root. The paired differences relative
+to the fixed bound are $-0.0001 \pm 0.0087$ and $-0.0024 \pm 0.0095$. The
+pre-registered threshold for recovery was $+0.010$ for normalization by the
+count, obtained by scaling the threshold for the first corpus to the precision
+attainable on this corpus. The one-sided $95\,\%$ upper bound on the difference
+is $+0.0058$, so an effect of the registered size is excluded. The area under
+the ROC curve changes in the same direction, by $-0.0022$ and $-0.0011$. The
+square-root rule, predicted to fall between the other two, falls below both,
+although by less than the seed variation.
+
+The intervention was effective: from the third round onward, on every seed,
+normalization by the count produced the lowest clipped fraction and the fixed
+bound the highest. In the final round, the fractions are $0.157$ against
+$0.212$ on one seed, and $0.046$ against $0.086$ and $0.047$ against $0.118$ on
+the others. On one seed, the selected checkpoint for every rule is the first
+round, before the rules diverge, so the three rules agree to within $10^{-4}$
+and this seed carries little information about the contrast. The cost of the
+individual-level unit is therefore not an artifact of the clipping rule.
 
 \subsection{Does Fusion Earn Its Place?}
 \label{sec:results:fusion}
 
-The framework assumes two modalities are worth combining. That assumption is
-tested directly, and separately from the federated system, because the question
-concerns the data rather than the protocol: federation and privacy noise would
-add variance and confounds to a comparison about whether two streams carry
-complementary information. Each arm is retrained from scratch on its own inputs
-rather than evaluated with a modality zeroed, since feeding zeros to a jointly
-trained model measures what happens when a stream fails, not what it was worth.
+The benefit of combining the two modalities is evaluated separately from the
+federated system, because the question concerns the data rather than the
+protocol, and federation and privacy noise would add variance and confounds.
+Each arm is retrained on its own inputs rather than evaluated with one modality
+zeroed, since zeroing a stream of a jointly trained model measures robustness
+to a missing stream rather than the information it carries.
 
-Over five seeds the fused model attains $0.8653 \pm 0.0072$ in area under the
-ROC curve against $0.8283 \pm 0.0087$ for the better single modality and
-$0.7680 \pm 0.0045$ for the weaker, each interval a Student-$t$ half-width as
-elsewhere in this section, a gain of $0.0370$ and $5.9$ times the seed standard
-deviation; in average precision the gain is $0.0671$. The
-modalities are associated by the recording apparatus --- the same patient during
-the same operation --- so the gain is not an artefact of pairing rule.
+Over five seeds, the fused model attains $0.8653 \pm 0.0072$ in area under the
+ROC curve, against $0.8283 \pm 0.0087$ for the better single modality and
+$0.7680 \pm 0.0045$ for the weaker, where each interval is a Student-$t$
+half-width. The gain of $0.0370$ is $5.9$ times the seed standard deviation,
+and the gain in average precision is $0.0671$. The modalities are paired by the
+recording apparatus, from the same patient during the same operation, so the
+gain does not arise from a pairing rule. With two seeds, the same experiment
+gave gains of $0.0411$ and $0.1062$, at $14.1$ times the seed standard
+deviation; with five seeds, the average-precision gain is $37\,\%$ lower and
+the effect size less than half as large. Only the five-seed values are used.
 
-The seed count matters here and is reported rather than buried. At two seeds the
-same experiment returned $0.0411$ and $0.1062$, at $14.1$ times the seed
-standard deviation; three further seeds reduced the average-precision figure by
-$37\,\%$ and the effect size by more than half. The conclusion is unchanged and
-the five-seed figures are the ones quoted, but the shrinkage is a reminder that
-an effect measured on two seeds is a hypothesis rather than a result.
+On the wearable deployment, the better single modality already attains
+$0.9976$, leaving a fusion gain of $0.0004$ and no room for a second stream to
+contribute. The benefit of fusion therefore depends on the task and must be
+established per task.
 
-The wearable deployment cannot corroborate this and the reason is a property of
-that task. Its better single modality already attains $0.9976$, leaving a fusion
-gain of $0.0004$ and no headroom in which a second stream could demonstrate
-anything. Reporting this matters more than omitting it would: multimodal
-federated learning is not universally motivated, and on a task one sensor
-already solves the second adds cost without information. The case for fusion is
-made per task, and the presence of two sensors is not itself the case.
+\subsubsection{The external clinical corpus, and the condition that separates
+the three}
+\label{sec:results:fusion:balance}
+
+% Artifacts (every number below is read from these; nothing is hand-entered):
+%   results/phase5/ablation_eicu.json            full client data, the quoted null
+%   results/phase5/ablation_eicu_matched.json    matched control, current partitions
+%   results/phase5/ablation_eicu_noapache.json   Stage 1, dominant channel zeroed
+%   results/phase5/fusbal_calib_n{0.20..0.80}.json  calibration, arm B only
+%   results/phase5/fusbal_test_n0.4.json         the registered test, 5 seeds
+%   document/01_planning/PREREGISTRATION_FUSION_BALANCE.md  amendment F-A1
+
+On the external clinical corpus, which has more headroom than the wearable
+corpus, fusion yields no gain. The fused model attains $0.8249$ in area under
+the ROC curve against $0.8212$ for the admission-record stream alone, a gain of
+$0.0037$, and $-0.0001$ in average precision. The vital-sign stream alone
+reaches $0.6748$, so the two streams differ substantially in strength. This
+motivates a second hypothesis, that fusion requires the streams to be of
+comparable strength, which was pre-registered before testing.
+
+The test weakens the stronger stream until the two are balanced and measures
+whether a gain appears. Zeroing the dominant admission feature reversed the
+dominance rather than balancing the streams (Table~\ref{tab:fusion_balance}).
+Scaling the feature was ineffective, because the stream is standardized and its
+encoder is linear at the input, so scaling is compensated by the weights; a
+scale of $0.15$ changed the stream by $0.0007$. The intervention used therefore
+mixes the feature with fixed-seed Gaussian noise at a ratio that preserves its
+variance, which removes information rather than rescaling it. A calibration on
+the admission stream alone, with two seeds, changed its performance
+monotonically from $0.6252$ to $0.7859$ across four mixing levels, and the level
+closest to the vital-sign stream was selected. Because the calibration uses only
+one single-modality arm and never the fused model, it does not select on the
+outcome. Because the current partitions contain $20\,\%$ less client data than
+the run reported above, the comparator was re-measured on them; its gain of
+$0.0020$ confirms that the reduction does not affect the null result.
+
+\begin{table}[!t]
+\centering
+\caption{Fusion on the external clinical corpus as the stronger stream is
+weakened. Area under the ROC curve, mean over five seeds in every row; gains
+are over the better single modality, in area under the ROC curve and in
+average precision (AP).}
+\label{tab:fusion_balance}
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{lccccc}
+\toprule
+Condition & Vitals & Admission & Fused & Gain & Gain (AP) \\
+\midrule
+Matched control  & $0.7068$ & $0.8221$ & $0.8241$ & $+0.0020$ & $-0.0008$ \\
+Feature zeroed   & $0.6973$ & $0.5947$ & $0.6911$ & $-0.0062$ & $-0.0182$ \\
+Titrated to parity & $0.6992$ & $0.6845$ & $0.7282$ & $\mathbf{+0.0291}$ & $+0.0121$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+When the streams are balanced, a gain appears. With the two single-modality arms
+within $0.0147$ of each other, the fused model attains $0.7282 \pm 0.0191$
+against $0.6992 \pm 0.0120$ for the better single modality, a gain of
+$0.0291 \pm 0.0211$. The gain is positive on all five seeds, with a minimum of
+$0.0129$ (paired $t$-test, $p = 0.019$; the signed-rank test gives
+$p = 0.0625$, its minimum attainable value at five seeds). The result exceeds
+the pre-registered threshold of $0.015$ and is fourteen times the gain of the
+matched control. In average precision, the gain is $0.0121 \pm 0.0215$, with one
+negative seed, and is not resolved.
+
+The scope of this result is limited in two respects. Balance was imposed by
+calibration, so the result shows that comparable stream strength is
+\emph{sufficient} for a fusion gain on this corpus, but not that it is
+necessary. In addition, the gain is measured against a deliberately weakened
+stream: the balanced fused model remains well below the intact admission
+stream, so the result does not support fusing the two streams in the deployed
+configuration.
 
 \subsection{Necessity of the Components}
 \label{sec:results:ablation}
 
-Each component is removed in turn from the full system, every other setting
-held fixed, and the arms are paired by seed over three seeds.
-Table~\ref{tab:ablation} reports the result. Read on accuracy alone the table
-is largely empty, and that is the finding rather than a shortfall: of the four
-removals only the privacy mechanism produces an interval excluding zero.
+Each component is removed in turn from the full system, with all other settings
+fixed, and the arms are paired by seed over three seeds
+(Table~\ref{tab:ablation}). Of the four removals, only the removal of the
+privacy mechanism produces an interval that excludes zero.
 
 \begin{table}[!t]
 \centering
@@ -421,80 +540,84 @@ Removed & AUROC & $\Delta$AUROC & MB \\
 C1 hierarchy      & $0.8484$ & $-0.0058 \pm 0.0088$ & $50$ \\
 C2 privacy        & $0.8307$ & $\mathbf{-0.0234 \pm 0.0205}$ & $252$ \\
 C3 sparsification & $0.8553$ & $+0.0012 \pm 0.0083$ & $1260$ \\
-C4 quantisation   & $0.8543$ & $+0.0001 \pm 0.0006$ & $403$ \\
+C4 quantization   & $0.8543$ & $+0.0001 \pm 0.0006$ & $403$ \\
 +C6 ASWA          & $0.8542$ & $+0.0001 \pm 0.0009$ & $252$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsubsection{Compression is justified by traffic, not by accuracy}
-Removing top-$\kappa$ sparsification changes accuracy by $+0.0012$ with an
-interval spanning zero, and multiplies uplink by $5.0$. Removing quantisation
-changes accuracy by $+0.0001$ --- an interval of width $0.0011$, the tightest in
-the study --- and multiplies uplink by $1.60$. Neither component earns its place
-by what it does to the model; both earn it by what they do to the link, and
-together they account for an eightfold reduction in payload at no measurable
-cost in discrimination. An ablation reported only in the accuracy column would
-have concluded that both were redundant.
+Removing top-$\kappa$ sparsification changes the area under the ROC curve by
+$+0.0012$, with an interval spanning zero, and increases uplink traffic by a
+factor of $5.0$. Removing quantization changes it by $+0.0001$, with an
+interval of width $0.0011$, the narrowest in the study, and increases uplink
+traffic by a factor of $1.60$. Neither component affects predictive
+performance; together they reduce the payload eightfold at no measurable cost
+in discrimination.
 
-\subsubsection{The hierarchy is not an accuracy mechanism}
-Collapsing the edge tier moves AUROC by $-0.0058$ with an interval covering
-zero. This is the expected result and not a negative one: the hierarchy is
-introduced to relieve the uplink and the energy budget, quantities reported in
-Section~\ref{sec:results:objectives}, and it would be surprising if a change of
-aggregation topology altered what the model can discriminate. The uplink figure
-for this arm is not comparable with the others and is reported only for
-completeness, because collapsing the tier also reduces the number of edge
-rounds per global round from five to one; the traffic difference is an artefact
-of that schedule rather than of the topology.
+\subsubsection{The edge tier does not cost accuracy}
+Removing the edge tier changes the area under the ROC curve by $-0.0058$ at
+three seeds, with an interval covering zero. With the six seeds specified in
+the pre-registration, the effect is resolved on both deployments: $-0.0047$
+$[-0.0088, -0.0006]$ ($p = 0.032$) on the clinical corpus and $-0.0052$
+$[-0.0074, -0.0030]$ ($p = 0.0018$) on the wearable corpus. Removing the tier
+therefore slightly reduces performance.
+
+This result is interpreted as a bound on the cost of the hierarchy rather than
+as a benefit, because the flat arm differs in two respects. It uses a single
+edge with one edge round per global round, whereas the hierarchical arm uses
+five, so it changes both the aggregation schedule and the topology. The small
+advantage may be due to the additional aggregation steps rather than to the
+tier itself; separating the two would require a flat arm matched on
+aggregation steps. For the same reason, the uplink value of this arm is not
+comparable with the others. The comparison shows that the edge tier does not
+reduce predictive utility, so the communication and energy savings of
+Section~\ref{sec:results:objectives} are not obtained at the expense of
+accuracy.
 
 \subsubsection{Removing the privacy mechanism does not recover utility}
-The one interval that excludes zero belongs to the component expected to cost
-the most. Training the same system without differential privacy \emph{reduces}
-area under the ROC curve by $0.0234$ $[-0.0439, -0.0029]$, and inflates the
-seed-to-seed spread in average precision from $\pm 0.014$ to $\pm 0.070$. The
-mechanism is visible in the checkpoint selection: two of the three non-private
-seeds attain their best validation score at the first round of ten and degrade
-thereafter, where every private seed peaks between rounds six and nine. Clipping
-each contribution and adding calibrated noise evidently regularises a compact
-head trained over frozen features, and removing that regularisation lets the
-head overfit almost immediately.
+Training the same system without differential privacy \emph{reduces} the area
+under the ROC curve by $0.0234$ $[-0.0439, -0.0029]$ and increases the
+seed-to-seed spread in average precision from $\pm 0.014$ to $\pm 0.070$. Two of
+the three non-private seeds reach their best validation score in the first of
+ten rounds and degrade thereafter, whereas every private seed peaks between
+rounds six and nine. Clipping and calibrated noise therefore act as a
+regularizer for a compact head trained over frozen features, and without them
+the head overfits early.
 
-This should be read narrowly. The comparison prices the privacy mechanism
-against a baseline that carries no substitute regularisation beyond checkpoint
-selection, not against a non-private system tuned for generalisation; a
-practitioner who removed the mechanism would presumably reintroduce weight decay
-or early stopping in its place. The defensible claim is therefore that removing
-the guarantee did not recover utility on this task, not that differential
-privacy improves accuracy in general. It does establish that the accuracy cost
-of the guarantee, which the objective of Table~\ref{tab:results_objectives}
-bounds at two points, is not being paid at this operating point.
+This comparison is against a baseline without additional regularization beyond
+checkpoint selection, not against a non-private system tuned for
+generalization, which would typically use weight decay or early stopping. The
+result shows that removing the guarantee does not recover utility on this task;
+it does not show that differential privacy improves accuracy in general. It
+also shows that the accuracy cost of the guarantee, bounded at two percentage
+points in Table~\ref{tab:results_objectives}, is not incurred at this operating
+point.
 
-\subsubsection{An inclusion arm that earned its removal}
-The aggregation rule inherited from the earlier design of this framework was
-never measured. Added to the full system it moves AUROC by $+0.0001$, with an
-interval of width $0.0018$ that covers zero, and leaves uplink unchanged. Since
-this is an inclusion rather than an ablation, the sign convention inverts and a
-rise would have indicated a contribution; none is observed. The component is
-therefore reported as measured and not adopted, which is a stronger statement
-than omitting it would have been.
+\subsubsection{Loss-aware edge weighting}
+The aggregation rule ASWA, inherited from an earlier version of this framework,
+weights each edge at the cloud by both its data volume and the mean local loss
+of its clients, instead of by data volume alone. It was evaluated as an
+inclusion arm. Adding it to the full system changes the
+area under the ROC curve by $+0.0001$, with an interval of width $0.0018$ that
+covers zero, and leaves uplink traffic unchanged. Since this is an inclusion
+arm, an increase would indicate a contribution, and none is observed. The
+component is therefore not adopted.
 
 \subsection{Membership-Inference Audit}
 \label{sec:results:mia}
 
-The guarantee reported above is an upper bound on the influence of an
-individual. What an adversary attains in practice is a separate question, and
-Table~\ref{tab:mia} reports it. Three configurations were attacked under both
-attacks of Section~\ref{sec:method:mia}, each with sixteen shadow models
-trained on independently drawn halves of the patient population, and each
-scored on the same $600$ member and $600$ non-member patients.
+Table~\ref{tab:mia} reports the empirical leakage of three configurations
+under both attacks of Section~\ref{sec:method:mia}. Each attack uses sixteen
+shadow models trained on independently sampled halves of the patient
+population, and each configuration is scored on the same $600$ member and
+$600$ non-member patients.
 
 \begin{table}[!t]
 \centering
 \caption{Patient-level membership inference. Mean attack AUC over seeds with
 $95\,\%$ intervals; $0.5$ is chance. The control is non-private training of the
-same head over the same frozen encoders, and is a precondition of the audit
-rather than a supplementary experiment.}
+same head over the same frozen encoders.}
 \label{tab:mia}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -509,69 +632,55 @@ Patient-level DP      & threshold   & $0.5224$ & $[0.518, 0.527]$ \\
 \end{tabular}
 \end{table}
 
-The control establishes that the audit is capable of detecting leakage. On
-non-private training of the same head over the same frozen encoders the
-likelihood-ratio attack reaches $0.6230$, exceeding the $0.5711$ obtained there
-by loss thresholding: per-patient calibration recovers $0.0519$ of signal that
-a global threshold leaves buried in per-patient difficulty, which is precisely
-the confound illustrated in Fig.~\ref{fig:lira}. Every negative result below is
-conditioned on this --- the same procedure, applied to a configuration known to
-memorise, finds it.
+The positive control confirms that the audit can detect leakage. On non-private
+training of the same head over the same frozen encoders, the likelihood-ratio
+attack reaches $0.6230$, compared with $0.5711$ for loss thresholding.
+Per-patient calibration thus recovers $0.0519$ of signal that a global
+threshold misses because of per-patient difficulty, as illustrated in
+Fig.~\ref{fig:lira}.
 
-The control is insensitive to how long it trains, which is worth recording
-because it bounds what the configuration can establish. Repeating it at ten
-rounds rather than one moves the likelihood-ratio attack by $-0.0047$ and no
-attack of the four by more than $0.006$. A head of $560$k parameters over frozen
-encoders evidently reaches its memorisation capacity almost immediately, so the
-control's strength is a property of the architecture rather than of the training
-schedule. This matters for interpretation in one direction only: it means the
-control cannot be strengthened by training it longer, and a leakage larger than
-the one reported here would have to be sought with a different configuration
-rather than a longer run.
+The strength of the control does not depend on training length. Training for
+ten rounds instead of one changes the likelihood-ratio attack by $-0.0047$, and
+no attack by more than $0.006$. A head of $560$k parameters over frozen
+encoders therefore reaches its memorization capacity almost immediately, and a
+stronger control would require a different configuration rather than longer
+training.
 
-Applied to the private configurations the same procedure finds very little.
-Record-level differential privacy yields $0.5477$ with an interval that
-includes chance, and patient-level differential privacy $0.5224$. The
-comparison the experiment was designed to make is the paired difference between
-them, computed over five seeds on identical shadow splits, and it is not
-significant under any of the four attacks: $+0.0138$ $[-0.0034, +0.0310]$ for
-the loss threshold, $+0.0325$ $[-0.0280, +0.0929]$ for the offline likelihood
-ratio, $+0.0034$ for the online variant and $-0.0211$ for its pooled-variance
-form. Every interval spans zero.
+On the private configurations, leakage is low. Record-level differential
+privacy yields $0.5477$, with an interval that includes chance, and
+patient-level differential privacy yields $0.5224$. The primary comparison, the
+paired difference between the two over five seeds on identical shadow splits,
+is not significant under any of the four attacks: $+0.0138$
+$[-0.0034, +0.0310]$ for the loss threshold, $+0.0325$ $[-0.0280, +0.0929]$ for
+the offline likelihood ratio, $+0.0034$ for the online variant and $-0.0211$
+for its pooled-variance form. All intervals span zero.
 
-Two readings must be separated. The \emph{predicted} effect is refuted: the
-hypothesis under test was that a record-level guarantee would be exploitable at
-the level of the individual, with an attack approaching $0.7$ against roughly
-$0.5$ for a patient-level guarantee, and an effect of that size lies far
-outside every interval obtained. A \emph{small} effect is not excluded: at five
-seeds the half-width on the strongest attack is $\pm 0.060$, three of the four
-attacks point in the predicted direction, and the loss threshold reaches
-$p = 0.090$. The defensible statement is that the large effect predicted does
-not exist, and that an effect below roughly six points of AUC cannot be
-resolved at this sample size. It would not be defensible to state that the two
-guarantees are equivalent.
+The \emph{predicted} effect is therefore refuted. The hypothesis was that a
+record-level guarantee would be exploitable at the individual level, with an
+attack AUC approaching $0.7$ against approximately $0.5$ for a patient-level
+guarantee, and an effect of this size lies outside every interval obtained. A
+\emph{small} effect is not excluded: at five seeds, the half-width for the
+strongest attack is $\pm 0.060$, three of the four attacks point in the
+predicted direction, and the loss threshold reaches $p = 0.090$. The large
+predicted effect is thus absent, and an effect below approximately six points
+of AUC cannot be resolved at this sample size. The two guarantees cannot be
+considered equivalent on this evidence.
 
-One diagnostic supports the reading that the defence is working rather than
-that the attack is failing. On the patient-level arm the likelihood ratio is
-\emph{worse} than the plain loss threshold, by $0.0071$. Per-patient
-calibration helps only where there is difficulty-confounded signal to recover;
-that it helps on the control and not here is what a defence leaving no such
-signal looks like. True-positive rates at $1\,\%$ false-positive rate are
-correspondingly low throughout, at $0.029$ on the control and $0.010$ on the
-patient-level arm. At $0.1\,\%$ the rate is undefined: with $600$ non-members
-the receiver operating characteristic cannot resolve that false-positive rate,
-and interpolating a value there would report an artefact of the curve rather
-than a measurement.
+On the patient-level arm, the likelihood ratio performs \emph{worse} than the
+loss threshold, by $0.0071$. Since per-patient calibration helps only when
+difficulty-confounded signal is present, its benefit on the control and its
+absence on the patient-level arm indicate that the defense leaves little such
+signal. True-positive rates at a $1\,\%$ false-positive rate are low, at
+$0.029$ on the control and $0.010$ on the patient-level arm. At $0.1\,\%$, the
+rate is undefined, because $600$ non-members are insufficient to resolve this
+false-positive rate.
 
-The consequence for the framework is narrower than the hypothesis intended, but
-it is not nothing. The analytic argument of Section~\ref{sec:method:threat}
-stands --- a record-level budget bounds the wrong quantity, and the conversion
-to an individual-level one is prohibitive --- and the utility cost of enforcing
-the individual-level guarantee directly is small. What the audit does not
-supply is a demonstration that the weaker guarantee is exploitable in practice,
-on this data, at this budget. Reporting that plainly, alongside a control
-showing the attack works where leakage exists, is what makes the result
-interpretable rather than merely absent.
+The analytic argument of Section~\ref{sec:method:threat} therefore stands: a
+record-level budget bounds the wrong quantity, and its conversion to an
+individual-level budget is prohibitive, while the utility cost of enforcing the
+individual-level guarantee directly is small. The audit does not, however,
+show that the weaker guarantee is exploitable in practice on this data at this
+budget.
 
 % FLOAT PLACEMENT NOTE: fig7_energy is declared near the TOP of this section,
 % not beside the Energy subsection that discusses it. A figure* can only be set
@@ -582,7 +691,7 @@ interpretable rather than merely absent.
 % standard remedy; LaTeX never places a float before its declaration.
 %==============================================================================
 % PENDING SUBSECTIONS — experiments not yet complete. Add each only when its
-% artefact exists; do not pre-write numbers.
+% artifact exists; do not pre-write numbers.
 %
 %   (Multimodal fusion ablation: COMPLETE 2026-08-16 at n=5, written up at
 %    \label{sec:results:fusion}. +0.0370 AUROC / +0.0671 AUPRC, 5.9x seed-sd.
@@ -590,12 +699,12 @@ interpretable rather than merely absent.
 %    results/phase5/archive_fusion_2seed/. Quote five-seed only.)
 %
 %   (Component ablation: COMPLETE 2026-08-17 at n=3 seeds, written up at
-%    \label{sec:results:ablation}. Only C2 resolves. Artefacts:
+%    \label{sec:results:ablation}. Only C2 resolves. Artifacts:
 %    results/phase6/vitaldb/ablation_A*_seed*.json)
 %
 %   (MIA control: re-run 2026-08-17 after the --no_dp early-stop fix; the
 %    published control had trained 1 round of 10. lira_offline 0.6277 -> 0.6230,
-%    i.e. essentially unchanged. Prior artefacts archived under
+%    i.e. essentially unchanged. Prior artifacts archived under
 %    results/phase5/lira/vitaldb/*_1round_*.)
 %
 %==============================================================================

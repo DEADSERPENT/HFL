@@ -5,6 +5,10 @@ Target: model size < 4 MB, compatible with ONNXRuntime CUDAExecutionProvider.
 """
 
 import os
+import sys as _sys_reg
+_sys_reg.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'loaders'))
+# Module scope: --dataset choices resolve from the registry.
+from datasets import REGISTRY                                   # noqa: E402
 import sys
 import argparse
 import torch
@@ -252,7 +256,7 @@ def main():
                              "artifact. Non-fatal if ORT cannot produce a "
                              "loadable model.")
     parser.add_argument("--dataset", default="vitaldb",
-                        choices=["wear", "vitaldb"],
+                        choices=sorted(REGISTRY),
                         help="Determines input shapes and encoder-B type.")
     parser.add_argument("--checkpoint", default="checkpoints/best_model_hc.pt",
                         help="Path to trained model checkpoint (.pt)")

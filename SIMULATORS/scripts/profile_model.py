@@ -17,6 +17,10 @@ import argparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "model"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "data", "loaders"))
+
+# Module scope: --dataset choices resolve from the registry, so REGISTRY
+# must be importable here, not only inside a function.
+from datasets import REGISTRY                                   # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np
@@ -32,7 +36,7 @@ def _sync(device):
 def main():
     ap = argparse.ArgumentParser(description="Profile HFL training step")
     ap.add_argument("--dataset", default="vitaldb",
-                    choices=["wear", "vitaldb"])
+                    choices=sorted(REGISTRY))
     ap.add_argument("--data_dir", default=None, help="override registry path")
     ap.add_argument("--part_dir", default=None, help="override registry path")
     ap.add_argument("--batches", type=int, default=20)

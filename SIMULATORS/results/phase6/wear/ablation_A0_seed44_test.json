@@ -1,0 +1,10 @@
+{
+  "dataset": "wear",
+  "split": "test",
+  "pooled_over_devices": true,
+  "accuracy": 0.9355000837661249,
+  "macro_auc": 0.996065651710087,
+  "auprc": 0.9762558028778032,
+  "selected_on": "auc",
+  "best_val_auc": 0.9986184555749958
+}

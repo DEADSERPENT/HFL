@@ -1,0 +1,15 @@
+{
+  "dataset": "wear",
+  "seed": 47,
+  "rounds": 10,
+  "select_on": "auc",
+  "best_val": 0.9929981773538761,
+  "selected_round": 10,
+  "epsilon_spent": 0.7659,
+  "uplink_bytes_total": 124089900,
+  "test": {
+    "accuracy": 0.8699949740325013,
+    "macro_auc": 0.9883211653866876,
+    "auprc": 0.9420184273902505
+  }
+}

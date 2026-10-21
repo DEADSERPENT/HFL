@@ -1,0 +1,49 @@
+{
+  "dataset": "eicu",
+  "pairing": "SAME STAY (patientunitstayid); tabular is admission-time only",
+  "epochs": 8,
+  "seeds": [
+    42,
+    43
+  ],
+  "n_train": 2122350,
+  "n_test": 569640,
+  "runs": {
+    "b": [
+      {
+        "acc": 0.6752580577206657,
+        "auroc": 0.6829441731063473,
+        "auprc": 0.09735973857437105,
+        "case_auroc": 0.7928682958445652,
+        "case_auprc": 0.22014530009436717,
+        "case_acc": 0.7652553864697905,
+        "seed": 42,
+        "mode": "b",
+        "secs": 53.5
+      },
+      {
+        "acc": 0.7066638578751492,
+        "auroc": 0.6861026119713273,
+        "auprc": 0.0988523362732143,
+        "case_auroc": 0.783941635855662,
+        "case_auprc": 0.22444084471133943,
+        "case_acc": 0.851238009140676,
+        "seed": 43,
+        "mode": "b",
+        "secs": 52.8
+      }
+    ]
+  },
+  "arms": [
+    "b"
+  ],
+  "fusion_gain_auroc": null,
+  "fusion_gain_auprc": null,
+  "verdict": {
+    "verdict": "not_a_fusion_test",
+    "arms": [
+      "b"
+    ],
+    "text": "calibration run \u2014 a fusion gain needs all three arms"
+  }
+}

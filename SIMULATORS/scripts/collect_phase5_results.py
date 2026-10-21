@@ -12,6 +12,7 @@ Writes:
 """
 
 import os
+import re
 import csv
 import json
 import argparse
@@ -61,23 +62,62 @@ def extract_final_test_from_log(csv_path: str) -> dict:
     val number, which was then tabulated next to the baselines' test numbers.
     Prefer the log so both columns mean the same thing.
     """
-    log_path = os.path.splitext(csv_path)[0] + ".log"
-    if not os.path.exists(log_path):
+    # A persisted artifact beats scraping: hfl_trainer.py writes
+    # <stem>_test.json when it can, and that is authoritative.
+    stem = os.path.splitext(csv_path)[0]
+    tj = stem + "_test.json"
+    if os.path.exists(tj):
+        try:
+            with open(tj) as f:
+                d = json.load(f)
+            return {k: d[k] for k in ("accuracy", "macro_auc", "auprc")
+                    if d.get(k) is not None}
+        except (ValueError, OSError):
+            pass
+
+    # Otherwise find the run log. The pipeline driver does NOT put it beside
+    # the CSV: it writes results/pipeline/<dataset>/logs/<stage>.log, so check
+    # there too rather than silently returning {} and falling back to VAL.
+    base = os.path.basename(stem)                  # e.g. "proposed_vitaldb"
+    stage, _, ds = base.partition("_")             # -> "proposed", "vitaldb"
+    res_root = os.path.dirname(os.path.dirname(csv_path))   # .../results
+    candidates = [
+        stem + ".log",
+        os.path.join(res_root, "pipeline", ds, "logs", stage + ".log"),
+    ]
+    log_path = next((c for c in candidates if os.path.exists(c)), None)
+    if log_path is None:
         return {}
+    # Refuse a log older than the CSV — it is a previous run's log and pairing
+    # its test metrics with this CSV would splice two runs together.
+    try:
+        if os.path.getmtime(log_path) < os.path.getmtime(csv_path) - 1:
+            return {}
+    except OSError:
+        return {}
+    # Match the trainer's actual line, which is
+    #   "Final Test  AUROC=0.8515 AUPRC=0.5943 Acc=0.8387 | Best val AUC=0.8441"
+    # An earlier exact-prefix check ("Final Test AUC=") stopped matching when
+    # the trainer renamed AUC->AUROC and added AUPRC, so this silently fell
+    # back to the CSV's per-round VAL metrics and tabulated them against the
+    # baselines' TEST metrics. Parse by key instead of by prefix.
     m = None
     with open(log_path, errors="ignore") as f:
         for line in f:
-            if line.startswith("Final Test AUC="):
+            if line.lstrip().startswith("Final Test"):
                 m = line.strip()
     if not m:
         return {}
+
+    head = m.split("|", 1)[0]        # drop the trailing "Best val ..." part
     out = {}
-    for part in m.split("|"):
-        part = part.strip()
-        if part.startswith("Final Test AUC="):
-            out["macro_auc"] = part.split("=", 1)[1].strip()
-        elif part.startswith("Acc="):
-            out["accuracy"] = part.split("=", 1)[1].strip()
+    for key, field in (("AUROC", "macro_auc"), ("AUC", "macro_auc"),
+                       ("AUPRC", "auprc"), ("Acc", "accuracy")):
+        if field in out:
+            continue
+        mm = re.search(rf"\b{key}=([0-9.]+)", head)
+        if mm:
+            out[field] = mm.group(1)
     return out
 
 

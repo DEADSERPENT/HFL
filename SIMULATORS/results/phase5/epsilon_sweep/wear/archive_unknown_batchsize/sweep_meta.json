@@ -1,0 +1,24 @@
+{
+  "dataset": "wear",
+  "epsilons": [
+    0.5,
+    1.0,
+    2.0,
+    4.0,
+    8.0,
+    "inf"
+  ],
+  "recipes": [
+    "full",
+    "head"
+  ],
+  "seeds": [
+    42
+  ],
+  "rounds": 10,
+  "select_on": "auc",
+  "class_weight": false,
+  "pretrained_encoders": "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_wear.pt",
+  "n_devices": 22,
+  "metric": "macro_auc"
+}

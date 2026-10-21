@@ -1,0 +1,6 @@
+system,name,description,present,metric_split,n_seeds,accuracy,macro_auc,auprc,case_auc,acc_loss_vs_S0_pp,uplink_mb,uplink_reduction_pct,p95_latency_ms,update_reliability_pct,epsilon_spent,source
+S0,CentralizedFL,"pooled data, no FL, no DP",True,test,,0.7764945652173914,0.861175893605332,0.6158209393091072,0.8773719300245028,0.0,,,,,,results/phase5/baselines/vitaldb/baseline_b0.csv
+S1,FlatFL_NoDP,"FedAvg, single tier, no DP",True,test,,0.7972826086956522,0.8173120945409745,0.4972380210827264,0.8254815089178871,-2.07880434782608,,,,,,results/phase5/baselines/vitaldb/baseline_b2.csv
+S2,FL2DP,"FedAvg + DP, flat tier",True,test,,0.8005434782608696,0.7364005320103368,0.4546792906319926,0.740127642600718,-2.4048913043478226,,,,,0.963441782468697,results/phase5/baselines/vitaldb/baseline_b4.csv
+S3,HED-FL,"hierarchical, no DP",True,test,1,0.8118206521739131,0.832244247499496,0.4847146362866346,,-3.532608695652173,,,,,inf,results/phase6/vitaldb/s3_hedfl_vitaldb.csv
+S4,HFL-MM (PROPOSED),2-tier + head-only DP + fusion,True,test,3,0.8235507246376811,0.8541411159268283,0.5959938097002474,,-4.705615942028974,,,3.048,,0.970454002848439,results/phase5/proposed_vitaldb.csv

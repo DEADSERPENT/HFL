@@ -57,7 +57,7 @@ from torch.utils.data import DataLoader, Subset, ConcatDataset
 import numpy as np
 
 from device_utils import get_device, optimize_gpu, get_dataloader_kwargs, set_seed
-from datasets import get_spec
+from datasets import get_spec, REGISTRY
 # Reuse the trainer's metric code rather than reimplementing it: a baseline
 # scored by a different function than the proposed model is not a comparison.
 from hfl_trainer import _compute_metrics
@@ -108,7 +108,8 @@ def _trainable(model: nn.Module):
 
 def run_centralized(model_fn, loaders, n_classes, epochs=30, lr=1e-3,
                     device=None, output_path=None, class_weight=None,
-                    select_on="auc", group_ids=None) -> dict:
+                    select_on="auc", group_ids=None,
+                    eval_every=0, val_cap=0, max_steps=0) -> dict:
     """
     B0: train on the pooled data of every device. Upper bound.
 
@@ -128,6 +129,38 @@ def run_centralized(model_fn, loaders, n_classes, epochs=30, lr=1e-3,
         weight=class_weight.to(device) if class_weight is not None else None)
 
     best, best_state = -np.inf, None
+
+    # Intra-epoch validation. B0 pools EVERY device, so one epoch is one pass
+    # over the whole corpus: a few hundred steps on vitaldb/wear, but ~41k on
+    # eICU. There the model peaks early and then collapses to a constant
+    # (val AUC exactly 0.5000), and a once-per-epoch checkpoint only ever sees
+    # the collapsed model. All three knobs default to 0 = OFF, reproducing the
+    # original per-epoch cadence exactly, so published baselines are unchanged.
+    every    = max(0, int(eval_every or 0))
+    v_cap    = max(0, int(val_cap or 0))
+    max_step = max(0, int(max_steps or 0))
+
+    # Frequent checks run on a capped val subset to stay affordable; the
+    # epoch-boundary check always uses the FULL val split.
+    va_quick = loaders["val"]
+    if v_cap and len(va_quick.dataset) > v_cap:
+        sub = np.sort(np.random.default_rng(0).choice(
+            len(va_quick.dataset), v_cap, replace=False))
+        va_quick = DataLoader(Subset(va_quick.dataset, sub.tolist()),
+                              batch_size=va_quick.batch_size or 256,
+                              shuffle=False, num_workers=0)
+
+    def _check(tag, loader):
+        nonlocal best, best_state
+        m = evaluate(model, loader, device)
+        if _sel(m, select_on) > best:
+            best, best_state = _sel(m, select_on), copy.deepcopy(model.state_dict())
+        print(f"[B0 Centralized] {tag} | "
+              f"val AUC={m['macro_auc']:.4f} AUPRC={m['auprc']:.4f} "
+              f"acc={m['accuracy']:.4f}", flush=True)
+        model.train()
+
+    step, stop = 0, False
     for ep in range(epochs):
         model.train()
         for xa, xb, _t, y in loaders["train"]:
@@ -136,13 +169,17 @@ def run_centralized(model_fn, loaders, n_classes, epochs=30, lr=1e-3,
                           xb.to(device, non_blocking=True)),
                     y.to(device, non_blocking=True)).backward()
             opt.step()
+            step += 1
+            if every and step % every == 0:
+                _check(f"Epoch {ep+1}/{epochs} step {step}", va_quick)
+            if max_step and step >= max_step:
+                stop = True
+                break
         sched.step()
-        m = evaluate(model, loaders["val"], device)
-        if _sel(m, select_on) > best:
-            best, best_state = _sel(m, select_on), copy.deepcopy(model.state_dict())
-        print(f"[B0 Centralized] Epoch {ep+1}/{epochs} | "
-              f"val AUC={m['macro_auc']:.4f} AUPRC={m['auprc']:.4f} "
-              f"acc={m['accuracy']:.4f}", flush=True)
+        _check(f"Epoch {ep+1}/{epochs}", loaders["val"])
+        if stop:
+            print(f"[B0 Centralized] stop: max_steps={max_step} reached", flush=True)
+            break
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -570,7 +607,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="FL baselines B0–B6",
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--dataset", required=True,
-                   choices=["wear", "vitaldb"])
+                   choices=sorted(REGISTRY))
     p.add_argument("--data_dir", default=None, help="override registry path")
     p.add_argument("--partition_dir", default=None, help="override registry path")
     p.add_argument("--output_dir", default=None,
@@ -595,6 +632,15 @@ if __name__ == "__main__":
     p.add_argument("--class_weight", choices=["none", "balanced", "auto"],
                    default="auto",
                    help="auto = balanced for binary tasks, none otherwise")
+    p.add_argument("--eval_every", type=int, default=0,
+                   help="B0: validate every N optimiser steps (0 = only at "
+                        "epoch end, the original behaviour). Needed where one "
+                        "pooled epoch is long enough to hide the model's peak.")
+    p.add_argument("--val_cap", type=int, default=0,
+                   help="B0: cap the val split used by intra-epoch checks "
+                        "(0 = full). Epoch-boundary checks always use full val.")
+    p.add_argument("--max_steps", type=int, default=0,
+                   help="B0: stop after N optimiser steps (0 = unlimited).")
     p.add_argument("--select_on", choices=["auc", "auprc"], default="auto",
                    nargs="?", const="auto",
                    help="auto = auprc for binary tasks, auc otherwise")
@@ -688,7 +734,9 @@ if __name__ == "__main__":
         print("\n" + "=" * 70 + f"\nB0 CENTRALIZED | epochs={args.b0_epochs}\n" + "=" * 70)
         results.append(run_centralized(
             model_fn, pooled, spec.n_classes, epochs=args.b0_epochs, lr=args.lr,
-            output_path=os.path.join(out_dir, "baseline_b0.csv"), **common))
+            output_path=os.path.join(out_dir, "baseline_b0.csv"),
+            eval_every=args.eval_every, val_cap=args.val_cap,
+            max_steps=args.max_steps, **common))
 
     if want("b1"):
         print("\n" + "=" * 70 + f"\nB1 LOCAL ONLY | epochs={args.b1_epochs}\n" + "=" * 70)
