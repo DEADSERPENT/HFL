@@ -1,0 +1,15 @@
+{
+  "dataset": "vitaldb_person",
+  "split": "test",
+  "pooled_over_devices": true,
+  "accuracy": 0.8123277737490936,
+  "macro_auc": 0.8339107289928787,
+  "auprc": 0.4620068773482144,
+  "val_threshold": 0.00034228592994622886,
+  "accuracy_valthr": 0.7251631617113851,
+  "balanced_accuracy_valthr": 0.779302835447115,
+  "sensitivity_valthr": 0.8662567255956957,
+  "specificity_valthr": 0.6923489452985342,
+  "selected_on": "auc",
+  "best_val_auc": 0.8350926196512795
+}

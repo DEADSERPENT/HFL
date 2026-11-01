@@ -1,0 +1,104 @@
+{
+  "dataset": "vitaldb",
+  "source_document": "document/Research Problem Statements for Multimodal.pdf",
+  "problem_statement": "Problem Statement 1 \u2014 Federated Multimodal Edge-Cloud Learning for Low-Latency, Privacy-Preserving IoT",
+  "objectives": {
+    "O1": {
+      "name": "Uplink traffic reduction",
+      "target": 50.0,
+      "unit": "%",
+      "cmp": ">=",
+      "source": "NS-3 / proposed run communication accounting",
+      "measured": 90.82232057695883,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "uplink_measured_vitaldb.json: measured compressor (head-only), indices included"
+    },
+    "O1b": {
+      "name": "FL round latency reduction",
+      "target": 0.0,
+      "unit": "%",
+      "cmp": ">",
+      "source": "NS-3 per-round end-to-end round latency (packet-level)",
+      "measured": 16.931490777647173,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "ns3_results_vitaldb.csv: L_total_ms 90.5->75.2 ms/round"
+    },
+    "O2a": {
+      "name": "Privacy budget",
+      "target": 1.0,
+      "unit": "eps",
+      "cmp": "<=",
+      "source": "proposed run privacy accountant",
+      "measured": 0.9999874758467844,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "privacy_total_vitaldb.json: TOTAL = training 0.9000 + conformal 0.1000 (basic composition)"
+    },
+    "O2b": {
+      "name": "Accuracy loss under DP",
+      "target": 2.0,
+      "unit": "pp",
+      "cmp": "<=",
+      "source": "proposed run at eps vs no-DP reference",
+      "measured": 0.7961956521739122,
+      "verdict": "DEGENERATE",
+      "ci_low": 0.6154377806627211,
+      "ci_high": 0.9769535236851032,
+      "n_seeds": 5,
+      "evidence": "vitaldb/vitaldb: 5 paired seeds, eps=1 vs eps=inf (system recipe); DEGENERATE: eps=1 accuracy is 0.8005 on every seed (constant predictor) - see o2b_paired.json for AUROC/AUPRC"
+    },
+    "O3a": {
+      "name": "Inference latency (P95)",
+      "target": 100.0,
+      "unit": "ms",
+      "cmp": "<",
+      "source": "ONNX Runtime inference benchmark",
+      "measured": 3.048,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "latency_vitaldb.json:total_ms.p95_ms (CPU provider)"
+    },
+    "O3b": {
+      "name": "Successful model updates",
+      "target": 99.0,
+      "unit": "%",
+      "cmp": ">",
+      "source": "NS-3 per-update reliability",
+      "measured": 100.0,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "ns3_results_vitaldb.csv: reliability_pct, HFL_Proposed, per-update"
+    },
+    "O4": {
+      "name": "Energy saving per round",
+      "target": 20.0,
+      "unit": "%",
+      "cmp": ">=",
+      "source": "CloudSim Plus energy model",
+      "measured": 72.30009871668312,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "cloudsim_results_vitaldb.csv: total_energy_J 1266.2->350.8 J/round"
+    }
+  },
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "inconclusive": 1,
+    "not_measured": 0
+  }
+}

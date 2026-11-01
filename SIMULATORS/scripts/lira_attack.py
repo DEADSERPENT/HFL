@@ -492,6 +492,23 @@ def lira_scores(phi_target, phi_shadow, in_mask, floor=1e-3):
     }
 
 
+# LiRA assumes the shadows are faithful copies of the target. Regressing the
+# target's per-patient statistic on the shadows' OUT mean checks that: a slope
+# of 1 and a shift of 0 mean the shadows describe the target's scale. Off 1,
+# (phi_target - mo) carries -(1 - slope) * mo, i.e. the difficulty floor with
+# its sign flipped, and the offline AUC drops below 0.5 with no leakage at all.
+# Measured 2026-10-21 on vitaldb: control 1.05-1.13 and record arm 0.95-1.02
+# (fine); the eps=16 record target 0.81, which produced an offline AUC of 0.39.
+CALIB_TOL = 0.15
+
+
+def shadow_calibration(phi_target, mo):
+    """(slope, shift) of the target statistic against the shadow OUT mean."""
+    ok = np.isfinite(phi_target) & np.isfinite(mo)
+    slope = float(np.polyfit(mo[ok], phi_target[ok], 1)[0])
+    return slope, float(np.mean(phi_target[ok]) - np.mean(mo[ok]))
+
+
 # Keys returned by lira_scores that are diagnostics rather than attacks. They
 # are scored and reported like everything else, but must never win "strongest
 # attack" — an adversary cannot mount the difficulty floor, it is what the
@@ -648,6 +665,12 @@ def main():
             # Every score here is oriented so that HIGHER means more
             # member-like: the loss baseline is negated once, at source.
             cand = {"loss": -loss_t, **lira_scores(phi_t, phi_shadow, in_mask)}
+            slope, shift = shadow_calibration(phi_t, cand["difficulty"])
+            if abs(slope - 1) > CALIB_TOL:
+                print(f"  [WARN] seed {seed}: shadow calibration slope "
+                      f"{slope:.2f} (shift {shift:+.2f}). The shadows do not "
+                      f"match the target's scale, so the LiRA scores inherit "
+                      f"the difficulty floor; read them against it.")
             aucs = {}
             for name, s in cand.items():
                 auc = aucs[name] = auc_scores(y_true, s)
@@ -656,7 +679,8 @@ def main():
                      "tpr_at_1pct_fpr": tpr_at_fpr(y_true, s, 0.01),
                      "tpr_at_0.1pct_fpr": tpr_at_fpr(y_true, s, 0.001),
                      "n_shadows": a.n_shadows,
-                     "n_members": len(mem), "n_nonmembers": len(non)}
+                     "n_members": len(mem), "n_nonmembers": len(non),
+                     "shadow_slope": slope, "shadow_shift": shift}
                 rows.append(r)
                 per_attack.setdefault(name, []).append(auc)
             print(f"  seed {seed}: " + "  ".join(

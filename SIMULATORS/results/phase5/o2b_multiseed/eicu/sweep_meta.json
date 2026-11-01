@@ -1,0 +1,21 @@
+{
+  "dataset": "eicu",
+  "epsilons": [
+    1.0,
+    "inf"
+  ],
+  "recipes": [
+    "head"
+  ],
+  "seeds": [
+    46
+  ],
+  "rounds": 30,
+  "select_on": "auprc",
+  "class_weight": false,
+  "pretrained_encoders": "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_eicu.pt",
+  "n_devices": 187,
+  "metric": "auprc",
+  "dp_unit": "patient",
+  "patients_per_batch": 64
+}

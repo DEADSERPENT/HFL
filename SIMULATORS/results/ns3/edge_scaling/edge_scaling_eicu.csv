@@ -1,0 +1,13 @@
+n_edges,stations_per_edge,scenario,n_rounds,reliability_mean,reliability_min,rounds_meeting_target,latency_ms,comm_ms,source
+2,93.5,CentralizedFL,20,95.114,94.063,0,261.45,194.57,results/ns3/ns3_results_eicu.csv
+2,93.5,FlatFL_DP,20,95.036,94.246,0,264.88,200.0,results/ns3/ns3_results_eicu.csv
+2,93.5,FlatFL_NoDP,20,95.165,94.169,0,258.2,194.32,results/ns3/ns3_results_eicu.csv
+2,93.5,HFL_Proposed,20,97.833,96.813,0,174.15,115.48,results/ns3/ns3_results_eicu.csv
+2,93.5,HierarchicalFL_NoDP,20,98.008,97.455,0,175.14,115.26,results/ns3/ns3_results_eicu.csv
+3,62.3,HFL_Proposed,20,98.425,98.118,1,150.35,91.68,results/ns3/edge_scaling/ns3_eicu_e3.csv
+4,46.8,HFL_Proposed,20,98.769,98.475,1,131.51,72.85,results/ns3/edge_scaling/ns3_eicu_e4.csv
+6,31.2,HFL_Proposed,20,99.342,98.713,19,111.03,52.36,results/ns3/edge_scaling/ns3_eicu_e6.csv
+8,23.4,HFL_Proposed,20,99.732,99.493,20,97.06,38.39,results/ns3/edge_scaling/ns3_eicu_e8.csv
+12,15.6,HFL_Proposed,20,99.924,99.849,20,84.63,25.96,results/ns3/edge_scaling/ns3_eicu_e12.csv
+16,11.7,CentralizedFL,20,99.598,99.545,20,100.25,33.37,results/ns3/edge_scaling/ns3_eicu_e16.csv
+16,11.7,HFL_Proposed,20,99.943,99.848,20,82.97,24.3,results/ns3/edge_scaling/ns3_eicu_e16.csv

@@ -1,3 +1,5 @@
+> **Superseded (2026-10-29).** Historical record of the August state. The final, authoritative results are in [`../RESULTS_FINAL.md`](../RESULTS_FINAL.md).
+
 # Codebase Audit & Migration Report
 
 **Project:** Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT

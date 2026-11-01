@@ -1,0 +1,126 @@
+{
+  "purpose": "Provenance sidecar for the person-level VitalDB partition. partition_meta.json is kept byte-identical because its MD5 is recorded by every run that used it.",
+  "partition_meta.json": {
+    "md5": "85739fdff91617b537850dee48221432",
+    "md5_16_as_recorded_by_runs": "85739fdff91617b5",
+    "legacy_fields": {
+      "split": "by CASE, stratified by outcome within each optype (no case spans splits)",
+      "note": "copied from the case-level partition_meta.json; NOT the split rule of this partition"
+    },
+    "correct_fields": {
+      "unit": "person (subjectid); derived by make_person_partitions_vitaldb.py"
+    }
+  },
+  "applicable_split": "by PERSON (VitalDB subjectid): each person in exactly one split and on exactly one client",
+  "rules": {
+    "split": "priority train > test > val; other-split cases dropped",
+    "client": "client with most of the person's cases in their split; tie -> client of lowest caseid; other-client cases dropped"
+  },
+  "counts_after": {
+    "splits": {
+      "train": {
+        "windows": 33491,
+        "cases": 4302,
+        "persons": 4221
+      },
+      "test": {
+        "windows": 6895,
+        "cases": 886,
+        "persons": 885
+      },
+      "val": {
+        "windows": 6773,
+        "cases": 869,
+        "persons": 868
+      }
+    },
+    "person_overlap": {
+      "train_test": 0,
+      "train_val": 0,
+      "val_test": 0,
+      "train_persons_on_several_clients": 0
+    }
+  },
+  "counts_before_case_level": {
+    "splits": {
+      "train": {
+        "windows": 34044,
+        "cases": 4372,
+        "persons": 4221
+      },
+      "test": {
+        "windows": 7360,
+        "cases": 947,
+        "persons": 940
+      },
+      "val": {
+        "windows": 7308,
+        "cases": 938,
+        "persons": 931
+      }
+    },
+    "person_overlap": {
+      "train_test": 55,
+      "train_val": 51,
+      "val_test": 16,
+      "train_persons_on_several_clients": 68
+    }
+  },
+  "cases_dropped": 200,
+  "cases_dropped_by_split": {
+    "val": 69,
+    "test": 61,
+    "train": 70
+  },
+  "partition_arrays_sha256": {
+    "device_00_test.npy": "b13af7a9f8566920345292d308f4a48834d14fc36e9a6541c3a06526ceafe25f",
+    "device_00_train.npy": "cc40310beb8e46c695ccc8de65a6177132df0f81264d711d7a088d5ea7e2d37b",
+    "device_00_val.npy": "815a1fd2169a0b46ea96e9b6828784d67adf59f9dfd0d00f2aa0b297c51453ac",
+    "device_01_test.npy": "b4fd4bea3d850719c371a958e3d46d2ffef6c855947c8829d6b77736c2f69d3e",
+    "device_01_train.npy": "7ae2bd1e6694fa4b606f4ea8997d51e86934f82694575f358468e3e89c6dd2b0",
+    "device_01_val.npy": "995f75304dc34d31c6f36c16b5bbaa9360f78bf2377527e8e9a05be0912cb3ed",
+    "device_02_test.npy": "cfc8815c9389783d3c23862e476de2b7b0847133228d4deb9550b4391a3bc0ee",
+    "device_02_train.npy": "47967e2b7d2ee98278d182a5668ffe5295065680ef86d54101f9377b174a1c71",
+    "device_02_val.npy": "40723c2bfa84c5a4ae8eb7ef9307897768148d736df6c2a15b3dfa6e3d691ebe",
+    "device_03_test.npy": "27e3f939b491ef27c81d5c0ab6477024e163c359c1e29c78e82eca13519e6a36",
+    "device_03_train.npy": "83a9c28508fe7014385dab20971183a2cd2126d89eef2b4cefe3fc9504fa216e",
+    "device_03_val.npy": "055de3c2162649d83be8e224f2801e3ee5cde7d21183667896b11ca3f364b4d2",
+    "device_04_test.npy": "f7097cfb7b6d68399d33506b21815f93891ed2516da8dd5b7c050f46168293cb",
+    "device_04_train.npy": "ecbe57672e8fab5dd0667ff29fa8742afc148391681ae9cb7c259bb9e1b1499b",
+    "device_04_val.npy": "981e166ead2972c1d9afa79fae41316c47a14cd63885e29c1c795c0605bb7bd3",
+    "device_05_test.npy": "c46f513c429be6f3d3dba719df0d1cfcf5bb9a46f28512f3e9f38346a5eb9bd5",
+    "device_05_train.npy": "cdd72f85ca38fcbff7aa8f6302d6797ebb6832a276ea59c2fad0e0671dd49574",
+    "device_05_val.npy": "72ad3c6f0945ec3e27be605140be7f01dd42e2e43651f599bc5b8ea9d521d1d8",
+    "device_06_test.npy": "77727b6582f28b712ea0447c45123a3b6a034a0ff74f756198b507e8538c1eac",
+    "device_06_train.npy": "169eceeed9c6ef9a7efc20992f00c840492b433975a52e9f9639327bee73dd58",
+    "device_06_val.npy": "8538d0e037b143895e40068dd41a98c279a13d3d38ad67ccd81dadd50651f4b3",
+    "device_07_test.npy": "c36cfe28bc0d64278021107fb06d17a796eb64dce773ba927a5f3d1ce271b875",
+    "device_07_train.npy": "379b44f72a035c33f6e8c8ed6d450682b81d654de82d6d37f4e772b61ff9739e",
+    "device_07_val.npy": "a45d5fac4de9a8c0e429f1eb486a0999267586f6bf8b9492efe93b216e6e1c3c",
+    "device_08_test.npy": "014d3ad756af0ede971a87c14426c345b35c8c662a7b4c17e8cc8c16af8396af",
+    "device_08_train.npy": "4828b916a94efeb1ed723df3944d691299213d9accf3c510772e5cbd2dc1b17e",
+    "device_08_val.npy": "bce015bd9d1821eab16bf47e0110a1f84b2bb51fa7678c1b3420e76b9c87695b"
+  },
+  "runs_using_this_partition": {
+    "partition_meta_md5": "85739fdff91617b5",
+    "run_metadata_files_by_experiment": {
+      "o2b_system": 10,
+      "baselines_lit": 10,
+      "patient_dp": 10,
+      "mia_factorial": 3
+    },
+    "note": "run_metadata files are written per launch; a driver launch may cover several seeds"
+  },
+  "generator": {
+    "script": "scripts/make_person_partitions_vitaldb.py",
+    "note": "arrays produced 2026-10-30 by this script; on 2026-11-01 it was edited only to write a person-level 'split' label into future metadata (no change to the partition rules or arrays)",
+    "current_sha256": "c9f43c285b4634bdc36d5b15fa93f9fa064e33650cec9977908a0e95acd46a57"
+  },
+  "independent_check": "2026-11-01: arrays re-verified against raw clinical_data.csv subjectid: 0 persons in more than one (split, client), 0 windows assigned twice",
+  "written": "2026-11-01",
+  "lira_shadow_partitions": {
+    "n_run_metadata_files": 80,
+    "n_distinct_partition_meta_md5": 16,
+    "note": "each LiRA shadow trains on its own member/non-member resample under results/phase5/lira/vitaldb_person/shadows/<arm>/shadow_XX, so each shadow index has its own partition_meta.json and MD5, shared across the five arms"
+  }
+}

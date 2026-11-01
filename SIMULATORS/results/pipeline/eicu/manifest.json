@@ -1,0 +1,174 @@
+{
+  "dataset": "eicu",
+  "stages": {
+    "proposed": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 16506.4,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/eicu/logs/proposed.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/model/training/hfl_trainer.py",
+        "--dataset",
+        "eicu",
+        "--rounds",
+        "10",
+        "--tau_e",
+        "5",
+        "--batch_size",
+        "64",
+        "--epsilon",
+        "0.8",
+        "--epsilon_conf",
+        "0.2",
+        "--seed",
+        "42",
+        "--freeze_encoders",
+        "--pretrained_encoders",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_eicu.pt",
+        "--save_checkpoint",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/best_eicu.pt",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/proposed_eicu.csv"
+      ],
+      "finished": "2026-10-21T13:27:01"
+    },
+    "ns3_network": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 1.2,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/eicu/logs/ns3_network.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/ns3_phase5_integration.py",
+        "--dataset",
+        "eicu",
+        "--hfl_results",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/proposed_eicu.csv",
+        "--n_rounds",
+        "10",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/ns3_eicu.csv"
+      ],
+      "finished": "2026-10-21T13:27:03"
+    },
+    "cloudsim_energy": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 1.4,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/eicu/logs/cloudsim_energy.log",
+      "argv": [
+        "mvn",
+        "-q",
+        "-f",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/cloudsim-plus/hfl-simulation/pom.xml",
+        "compile",
+        "exec:java",
+        "-Dexec.mainClass=hfl.HFLCloudSimulation",
+        "-Dexec.args=--dataset eicu --devices 187 --edges 2 --rounds 10 --model_mb 7.32"
+      ],
+      "finished": "2026-10-21T13:27:04"
+    },
+    "objectives": {
+      "status": "ok",
+      "returncode": 0,
+      "seconds": 0.0,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/eicu/logs/objectives.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/scripts/check_objectives.py",
+        "--dataset",
+        "eicu",
+        "--results_dir",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5",
+        "--output",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/objectives_eicu.json"
+      ],
+      "finished": "2026-10-21T13:27:04"
+    },
+    "epsilon_sweep": {
+      "status": "failed",
+      "returncode": 1,
+      "seconds": 3058.3,
+      "log": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/pipeline/eicu/logs/epsilon_sweep.log",
+      "argv": [
+        "/home/mit/DEADSERPENT/HFL/hfl_env/bin/python",
+        "-u",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/model/training/epsilon_sweep.py",
+        "--dataset",
+        "eicu",
+        "--rounds",
+        "10",
+        "--local_epochs",
+        "1",
+        "--batch_size",
+        "64",
+        "--epsilons",
+        "1.0",
+        "inf",
+        "--seeds",
+        "42",
+        "--recipes",
+        "head",
+        "--max_physical_batch_size",
+        "0",
+        "--pretrained_encoders",
+        "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_eicu.pt",
+        "--resume"
+      ],
+      "finished": "2026-10-21T14:21:54"
+    }
+  },
+  "config": {
+    "dataset": "eicu",
+    "stages": [
+      "epsilon_sweep",
+      "objectives"
+    ],
+    "skip": [],
+    "force": false,
+    "force_stage": [],
+    "dry_run": false,
+    "continue_on_error": false,
+    "list": false,
+    "seed": 42,
+    "rounds": 10,
+    "local_epochs": 1,
+    "tau_e": 5,
+    "batch_size": 64,
+    "epsilon": 0.8,
+    "epsilon_conf": 0.2,
+    "pretrain_epochs": 30,
+    "b0_epochs": 5,
+    "b1_epochs": 10,
+    "max_physical_batch_size": 0,
+    "ablation_epochs": 8,
+    "ablation_seeds": [
+      42,
+      43
+    ],
+    "component_ablation_arms": null,
+    "component_ablation_seeds": [
+      42,
+      43,
+      44
+    ],
+    "sweep_seeds": [
+      42
+    ],
+    "epsilons": [
+      "1.0",
+      "inf"
+    ],
+    "sweep_recipes": [
+      "head"
+    ],
+    "bench_runs": 200,
+    "provider": "cpu"
+  },
+  "started": "2026-10-21T13:30:56",
+  "finished": "2026-10-21T14:21:54"
+}

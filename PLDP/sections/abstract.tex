@@ -1,0 +1,27 @@
+\begin{abstract}
+Hierarchical federated learning keeps Internet-of-Things data local, but its differential-privacy guarantee protects single
+records, whereas clinical deployments must protect patients, each with many
+records. This paper proposes PP-HFM, a client--edge--cloud framework whose
+privacy unit is the patient. Each client clips a patient's summed gradient,
+calibrates noise to its population and accounts for every hierarchical
+release. The guarantee is proved for the training transcript and holds end to
+end with public encoders and standardization constants (eICU). PP-HFM is evaluated on
+VitalDB, an eICU cohort of $187$ hospitals and, at record level, a wearable
+corpus. At a training budget of
+$\varepsilon = 0.9$ ($1.0$ with an evaluated conformal release), it reduces
+uplink traffic by $90.8$--$96.1\,\%$ and modeled energy per round by
+$72.3$--$79.6\,\%$; $95$th-percentile inference latency on a workstation CPU
+is at most $2.3$~ms. On VitalDB, partitioned by person, the guarantee costs no
+utility (area under the ROC curve, AUC, $0.832$ against $0.820$ non-private); on
+eICU it costs $3.1$ points (inconclusive against the two-point target) and
+$3.9$ end to end, which misses it; non-private HED-FL is more accurate
+($0.825$ against $0.794$). PP-HFM
+uploads $2.2$--$4.0$ times less than re-implemented HED-FL and FL2DP and shows
+lower measured leakage than both in the VitalDB audit. On VitalDB and WEAR, pretrained initialization,
+not head-only noise,
+makes a strict budget survivable; the cost of the patient unit follows
+$A(1 - 1/k)$ in records per patient $k$. A VitalDB membership-inference audit
+with a positive control finds record-level training above its difficulty floor
+(likelihood-ratio attack AUC $0.576$) and patient-level training at it
+($0.503$).
+\end{abstract}

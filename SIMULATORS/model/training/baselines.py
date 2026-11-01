@@ -388,7 +388,8 @@ def run_dp_fedavg(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
                   device=None, output_path=None, class_weight=None,
                   select_on="auc", group_ids=None, head_only=False,
                   max_physical_batch_size: int = 0,
-                  label="B4_DP_FedAvg") -> dict:
+                  label="B4_DP_FedAvg", dp_unit: str = "sample",
+                  case_ids=None, patients_per_batch: int = 64) -> dict:
     """
     Flat FL + DP-SGD. `head_only` switches between the two private arms:
 
@@ -407,8 +408,18 @@ def run_dp_fedavg(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
     PrivacyEngine per device is reused across rounds. Calling target_epsilon
     afresh each round would silently drop cross-round composition and report a
     budget far smaller than the one actually spent.
+
+    dp_unit="patient" swaps the local step for patient_dp.patient_level_dp_train
+    (the same mechanism hfl_trainer uses): patients are Poisson-sampled, each
+    patient's summed gradient is clipped, and sigma is calibrated so the worst
+    client stays within the PATIENT-level budget. `case_ids` maps every dataset
+    index to its patient.
     """
     device = device or get_device(verbose=False)
+    if dp_unit not in ("sample", "patient"):
+        raise ValueError(f"dp_unit must be sample|patient, got {dp_unit!r}")
+    if dp_unit == "patient" and case_ids is None:
+        raise ValueError("dp_unit='patient' needs case_ids")
     from dp_engine import (make_dp_model, get_epsilon_spent,
                            compute_fl_noise_multiplier_multidevice,
                            new_device_privacy_engines)
@@ -424,9 +435,25 @@ def run_dp_fedavg(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
     # 4->4.082, 8->8.163. A privacy result that exceeds the epsilon it claims is
     # not a weaker result, it is an invalid one.
     _dev_n = [len(dl["train"].dataset) for dl in device_loaders]
-    sigma = compute_fl_noise_multiplier_multidevice(
-        target_epsilon=epsilon, target_delta=delta, n_fl_calls=rounds,
-        device_n_train=_dev_n, batch_size=bs, local_epochs=local_epochs)
+    if dp_unit == "patient":
+        from patient_dp import (group_indices_by_patient, patient_level_dp_train,
+                                PatientPrivacyAccountant,
+                                patient_level_noise_multiplier_multidevice)
+        # Each device's train loader wraps a Subset of the shared dataset.
+        _groups = [group_indices_by_patient(np.asarray(dl["train"].dataset.indices),
+                                            case_ids) for dl in device_loaders]
+        sigma = patient_level_noise_multiplier_multidevice(
+            target_epsilon=epsilon, target_delta=delta,
+            device_n_patients=[len(g) for g in _groups],
+            patients_per_batch=patients_per_batch, n_fl_calls=rounds,
+            local_epochs=local_epochs)
+        _accts = [PatientPrivacyAccountant(
+            sample_rate=min(patients_per_batch / max(len(g), 1), 1.0),
+            noise_multiplier=sigma) for g in _groups]
+    else:
+        sigma = compute_fl_noise_multiplier_multidevice(
+            target_epsilon=epsilon, target_delta=delta, n_fl_calls=rounds,
+            device_n_train=_dev_n, batch_size=bs, local_epochs=local_epochs)
     print(f"  [{label}] sigma={sigma:.4f} | DP-trained params "
           f"{n_trainable:,}/{n_total:,} ({100*n_trainable/n_total:.1f}%)")
 
@@ -446,6 +473,18 @@ def run_dp_fedavg(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
             if head_only:
                 from hfl_mm_model import freeze_encoders
                 freeze_encoders(local)
+            if dp_unit == "patient":
+                tr = patient_level_dp_train(
+                    local, dl["train"].dataset.dataset, _groups[dev_id], device,
+                    noise_multiplier=sigma, max_grad_norm=max_grad_norm, lr=lr,
+                    n_epochs=local_epochs, patients_per_batch=patients_per_batch,
+                    accountant=_accts[dev_id], class_weight=class_weight)
+                eps_spent = max(eps_spent, _accts[dev_id].epsilon(delta))
+                states.append(copy.deepcopy(local.state_dict()))
+                # Public weight: the client's static size, not the windows of
+                # the patients drawn this call (see hfl_trainer).
+                sizes.append(len(dl["train"].dataset))
+                continue
             opt = torch.optim.Adam(_trainable(local), lr=lr)
             dp_model, dp_opt, dp_loader, pe = make_dp_model(
                 local, opt, dl["train"], noise_multiplier=sigma,
@@ -506,7 +545,8 @@ def run_dp_fedavg(model_fn, device_loaders, pooled, rounds=20, local_epochs=1,
     t = evaluate(global_model, pooled["test"], device, group_ids)
     r_out = {"baseline": label, "rounds": rounds, "epsilon_target": epsilon,
              "epsilon_spent": eps_spent, "delta": delta, "sigma": sigma,
-             "head_only": head_only, "dp_trained_params": n_trainable,
+             "head_only": head_only, "dp_unit": dp_unit,
+             "dp_trained_params": n_trainable,
              "total_params": n_total, **_pack(t), "val_auc_history": history}
     print(f"[{label}] {_fmt(r_out)} | eps_spent={eps_spent:.4f}")
     if output_path:
@@ -585,8 +625,12 @@ def build_loaders(spec, batch_size: int, device):
             shuffle=(split == "train"), **dl_kw)
         order[split] = np.concatenate([i for _, i in pools[split]])
 
-    # Case ids let VitalDB be scored per OPERATION, not per 10-minute window.
-    gpath = os.path.join(spec.data_dir, "meta", "case_ids.npy")
+    # Score per case, not per window. The grouping comes from the registry
+    # (spec.metric_group_file), as in hfl_trainer: it defaults to case_ids
+    # (vitaldb: one operation), but on eICU case_ids is the PERSON and a
+    # person's stays can carry different mortality labels, so eICU groups by
+    # stay. Hard-coding case_ids here crashed every eICU sweep at test time.
+    gpath = os.path.join(spec.data_dir, spec.metric_group_file)
     group_test = np.load(gpath)[order["test"]] if os.path.exists(gpath) else None
     return full_ds, n_dev, device_loaders, pooled, order, group_test
 

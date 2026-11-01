@@ -84,8 +84,12 @@ with open(CONFIG_PATH) as f:
     cfg = json.load(f)
 
 _ap = argparse.ArgumentParser(description="HFL NS-3 network simulation")
+sys.path.insert(0, str(_SIM_ROOT / "scripts"))
+from ns3_phase5_integration import resolve_topology   # registry + partition_meta
+sys.path.insert(0, str(_SIM_ROOT / "data" / "loaders"))
+from datasets import REGISTRY
 _ap.add_argument("--dataset", default="vitaldb",
-                 choices=sorted(cfg.get("datasets", {})) or ["vitaldb"],
+                 choices=sorted(set(cfg.get("datasets", {})) | set(REGISTRY)),
                  help="selects topology and model size from config['datasets']")
 _ap.add_argument("--rounds", type=int, default=None)
 _ap.add_argument("--output", default=None)
@@ -98,6 +102,15 @@ _ap.add_argument("--cell_radius", type=float, default=30.0,
 _ap.add_argument("--ns3_every", type=int, default=10,
                  help="run the packet-level simulation every N rounds "
                       "for EVERY scenario (1 = every round)")
+_ap.add_argument("--n_edges", type=int, default=None,
+                 help="override the dataset's edge count (edge-scaling "
+                      "experiment). Each edge is its own wireless channel, so "
+                      "more edges = fewer stations contending per medium. "
+                      "The default output name then carries an _e<N> suffix "
+                      "so the dataset's own result file is never overwritten.")
+_ap.add_argument("--scenarios", nargs="+", default=None,
+                 help="subset of config['baselines'] to simulate "
+                      "(default: all of them)")
 _args, _ = _ap.parse_known_args()
 
 _ds = cfg.get("datasets", {}).get(_args.dataset, {})
@@ -109,8 +122,27 @@ if _ds:
           f"{_ds['num_iot_devices']} devices, {_ds['num_edge_servers']} edges, "
           f"model {_ds['model_size_MB']} MB ({_ds['n_params']:,} params)")
 else:
-    print(f"[config][WARN] no datasets['{_args.dataset}'] block — using "
-          f"top-level defaults, which may not match any trained model.")
+    # No hand-written block: resolve from the dataset registry and its
+    # partition_meta.json, the same source ns3_phase5_integration uses.
+    _t = resolve_topology(_args.dataset)
+    cfg["topology"]["num_iot_devices"] = _t["n_devices"]
+    cfg["topology"]["num_edge_servers"] = _t["n_edges"]
+    cfg["model"]["model_size_MB"] = round(_t["model_bytes_fp32"] / 1e6, 2)
+    print(f"[config] dataset='{_args.dataset}' (registry): "
+          f"{_t['n_devices']} devices, {_t['n_edges']} edges, "
+          f"model {cfg['model']['model_size_MB']} MB ({_t['n_params']:,} params)")
+
+if _args.n_edges is not None:
+    if not 1 <= _args.n_edges <= cfg["topology"]["num_iot_devices"]:
+        raise SystemExit(f"--n_edges must be in 1..{cfg['topology']['num_iot_devices']}")
+    print(f"[config] edge count overridden: "
+          f"{cfg['topology']['num_edge_servers']} -> {_args.n_edges}")
+    cfg["topology"]["num_edge_servers"] = _args.n_edges
+if _args.scenarios:
+    _unknown = sorted(set(_args.scenarios) - set(cfg["baselines"]))
+    if _unknown:
+        raise SystemExit(f"unknown scenarios {_unknown}; choose from {cfg['baselines']}")
+    cfg["baselines"] = [s for s in cfg["baselines"] if s in _args.scenarios]
 
 # ── NS-3 import ──────────────────────────────────────────────────────────────
 # NS-3 >= 3.36 ships FLAT cppyy bindings: the per-module namespaces
@@ -611,7 +643,9 @@ def main():
     # of all row keys. Taking the first row's keys silently drops every
     # packet-level column the moment an analytical row happens to come first —
     # which is what hid this path until the bindings were built.
-    out_csv = OUT_CSV or os.path.join(RESULTS_DIR, f"ns3_results_{_args.dataset}.csv")
+    _sfx = f"_e{NUM_EDGES}" if _args.n_edges is not None else ""
+    out_csv = OUT_CSV or os.path.join(RESULTS_DIR,
+                                      f"ns3_results_{_args.dataset}{_sfx}.csv")
     os.makedirs(os.path.dirname(out_csv) or ".", exist_ok=True)
     fields = list(dict.fromkeys(k for r in all_results for k in r))
     with open(out_csv, "w", newline="") as f:

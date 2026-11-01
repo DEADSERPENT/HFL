@@ -35,25 +35,26 @@
       "unit": "eps",
       "cmp": "<=",
       "source": "proposed run privacy accountant",
-      "measured": 0.970454002848439,
+      "measured": 0.8999921835938315,
       "verdict": "PASS",
       "ci_low": null,
       "ci_high": null,
       "n_seeds": null,
-      "evidence": "privacy_total_vitaldb.json: TOTAL = training 0.7705 + conformal 0.2000 (basic composition)"
+      "evidence": "o2b_system/vitaldb_person/dp_s*/privacy_total_*.json: max epsilon_training over 5 seeds",
+      "total_with_conformal": 0.9999921835938315
     },
     "O2b": {
-      "name": "Accuracy loss under DP",
+      "name": "Utility loss under DP (AUROC)",
       "target": 2.0,
-      "unit": "pp",
+      "unit": "AUROC pts",
       "cmp": "<=",
       "source": "proposed run at eps vs no-DP reference",
-      "measured": -0.9157608695652186,
+      "measured": -1.1807245437285019,
       "verdict": "PASS",
-      "ci_low": -2.8195279514939413,
-      "ci_high": 0.9880062123635038,
+      "ci_low": -1.6314785828100933,
+      "ci_high": -0.7299705046469103,
       "n_seeds": 5,
-      "evidence": "vitaldb/vitaldb: 5 paired seeds, eps=1 vs eps=inf (head recipe)"
+      "evidence": "o2b_system/vitaldb_person/o2b_paired.json: macro_auc cost (reference - private) x 100, AUROC points, 5 paired seeds, p=0.0019"
     },
     "O3a": {
       "name": "Inference latency (P95)",
@@ -61,12 +62,12 @@
       "unit": "ms",
       "cmp": "<",
       "source": "ONNX Runtime inference benchmark",
-      "measured": 3.048,
+      "measured": 2.299,
       "verdict": "PASS",
       "ci_low": null,
       "ci_high": null,
       "n_seeds": null,
-      "evidence": "latency_vitaldb.json:total_ms.p95_ms (CPU provider)"
+      "evidence": "latency_bench/latency_vitaldb_fp32.csv: total_ms.p95_ms (1000 runs, workstation CPU)"
     },
     "O3b": {
       "name": "Successful model updates",

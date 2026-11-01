@@ -4,8 +4,8 @@
   "split": "test",
   "n_windows": 512,
   "baseline": "mean",
-  "steps": 256,
+  "steps": 64,
   "target": "positive",
-  "missingness_share_pct": 23.35718866879765,
-  "completeness_rel_err": 0.048829056656263914
+  "missingness_share_pct": 23.4241761732317,
+  "completeness_rel_err": 0.040974185798209106
 }

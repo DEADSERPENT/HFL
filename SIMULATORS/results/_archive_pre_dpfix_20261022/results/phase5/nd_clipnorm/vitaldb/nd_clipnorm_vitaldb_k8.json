@@ -1,0 +1,62 @@
+{
+  "dataset": "vitaldb",
+  "k": 8,
+  "epsilon": 0.8,
+  "note": "epsilon identical across modes; clip_norm changes optimisation geometry only, never sensitivity",
+  "rows": [
+    {
+      "seed": 42,
+      "mode": "none",
+      "auprc": 0.48214488411023426,
+      "auroc": 0.827314688923789
+    },
+    {
+      "seed": 42,
+      "mode": "k",
+      "auprc": 0.4814209025980037,
+      "auroc": 0.824746666148715
+    },
+    {
+      "seed": 42,
+      "mode": "sqrt_k",
+      "auprc": 0.48255099164947624,
+      "auroc": 0.8268815981028171
+    },
+    {
+      "seed": 43,
+      "mode": "none",
+      "auprc": 0.49292488621755814,
+      "auroc": 0.8357170670617898
+    },
+    {
+      "seed": 43,
+      "mode": "k",
+      "auprc": 0.4976411896552508,
+      "auroc": 0.8327363015662488
+    },
+    {
+      "seed": 43,
+      "mode": "sqrt_k",
+      "auprc": 0.5039647257894092,
+      "auroc": 0.8355800064189007
+    },
+    {
+      "seed": 44,
+      "mode": "none",
+      "auprc": 0.5194491143550384,
+      "auroc": 0.8403227902425309
+    },
+    {
+      "seed": 44,
+      "mode": "k",
+      "auprc": 0.5196883135455614,
+      "auroc": 0.8397561072048925
+    },
+    {
+      "seed": 44,
+      "mode": "sqrt_k",
+      "auprc": 0.5181964950033088,
+      "auroc": 0.8397714260873748
+    }
+  ]
+}

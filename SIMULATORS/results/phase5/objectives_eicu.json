@@ -9,8 +9,12 @@
       "unit": "%",
       "cmp": ">=",
       "source": "NS-3 / proposed run communication accounting",
-      "measured": null,
-      "verdict": "NOT MEASURED"
+      "measured": 92.26759748971838,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "uplink_measured_eicu.json: measured compressor (head-only), indices included"
     },
     "O1b": {
       "name": "FL round latency reduction",
@@ -18,8 +22,12 @@
       "unit": "%",
       "cmp": ">",
       "source": "NS-3 per-round end-to-end round latency (packet-level)",
-      "measured": null,
-      "verdict": "NOT MEASURED"
+      "measured": 33.39106923680368,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "ns3_results_eicu.csv: L_total_ms 261.4->174.1 ms/round"
     },
     "O2a": {
       "name": "Privacy budget",
@@ -27,17 +35,26 @@
       "unit": "eps",
       "cmp": "<=",
       "source": "proposed run privacy accountant",
-      "measured": null,
-      "verdict": "NOT MEASURED"
+      "measured": 0.8999999742375719,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "o2b_system/eicu/dp_s*/privacy_total_*.json: max epsilon_training over 5 seeds",
+      "total_with_conformal": 0.9999999742375719
     },
     "O2b": {
-      "name": "Accuracy loss under DP",
+      "name": "Utility loss under DP (AUROC)",
       "target": 2.0,
-      "unit": "pp",
+      "unit": "AUROC pts",
       "cmp": "<=",
       "source": "proposed run at eps vs no-DP reference",
-      "measured": null,
-      "verdict": "NOT MEASURED"
+      "measured": 3.0897433549051434,
+      "verdict": "INCONCLUSIVE",
+      "ci_low": 1.3690785903079539,
+      "ci_high": 4.810408119502333,
+      "n_seeds": 5,
+      "evidence": "o2b_system/eicu/o2b_paired.json: macro_auc cost (reference - private) x 100, AUROC points, 5 paired seeds, p=0.0076"
     },
     "O3a": {
       "name": "Inference latency (P95)",
@@ -45,12 +62,12 @@
       "unit": "ms",
       "cmp": "<",
       "source": "ONNX Runtime inference benchmark",
-      "measured": 0.194,
+      "measured": 0.237,
       "verdict": "PASS",
       "ci_low": null,
       "ci_high": null,
       "n_seeds": null,
-      "evidence": "latency_eicu.json:total_ms.p95_ms (CPU provider)"
+      "evidence": "latency_bench/latency_eicu_fp32.csv: total_ms.p95_ms (1000 runs, workstation CPU)"
     },
     "O3b": {
       "name": "Successful model updates",
@@ -58,8 +75,12 @@
       "unit": "%",
       "cmp": ">",
       "source": "NS-3 per-update reliability",
-      "measured": null,
-      "verdict": "NOT MEASURED"
+      "measured": 97.83345,
+      "verdict": "FAIL",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "ns3_results_eicu.csv: reliability_pct, HFL_Proposed, per-update"
     },
     "O4": {
       "name": "Energy saving per round",
@@ -67,14 +88,18 @@
       "unit": "%",
       "cmp": ">=",
       "source": "CloudSim Plus energy model",
-      "measured": null,
-      "verdict": "NOT MEASURED"
+      "measured": 79.6276671917514,
+      "verdict": "PASS",
+      "ci_low": null,
+      "ci_high": null,
+      "n_seeds": null,
+      "evidence": "cloudsim_results_eicu.csv: total_energy_J 26186.2->5334.8 J/round"
     }
   },
   "summary": {
-    "passed": 1,
-    "failed": 0,
-    "inconclusive": 0,
-    "not_measured": 6
+    "passed": 5,
+    "failed": 1,
+    "inconclusive": 1,
+    "not_measured": 0
   }
 }

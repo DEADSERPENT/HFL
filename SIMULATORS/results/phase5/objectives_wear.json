@@ -35,12 +35,13 @@
       "unit": "eps",
       "cmp": "<=",
       "source": "proposed run privacy accountant",
-      "measured": 0.9656259638947442,
+      "measured": 0.7656259638947442,
       "verdict": "PASS",
       "ci_low": null,
       "ci_high": null,
       "n_seeds": null,
-      "evidence": "privacy_total_wear.json: TOTAL = training 0.7656 + conformal 0.2000 (basic composition)"
+      "evidence": "privacy_total_wear.json: epsilon_training",
+      "total_with_conformal": 0.9656259638947442
     },
     "O2b": {
       "name": "Accuracy loss under DP",
@@ -61,12 +62,12 @@
       "unit": "ms",
       "cmp": "<",
       "source": "ONNX Runtime inference benchmark",
-      "measured": 1.218,
+      "measured": 0.754,
       "verdict": "PASS",
       "ci_low": null,
       "ci_high": null,
       "n_seeds": null,
-      "evidence": "latency_wear.json:total_ms.p95_ms (CPU provider)"
+      "evidence": "latency_bench/latency_wear_fp32.csv: total_ms.p95_ms (1000 runs, workstation CPU)"
     },
     "O3b": {
       "name": "Successful model updates",

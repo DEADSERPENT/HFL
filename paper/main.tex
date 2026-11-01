@@ -1,7 +1,7 @@
 %==============================================================================
 % IEEE journal manuscript.
-% Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal
-% IoT Systems.  (System name used in the body: PP-HFM.)
+% Patient-Level Differential Privacy in Hierarchical Federated Learning for Multimodal Medical IoT
+% (System name used in the body: PP-HFM.)
 % Document class: IEEEtran (official).
 %
 % COMPILE THIS FILE. The files under sections/ are \section fragments: they
@@ -33,6 +33,9 @@
                                      % figure* drifts past its reference
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}     % load last; internal/external links
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{proposition}{Proposition}
 
 % Improve display equation spacing for IEEE two-column layout
 \setlength{\abovedisplayskip}{8pt plus 2pt minus 2pt}
@@ -43,28 +46,86 @@
 % ---- Front matter ----------------------------------------------------------
 \begin{document}
 
-\title{Hierarchical Federated Learning for Privacy-Aware,\\
-       Low-Latency Multimodal IoT Systems}
+\title{Patient-Level Differential Privacy in Hierarchical\\
+       Federated Learning for Multimodal Medical IoT}
 
+% (College grid) Authors as a grid under the title. Three columns of long e-mail addresses
+% are wider than the page at the default author size; \small and tighter
+% columns make the row fit.
+% Author block: two layouts of the same authors.
+%   \collegeauthorstrue  -> grid under the title (college format; default)
+%   \collegeauthorsfalse -> IEEE journal format: names on one line, affiliation
+%                           and e-mail in the first-page \thanks footnote, as the
+%                           IEEE double-column journal template requires
+%                           (IoT-J). ORCID iDs are entered in the submission portal.
+\newif\ifcollegeauthors
+\collegeauthorstrue
+\ifcollegeauthors
 \author{
-\begin{tabular}{c c}
-Samartha H V &  Shreyas J \\
-\textit{Manipal Institute of Technology Bengaluru,} &
-\textit{Manipal Institute of Technology Bengaluru,} \\
-\textit{Manipal Academy of Higher Education,} &
-\textit{Manipal Academy of Higher Education,} \\
-Manipal, India & Manipal, India \\
-samartha1.mitblr2025@learner.manipal.edu &
-shreyas.j@manipal.edu \\
+{\small\setlength{\tabcolsep}{2pt}%
+\begin{tabular}{ccc}
+\begin{tabular}{c}
+Samartha H V\\
+\textit{Manipal Institute of Technology Bengaluru}\\
+\textit{Manipal Academy of Higher Education}\\
+Manipal, India\\
+samartha1.mitblr2025@learner.manipal.edu
+\end{tabular}
+&
+\begin{tabular}{c}
+Shreyas J\\
+\textit{Manipal Institute of Technology Bengaluru}\\
+\textit{Manipal Academy of Higher Education}\\
+Manipal, India\\
+shreyas.j@manipal.edu
+\end{tabular}
+&
+\begin{tabular}{c}
+Udayaprasad P K\\
+\textit{Manipal Institute of Technology Bengaluru}\\
+\textit{Manipal Academy of Higher Education}\\
+Manipal, India\\
+udayaprasad.mitblr2024@learner.manipal.edu
+\end{tabular}
+\\ \noalign{\vspace{2.4em}}  % \\[len] is absorbed by the tall cells
+\multicolumn{3}{c}{
+\begin{tabular}{cc}
+\begin{tabular}{c}
+Shreelakshmi Yadav N\\
+\textit{Manipal Institute of Technology Bengaluru}\\
+\textit{Manipal Academy of Higher Education}\\
+Manipal, India\\
+shreelakshmi.mitblr2024@learner.manipal.edu
+\end{tabular}
+&
+\begin{tabular}{c}
+Sowmya T Rao\\
+\textit{Manipal Institute of Technology Bengaluru}\\
+\textit{Manipal Academy of Higher Education}\\
+Manipal, India\\
+sowmya.mitblr2024@learner.manipal.edu
+\end{tabular}
 \end{tabular}
 }
+\end{tabular}}\vspace{-2.6em}  % less space before the abstract
+}
+\else
+\author{Samartha~H~V, Shreyas~J, Udayaprasad~P~K, Shreelakshmi~Yadav~N,
+and Sowmya~T~Rao%
+\thanks{The authors are with the Manipal Institute of Technology Bengaluru,
+Manipal Academy of Higher Education, Manipal, India (e-mail:
+samartha1.mitblr2025@learner.manipal.edu; shreyas.j@manipal.edu;
+udayaprasad.mitblr2024@learner.manipal.edu;
+shreelakshmi.mitblr2024@learner.manipal.edu;
+sowmya.mitblr2024@learner.manipal.edu).}}
+\fi
 
 % Running head. \markboth takes TWO arguments; commenting out only the first
 % line leaves the second as ORDINARY BODY TEXT, which prints a stray line and
 % pushes the title onto page 2. Both lines are commented together, or neither.
 % Uncomment and set the journal name once the venue is fixed.
 %\markboth{IEEE Journal Name,~Vol.~XX, No.~XX, Month~2026}%
-%{Author \MakeLowercase{\textit{et al.}}: Hierarchical Federated Learning for Privacy-Aware, Low-Latency Multimodal IoT Systems}
+%{Author \MakeLowercase{\textit{et al.}}: Patient-Level Differential Privacy in Hierarchical Federated Learning for Multimodal Medical IoT}
 
 \maketitle
 
@@ -90,6 +151,7 @@ quality of service, conformal prediction, clinical decision support.
 \input{sections/results}
 \input{sections/discussion}
 \input{sections/conclusion}
+\input{sections/backmatter}
 
 % ---- Bibliography ----------------------------------------------------------
 \bibliographystyle{IEEEtran}

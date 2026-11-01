@@ -18,7 +18,8 @@
 \section{Methodology}
 \label{sec:method}
 
-\subsection{Overall Framework of the Proposed PP-HFM}
+\subsection{Problem Statement}
+\label{sec:method:problem}
 
 Multimodal Internet-of-Things deployments combine sensing streams of different
 kinds, such as physiological monitors with clinical records or inertial sensors
@@ -45,6 +46,30 @@ differential privacy without a hierarchy, and neither these nor the
 heterogeneity-aware and assignment-oriented designs \cite{ref4, ref5} model
 multiple modalities per record or the grouping of records by individual.
 
+The problem addressed is therefore the following. Several institutions each
+hold multimodal recordings of their own patients, every patient contributes
+many records, and no record may leave its institution. A shared model must be
+trained through a client--edge--cloud hierarchy such that
+\begin{enumerate}
+\item the participation of any single patient, with all of their records, is
+protected by a formal $(\varepsilon,\delta)$ guarantee that covers every
+message the system releases, edge tier included;
+\item the model remains close in utility to an identical non-private system;
+and
+\item the system remains deployable on IoT infrastructure, with low uplink
+traffic, reliable delivery, low inference latency and low energy.
+\end{enumerate}
+These requirements interact. Protecting patients instead of records reduces
+the number of protected units and therefore raises the relative noise;
+clients partitioned by institution differ greatly in size, so a noise level
+fitted to the smallest client degrades every larger one; and an edge tier
+changes how many optimization steps each client takes, and hence how much of
+its budget it spends. Table~\ref{tab:objectives} turns the three requirements
+into seven quantitative targets, fixed before any experiment was run.
+
+\subsection{Overall Framework of the Proposed PP-HFM}
+\label{sec:method:overview}
+
 This work therefore proposes a framework in which the privacy unit is the
 patient by construction, and in which the hierarchy and the guarantee are
 designed jointly. The system, PP-HFM (Patient-Private Hierarchical Federated
@@ -59,14 +84,13 @@ sensitivity. Fig.~\ref{fig:pphfm_arch} shows the overall organization.
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\textwidth]{fig1_architecture.pdf}
-\caption{Overall architecture of PP-HFM. Nine institutional clients,
-partitioned by surgical specialty, hold patient-grouped multimodal records that
-never leave the institution; each runs frozen pretrained encoders and privately
-trains only the fusion head. Two edge aggregators
-perform $\tau_e$ rounds of weighted averaging for every cloud round, and the
-cloud aggregator maintains and redistributes the global model. Clients are
-drawn grouped by edge for legibility; the indices give the true assignment.}
+\includegraphics[width=\textwidth]{fig01_overview_core.pdf}
+\caption{Architecture of PP-HFM. Each institutional client holds
+patient-grouped multimodal records that never leave the institution, runs
+frozen pretrained encoders, and privately trains only the fusion head, with
+gradients summed per patient before clipping. Two edge aggregators perform
+$\tau_e$ rounds of weighted averaging for every cloud round, and the cloud
+averages the noisy, compressed updates globally.}
 \label{fig:pphfm_arch}
 \end{figure*}
 
@@ -77,23 +101,33 @@ optimization step. The influence of any individual on the released model is
 therefore bounded regardless of the number of records contributed. The
 resulting update is compressed and sent to the client's edge, which averages
 the updates of its clients. After several edge rounds, the edges report to the
-cloud, which averages across edges and redistributes the global model. At the
-end of training, the clients release differentially private calibration
-quantiles, from which a distribution-free prediction set is constructed, and
-the privacy cost of this release is charged to the same budget as training.
+cloud, which averages across edges and redistributes the global model.
 
-The framework comprises the following components. The patient-level privacy
-mechanism enforces sensitivity with respect to the individual. The
-multi-client noise calibration selects a single noise scale that satisfies the
-budget for every client despite large differences in client size. The two-tier
-aggregation produces the global model while using the wide-area link once per
-several local rounds. The update encoding reduces the transmitted payload. The
-federated conformal calibration provides coverage guarantees under the same
-budget. The deployment path specifies how the released model is executed
-within a latency budget, and the network and energy instrumentation measures
-the communication and energy costs of the hierarchy. An empirical audit tests
-the resulting guarantee. The encoder architecture, the aggregation rule and
-the conformal procedure are adopted from established work and are not claimed
+The framework comprises the following components, each described in one of
+the following subsections.
+\begin{enumerate}
+\item \emph{Frozen multimodal backbone} (Section~\ref{sec:method:backbone}):
+fixed encoders, one per modality, and a compact trainable fusion head.
+\item \emph{Patient-level privacy mechanism}
+(Section~\ref{sec:method:privacy}): enforces sensitivity with respect to the
+individual.
+\item \emph{Noise calibration across clients}
+(Section~\ref{sec:method:calib}): meets the budget for every client despite
+large differences in client size.
+\item \emph{Two-tier aggregation} (Section~\ref{sec:method:agg}): produces
+the global model while using the wide-area link once per several local rounds.
+\item \emph{Update encoding} (Section~\ref{sec:method:encoding}): reduces the
+transmitted payload.
+\item \emph{Deployment path} (Section~\ref{sec:method:deploy}): executes the
+released model within a latency budget.
+\item \emph{Network and energy instrumentation}
+(Section~\ref{sec:method:instr}): measures the communication and energy costs
+of the hierarchy.
+\item \emph{Empirical audit} (Section~\ref{sec:method:mia}): tests the
+resulting guarantee by membership inference.
+\end{enumerate}
+The encoder architecture and the aggregation rule
+are adopted from established work and are not claimed
 as contributions.
 
 \subsection{Overall System Architecture}
@@ -103,8 +137,8 @@ PP-HFM is a three-tier federated system built on a frozen multimodal backbone.
 Responsibilities are separated: the encoders provide fixed representations, a
 compact head contains all trainable and privatized parameters, an edge tier
 absorbs local rounds to reduce wide-area traffic, and a cloud tier maintains
-the global model. The encoder design, the weighted averaging rule and the
-conformal calibration procedure are adopted from prior work. The design
+the global model. The encoder design and the weighted averaging rule are
+adopted from prior work. The design
 contribution lies in the unit at which privacy is enforced and in the
 accounting of the reported budget.
 
@@ -124,9 +158,7 @@ from every federated client and not adapted during federated training. The
 second is the privatized trainable component: the fusion head, the
 patient-level clipping and noise mechanism that governs its optimization, and
 the calibration procedure that sets the noise scale. The third comprises the
-communication and calibration components: the update encoding, the two-tier
-averaging, and the federated conformal procedure that converts point
-predictions into prediction sets with a coverage guarantee.
+communication components: the update encoding and the two-tier averaging.
 
 Information flows in a group-then-bound structure. Within a client, records
 are encoded and combined by the head, and gradients are grouped \emph{by
@@ -167,8 +199,9 @@ takes a multichannel physiological time series as input. A multi-scale
 convolutional stem applies three parallel one-dimensional convolutions with
 different kernel widths to capture fine, intermediate and coarse temporal
 patterns, and concatenates their outputs. A strided convolution then reduces
-the temporal resolution, two residual convolutional blocks and a bidirectional
-recurrent layer model longer-range dependencies, and an attention-pooling layer
+the temporal resolution, a further convolution with max pooling halves it
+again, a two-layer bidirectional recurrent layer models longer-range
+dependencies, and an attention-pooling layer
 aggregates over time with learned weights. Because pooling is adaptive, the
 encoder accepts sequences of any length. The static encoder processes a
 fixed-length vector of preoperative clinical and laboratory variables with a
@@ -250,12 +283,14 @@ organized accordingly.
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{fig3_sensitivity.pdf}
-\caption{Where the guarantee is decided. Clipping each window to $C$ bounds the
-influence of a \emph{window}: a patient contributing $k_p$ windows can still
-displace the aggregate by $k_p C$. Summing a patient's windows before clipping
-bounds the influence of the \emph{patient} at $C$, however many windows that
-patient contributed. $k_p{=}8$ is the cohort mean.}
+\includegraphics[width=\columnwidth]{fig02_privacy_unit.pdf}
+\caption{Where the guarantee is decided. (a) Clipping each window to $C$ bounds
+the influence of a \emph{window}: a patient contributing $k_p$ windows can
+still displace the aggregate by $k_p C$. Summing a patient's windows before
+clipping bounds the influence of the \emph{patient} at $C$, however many
+windows that patient contributed. (b) On eICU at $C = 1$, the fraction of
+individuals whose summed gradient is clipped rises with the number of records
+they contribute; bar labels give individuals per bin.}
 \label{fig:sensitivity}
 \end{figure}
 
@@ -269,9 +304,36 @@ Clipping the sum makes the sensitivity patient-level: a patient can change the
 aggregate by at most the clipping norm regardless of the number of windows,
 whereas clipping each window separately would allow a change proportional to
 that number. Gaussian noise calibrated to the same norm is then added once per
-step to the aggregate of the clipped per-patient gradients, and the head
-parameters are updated. The mechanism is shown in Fig.~\ref{fig:patientdp} and
-stated in Algorithm~\ref{alg:patientdp}.
+step to the aggregate of the clipped per-patient gradients, the result is
+divided by the \emph{expected} batch size $q|\mathcal{P}_k|$, and the head
+parameters are updated. The divisor must not be the realized batch size $|S|$:
+the noise norm reveals the divisor, and $|S|$ depends on whether a given
+patient is present, so normalizing by it releases information the accountant
+does not cover. For the same reason a step whose sample is empty still
+releases the noise. The mechanism is stated in
+Algorithm~\ref{alg:patientdp}. For compute, at most $64$ records of a patient
+enter its summed gradient; the rule is fixed and public, so the guarantee is
+unaffected, and it truncates $4.1\,\%$ of eICU patients ($3.5\,\%$ of
+training windows) and no VitalDB patient.
+
+\paragraph{Objective solved} Without clipping, the expected step of client
+$k$ is $|\mathcal{P}_k|^{-1}\sum_{p}g_p = \bar{k}_k\,\nabla F_k(\theta)$,
+where $F_k$ is the record mean of the client's empirical risk and
+$\bar{k}_k = n_k/|\mathcal{P}_k|$ the mean number of records per patient. A
+local pass takes $|\mathcal{P}_k|/B$ such steps, $\bar{k}_k$ times fewer
+than a record-level pass with $B$ records per step, so to first order in the
+learning rate both displace client $k$ by $\eta\,(n_k/B)\,\nabla F_k$.
+Before clipping, the patient-level mechanism therefore targets the declared
+record-mean objective with unchanged client weights, in fewer and larger
+steps. The argument is for the plain gradient step of
+Algorithm~\ref{alg:patientdp}; the implementation passes the privatized
+gradient to Adam, which is post-processing and leaves the guarantee unchanged
+but rescales coordinates adaptively, so the argument holds only approximately.
+Clipping is what changes the objective: each patient's summed gradient
+is bounded as a whole, the surrogate of user-level DP-SGD \cite{ref11}, which
+down-weights patients whose summed gradient exceeds $C$, typically those with
+many records. This change belongs to the unit and is part of its measured
+cost.
 
 \begin{algorithm}[!t]
 \caption{Patient-level private local update at client $k$}
@@ -289,25 +351,15 @@ stated in Algorithm~\ref{alg:patientdp}.
     \STATE $\bar g_p \leftarrow g_p \cdot \min(1, C/\lVert g_p\rVert_2)$
             \hfill $\triangleright$ bound the sum
   \ENDFOR
-  \STATE $\tilde g \leftarrow \frac{1}{|S|}\big(\sum_{p\in S}\bar g_p
+  \STATE $\tilde g \leftarrow \frac{1}{q\,|\mathcal{P}_k|}\big(\sum_{p\in S}\bar g_p
           + \mathcal{N}(0,\sigma^2C^2I)\big)$
+          \hfill $\triangleright$ also when $S=\emptyset$
   \STATE $\theta_{\mathrm{head}} \leftarrow \theta_{\mathrm{head}} - \eta\,\tilde g$
   \STATE Accountant.step($\sigma$, $q$)
 \ENDFOR
 \RETURN $\theta_{\mathrm{head}}$
 \end{algorithmic}
 \end{algorithm}
-
-\begin{figure}[!t]
-\centering
-\includegraphics[width=\columnwidth]{fig5_patientdp.pdf}
-\caption{Internal processing of the patient-level privacy mechanism. Patients
-are sampled, each sampled patient's window gradients are accumulated into one
-per-patient gradient, that sum is clipped to $C$, the clipped sums are
-aggregated, and a single Gaussian perturbation scaled to $C$ is applied per
-step. Grouping before bounding is what fixes the unit of the guarantee.}
-\label{fig:patientdp}
-\end{figure}
 
 Accounting uses the same patient-level sampling rate, so the reported budget is
 patient-level by construction. A single accountant instance persists for the
@@ -320,31 +372,42 @@ examined empirically by holding the first effect fixed and varying the second
 (Section~\ref{sec:results:kscaling}).
 
 \subsection{Noise Calibration Across Heterogeneous Clients}
+\label{sec:method:calib}
 
 The noise multiplier determines the budget for a given clipping norm, and
 depends on the sampling rate and on the number of optimization steps of a
 client. In a federated system partitioned by institution or specialty, these
 quantities differ substantially between clients: a small client samples a
-large fraction of its population per step but performs few steps, whereas a
-large client does the reverse. Neither case dominates in general. Because the
-reported budget is the maximum over clients rather than the average, a noise
-scale calibrated for any single client may be insufficient for another, and
-the reported guarantee would then be violated.
+large fraction of its population per step, whereas a large client samples a
+small one. A single noise multiplier calibrated for the most demanding client
+satisfies the budget everywhere, but imposes that client's noise on every
+other; on the external corpus, a hospital of fifteen patients sampled at rate
+one sets the multiplier for all $187$ clients.
 
-The calibration therefore selects the smallest noise multiplier that satisfies
-the target budget for every client simultaneously, by evaluating each
-candidate value against all clients. Two details are essential. First, the
-number of optimization steps per call is computed by rounding the ratio of the
-client's population to the batch size \emph{upward}; rounding downward
-undercounts the steps and therefore underestimates the required noise. Second,
-the population and sampling rate of each client are read from the partition
-files used in training rather than from cached metadata, because metadata that
-no longer matches the data produces a budget that is violated without any
-warning. Both details are stated as part of the method because violations of
-either are not detectable from training logs and can only be found by
-independent recomputation.
+Because each patient is held by exactly one client, the clients' mechanisms act
+on disjoint sets of individuals, and by parallel composition the guarantee for
+a patient is that of the client that holds them. Each client therefore receives
+its own noise multiplier $\sigma_k$, the smallest that meets the training
+budget for that client's sampling rate and step count, Eq.~\eqref{eq:6}. The
+multiplier depends only on the public client size, so it releases nothing
+further. Accounting uses the privacy loss distribution accountant \cite{ref33},
+which gives a tighter upper bound than R\'enyi accounting for the same
+mechanism. The comparisons between arms in Section~\ref{sec:results:unit} use
+the single most conservative multiplier, the maximum of $\sigma_k$, with
+R\'enyi accounting, which holds every arm to the same noise.
+
+Two details are essential. First, the number of optimization steps entering
+the calibration must be the number the client actually executes; a count that
+is too low underestimates the required noise. Second, the population and
+sampling rate of each client are read from the partition files used in
+training rather than from cached metadata, because metadata that no longer
+matches the data produces a budget that is violated without any warning. Both
+details are stated as part of the method because violations of either are not
+detectable from training logs and can only be found by independent
+recomputation.
 
 \subsection{Two-Tier Hierarchical Aggregation}
+\label{sec:method:agg}
 
 In a flat federated system, every client update is sent to the cloud in every
 round, so the wide-area link limits the update frequency. An intermediate
@@ -354,8 +417,10 @@ averaging, so the wide-area link is used once per group of local rounds.
 PP-HFM adopts this organization, with $\tau_e$ edge rounds per cloud round, and
 claims no novelty for the averaging rule.
 
-Aggregation is performed in two stages, each weighted by the number of
-training records of the participants. Within a cloud round, each client
+Aggregation is performed in two stages, each weighted by the fixed number
+of training records of the participants. The weights are public constants: a
+weight computed from the records drawn in a given round would depend on which
+patients were sampled and would reach the edge unprotected. Within a cloud round, each client
 initializes from its edge model, performs one private local pass, and sends its
 encoded update. The edge computes the weighted average over its clients and
 returns it, and this is repeated $\tau_e$ times. The edges then report to the
@@ -378,10 +443,7 @@ through unchanged. The procedure is given in Algorithm~\ref{alg:round}.
   \STATE Each edge aggregates by \eqref{eq:8}
 \ENDFOR
 \STATE Cloud aggregates by \eqref{eq:9} and broadcasts $\theta^{(r)}$
-\IF{final round}
-  \STATE Clients release perturbed quantiles of \eqref{eq:12}; aggregate to $\hat q$
-\ENDIF
-\RETURN $\theta^{(r)}$, $\hat q$
+\RETURN $\theta^{(r)}$
 \end{algorithmic}
 \end{algorithm}
 
@@ -395,10 +457,11 @@ client and aggregation uses only privatized updates, $\tau_e$ affects
 communication and convergence, and enters the guarantee only through the
 number of optimization steps, which the calibration already accounts for.
 
-\subsection{Update Encoding and Conformal Calibration}
+\subsection{Update Encoding}
+\label{sec:method:encoding}
 
-Two further components are adopted from established practice and are not
-claimed as contributions. The first reduces the transmitted payload. Each
+A further component is adopted from established practice and is not claimed
+as a contribution. It reduces the transmitted payload. Each
 client update is sparsified by retaining only its largest-magnitude
 coordinates, and the retained values are uniformly quantized to a reduced bit
 width. The residual removed by sparsification is stored locally and added to
@@ -407,20 +470,12 @@ than lost. The encoding is applied after the privacy mechanism and is therefore
 post-processing; by the post-processing property of differential privacy, it
 does not affect the guarantee and can be tuned for bandwidth alone.
 
-The second component provides uncertainty quantification. Conformal
-prediction produces prediction sets with a distribution-free coverage guarantee
-without retraining \cite{ref22, ref23}. Each client computes nonconformity
-scores on a held-out calibration split and releases a quantile of them; the
-edges aggregate the client quantiles, the cloud aggregates the edge quantiles,
-and the resulting global threshold defines the prediction set. The released
-quantile is a statistic of protected data, so it is perturbed before release
-and charged to the budget: the calibration term receives a fixed share of the
-total budget in advance, and the system reports the composed total. If
-calibration were performed once per edge round rather than once per training
-run, its cost would compose across all edge rounds, and reporting only the
-training term would understate the total budget by a multiplicative factor.
-Allocating the budget in advance and reporting the composed total prevents
-this.
+A private conformal threshold, released per client by the exponential
+mechanism over ranks \cite{ref30, ref24} at $\varepsilon_{\mathrm{conf}} = 0.1$
+with one score per calibration patient, was also evaluated. At about a hundred
+calibration patients per client it does not attain coverage
+(Section~\ref{sec:results}), so it is not part of the system, and the reported
+budget is the training budget alone.
 
 \subsection{Deployment Path and Inference Under a Latency Budget}
 \label{sec:method:deploy}
@@ -428,26 +483,26 @@ this.
 The clinical value of the trained model depends on the delay between the
 availability of a measurement and the return of a prediction, which is a
 property of the deployment path. This path is therefore specified as part of
-the system. The trained network is exported to a portable computation graph and
-quantized to integer precision, which reduces memory footprint and arithmetic
-cost on commodity hardware without retraining \cite{ref26}. Quantization is
-applied to the released model after federated training and therefore does not
-affect the privacy guarantee. Inference is executed at the edge tier rather
+the system. The trained network is exported to a portable computation graph and executed
+at full precision. Post-training eight-bit quantization \cite{ref26} was
+evaluated as an alternative and rejected, because on a CPU provider it
+increased rather than reduced latency (Section~\ref{sec:results}). Any
+transformation of the released model after federated training is
+post-processing and does not affect the privacy guarantee. Inference is executed at the edge tier rather
 than in the cloud, so the wide-area link is not on the critical path.
 
 The delay is decomposed into four separately measured stages, because an
 end-to-end figure within budget may still be dominated by a removable stage.
 Preprocessing constructs and normalizes the input tensors from the sensor
-stream; the forward pass evaluates the exported graph; the conformal stage
-constructs the prediction set from the logits using the global threshold; and
+stream; the forward pass evaluates the exported graph; the threshold step of the evaluated conformal set, which is not deployed, is
+kept as a conservative upper bound; and
 a final stage converts the output into the format required by the consuming
-system. Reporting the stages separately also isolates the cost of the
-conformal guarantee.
+system.
 
 Latency is characterized by its distribution rather than its mean, and the
 budget must be met at the 95th percentile, since a clinical service level is
 defined by its tail. The measurement configuration is fixed in advance: the
-integer-quantized graph is executed on a general-purpose CPU provider,
+full-precision graph is executed on a general-purpose CPU provider,
 representing an edge node without an accelerator, for one thousand timed runs
 after one hundred discarded warm-up runs, and each of the four stages is timed
 within every run. A CPU provider is used because an edge deployment cannot be
@@ -579,9 +634,13 @@ $\mathcal{D}_k$ of $n_k$ records and $n = \sum_k n_k$. Clients are assigned to
 edges by a fixed map $e(\cdot)$. The records of client $k$ are partitioned by
 individual into a set of patients $\mathcal{P}_k$, and $W_p$ denotes the
 records contributed by patient $p$, with $k_p = |W_p|$; the partition is
-constructed so that $W_p$ never spans two clients or two evaluation splits.
+constructed so that $W_p$ never spans two clients or two evaluation splits,
+which holds by construction on eICU and on the person-level VitalDB partition
+(Section~\ref{sec:experiments}).
 Model parameters are written $\theta = (\theta_{\mathrm{enc}},
-\theta_{\mathrm{head}})$, and $\ell$ is the class-weighted cross-entropy. The
+\theta_{\mathrm{head}})$, and $\ell$ is the cross-entropy; the loss is unweighted, because class
+weights computed from the training labels would be a further unprotected
+release. The
 notation is summarized in Table~\ref{tab:notation}.
 
 \begin{table}[!t]
@@ -600,7 +659,6 @@ $B$                   & patients sampled per optimization step \\
 $C$, $\sigma$         & clipping norm; noise multiplier \\
 $q$                   & Poisson sampling rate over patients \\
 $(\varepsilon,\delta)$ & privacy budget \\
-$\alpha$              & conformal miscoverage level \\
 $\theta_{\mathrm{enc}}$, $\theta_{\mathrm{head}}$ & encoder, fusion-head parameters \\
 \bottomrule
 \end{tabular}
@@ -629,7 +687,7 @@ pretrained on a disjoint public population and held fixed,
 At each optimization step client $k$ draws a subset $S \subseteq \mathcal{P}_k$
 by including each patient independently with probability
 \begin{equation}
-q = \frac{B}{|\mathcal{P}_k|},
+q_k = \min\!\Big(1,\ \frac{B}{|\mathcal{P}_k|}\Big),
 \tag{3}
 \label{eq:3}
 \end{equation}
@@ -651,34 +709,36 @@ $p$ is at most $C$ irrespective of $k_p$, whereas bounding each record
 separately would admit an influence of $k_p C$. A single perturbation scaled to
 the same norm is then applied to the aggregate,
 \begin{equation}
-\tilde{g} = \frac{1}{|S|}\left( \sum_{p \in S} \bar{g}_p
+\tilde{g} = \frac{1}{q_k |\mathcal{P}_k|}\left( \sum_{p \in S} \bar{g}_p
 + \mathcal{N}\!\big(0, \sigma^2 C^2 I\big) \right),
 \tag{5}
 \label{eq:5}
 \end{equation}
+where the divisor is a public constant rather than the realized $|S|$,
 and the head is updated by $\theta_{\mathrm{head}} \leftarrow
 \theta_{\mathrm{head}} - \eta\,\tilde{g}$.
 
-The noise multiplier is the smallest value satisfying the budget for every
-client simultaneously,
+Each client uses the smallest noise multiplier that meets the training budget
+for its own sampling rate and step count,
 \begin{equation}
-\sigma^{\star} = \min\Big\{\sigma :\;
-\max_{k}\; \varepsilon_k\big(\sigma,\, q_k,\, T_k\big)
-\le \varepsilon_{\mathrm{train}}\Big\},
+\sigma_k = \min\big\{\sigma :\;
+\varepsilon_k\big(\sigma,\, q_k,\, T_k\big)
+\le \varepsilon\big\},
 \tag{6}
 \label{eq:6}
 \end{equation}
-where $\varepsilon_k$ is obtained from a R\'enyi accountant
-\cite{ref7} and the step count is
+where $\varepsilon_k$ is obtained from the privacy loss distribution accountant
+\cite{ref33}, or from a R\'enyi accountant \cite{ref7, ref29} for the
+single-multiplier arms $\sigma^{\star} = \max_k \sigma_k$, and the step count
+is the number the client executes,
 \begin{equation}
-T_k = R\,\tau_e\,\Big\lceil \frac{n_k}{B} \Big\rceil .
+T_k = R\,\tau_e\,\max\!\Big(1, \Big\lfloor \frac{|\mathcal{P}_k|}{B} \Big\rfloor\Big)
 \tag{7}
 \label{eq:7}
 \end{equation}
-The maximum in Eq.~\eqref{eq:6} is taken over all clients, and the ceiling in
-Eq.~\eqref{eq:7} rounds upward; replacing either with a representative client
-or a downward rounding yields a budget that is violated without any observable
-symptom.
+for the patient sampler of Algorithm~\ref{alg:patientdp}. $T_k$ must equal
+the executed count; a count that differs from the executed one yields a budget
+that is violated without any observable symptom.
 
 Aggregation applies the weighted average at each tier. Writing
 $\theta_k^{(r,s)}$ for the model of client $k$ after edge round $s$ of cloud
@@ -721,36 +781,143 @@ The residual $\Delta - \Delta^{\mathrm{sp}}$ is accumulated locally and added
 to the next round's update. Both operations act on the already-perturbed
 quantity of Eq.~\eqref{eq:5} and are therefore post-processing.
 
-Conformal calibration uses the least-ambiguous-classifier score on a held-out
-split,
-\begin{equation}
-r_i = 1 - \hat{p}_{\theta}\!\left(y_i \mid x_i\right),
-\tag{12}
-\label{eq:12}
-\end{equation}
-whose perturbed quantile at level $\lceil (n_{\mathrm{cal}}+1)(1-\alpha)\rceil
-/ n_{\mathrm{cal}}$ is released, aggregated across tiers to a global threshold
-$\hat{q}$, and used to form the prediction set $\mathcal{C}(x) = \{y : 1 -
-\hat{p}_\theta(y \mid x) \le \hat{q}\}$. The budget spent by a client is the
-composition of the training and calibration terms,
-\begin{equation}
-\varepsilon_{\mathrm{total}} = \varepsilon_{\mathrm{train}} + \varepsilon_{\mathrm{conf}},
-\quad
-\varepsilon_{\mathrm{train}} = 0.8\,\varepsilon,
-\quad
-\varepsilon_{\mathrm{conf}} = 0.2\,\varepsilon,
-\tag{13}
-\label{eq:13}
-\end{equation}
-and it is $\varepsilon_{\mathrm{total}}$, not $\varepsilon_{\mathrm{train}}$,
-that the system reports.
+
+The guarantee is stated formally below. Two datasets are \emph{neighboring} if
+one is obtained from the other by adding or removing every record of a single
+patient. Three conditions are assumed. (A1) Each patient's records lie in the
+training split of exactly one client, and the training, validation and test
+cohorts are disjoint in patients. (A2) The following are public: the
+architecture, the encoder parameters $\theta_{\mathrm{enc}}$, which are
+pretrained on a patient-disjoint public pool, all hyperparameters
+$(R,\tau_e,B,C,\sigma,\eta,\kappa,b)$, the edge map, the input standardization constants, and the declared client
+sizes $|\mathcal{P}_k|$ and $n_k$, which are fixed before training; $q_k$,
+$T_k$, $\sigma_k$ and the aggregation weights are computed from them and never
+from the data.
+(A3) The forward pass of a record depends on that record alone; the model
+contains no normalization across records, such as batch normalization, so the
+gradient of one patient's records is unaffected by any other patient.
+
+\begin{theorem}[Patient-level guarantee]
+\label{thm:guarantee}
+Under (A1)--(A3), let each $\sigma_k$ satisfy Eq.~\eqref{eq:6}. The transcript of a
+PP-HFM run, consisting of every encoded client update, every edge and cloud
+model, and the model selected on the validation cohort, is
+$(\varepsilon,\delta)$-differentially private with respect to
+each training patient, under adding or removing all records of one patient
+with the parameters of (A2) held fixed.
+\end{theorem}
+
+\begin{IEEEproof}
+Fix a training patient $p$, held by client $k$ by (A1). \emph{One step.} Given
+the model entering a step, the per-patient gradients $\bar g_{p'}$,
+$p' \neq p$, are unchanged by the presence of $p$ by (A3), and
+$\lVert \bar g_p \rVert_2 \le C$ by Eq.~\eqref{eq:4}. The noisy sum in
+Eq.~\eqref{eq:5} is therefore a Poisson-subsampled Gaussian mechanism with rate
+$q_k$, noise $\sigma C$ and $\ell_2$-sensitivity $C$ under addition or removal
+of $p$, whose privacy loss is bounded in \cite{ref29, ref33}. Division by the
+public constant $q_k|\mathcal{P}_k|$ and the optimizer update are
+post-processing. \emph{Composition at client $k$.} Each step takes as input the
+outputs of earlier steps, of other clients and public quantities, so the $T_k$
+steps compose adaptively, and R\'enyi divergences add \cite{ref7}. The
+accountant evaluates the composed bound exactly for $(\sigma,q_k,T_k)$, and
+Eq.~\eqref{eq:6} ensures $\varepsilon_k \le \varepsilon$ at
+$\delta$. Because $\sigma_k$ is a function of the public $|\mathcal{P}_k|$ and
+$T_k$ only, using a different multiplier at each client releases nothing. \emph{Other clients.} By (A1) no other client accesses
+the records of $p$; its outputs are randomized functions of its own data,
+public quantities and messages already released, and therefore contribute no
+privacy loss with respect to $p$. \emph{The hierarchy.} Sparsification with a
+locally stored residual, quantization, edge and cloud averaging with the public
+weights of Eqs.~\eqref{eq:8}--\eqref{eq:9}, and broadcast are functions of
+released outputs and public quantities, and selection on the validation cohort
+uses data disjoint from $p$ by (A1); all are post-processing.
+\end{IEEEproof}
+
+\begin{corollary}[Coincidence of the units]
+\label{cor:k1}
+If every patient contributes one record, Algorithm~\ref{alg:patientdp} is
+differentially private stochastic gradient descent with Poisson sampling over
+records at rate $q_k$, with the same clipping norm and noise. For equal
+$(B, T_k, \sigma, C)$ the patient-level and record-level mechanisms are the
+same mechanism, so a difference between them at one record per patient
+measures seed variation or an implementation difference, not a property of the
+privacy unit.
+\end{corollary}
+
+The theorem bounds what the guarantee reveals; the next statement predicts what
+it costs. In the scaling experiments of Section~\ref{sec:results:kscaling},
+$P$ individuals each contribute exactly $k$ records, so the record-level arm
+minimizes $F(\theta) = \frac{1}{Pk}\sum_{p}\sum_{w \in W_p} \ell_w(\theta)$
+and the individual-level arm minimizes the same $F$ written as
+$\frac{1}{P}\sum_p \bar\ell_p(\theta)$, with
+$\bar\ell_p = \frac{1}{k}\sum_{w\in W_p}\ell_w$.
+
+\begin{proposition}[Cost in records per individual]
+\label{prop:scaling}
+Let each $\ell_w$ be convex and $L$-Lipschitz on a parameter domain of diameter
+$D$ in $\mathbb{R}^d$, and let both arms be trained by differentially private
+gradient descent at the same $(\varepsilon,\delta)$, and let
+$\Lambda = LD\sqrt{d\log(1/\delta)}/\varepsilon$.
+(i) The excess empirical risk of the record-level arm is at most
+$c_{\mathrm{rec}}\Lambda/(Pk)$ and that of the individual-level arm at most
+$c_{\mathrm{ind}}\Lambda/P$, with constants independent of $k$; both rates are
+tight in the worst case. (ii) If both arms attain their rate with a common
+constant $c$, the gap is $A(1 - 1/k)$ with $A = c\Lambda/P$.
+\end{proposition}
+
+\begin{IEEEproof}
+For $n$ units with convex $L$-Lipschitz losses, private gradient descent attains
+excess empirical risk $O(LD\sqrt{d\log(1/\delta)}/(n\varepsilon))$, and this rate
+is tight \cite{ref31}. The record-level arm has $n = Pk$ units. In the
+individual-level arm the unit is $\bar\ell_p$, which is $L$-Lipschitz as an
+average of $L$-Lipschitz losses; clipping the summed gradient at $C$ equals
+clipping the gradient of $\bar\ell_p$ at $C/k$, a rescaling that leaves the
+guarantee unchanged, so the mechanism is private gradient descent over $n = P$
+units. This gives (i), and (ii) follows by subtraction.
+\end{IEEEproof}
+
+Part (ii) rests on an assumption that (i) does not supply: upper bounds with
+different constants do not determine the attained gap. The form $A(1-1/k)$ is
+therefore a \emph{scaling hypothesis} that the proposition motivates, not a
+theorem, and it is tested empirically, including out of sample. Moreover, the
+proposition concerns bounds for convex losses, whereas the head is not convex
+and the reported metric is average precision rather than excess risk. The
+hypothesis therefore concerns the \emph{shape} of the cost, not its magnitude:
+a gap of the form $A(1 - 1/k)$ with one free parameter, zero at $k = 1$, and an
+individual-level arm whose utility does not depend on $k$. It also identifies
+what would recover the cost. Additional records per individual reduce the
+variance of $\bar\ell_p$'s gradient, but a clipping bound fixed around zero
+cannot exploit this; mechanisms that clip around an estimate of the
+per-individual mean can, and attain user-level rates that improve with $k$
+\cite{ref32}. Rescaling the summed gradient by the record count, tested in
+Section~\ref{sec:results:kscaling:nd}, is not such a mechanism.
+
+The theorem fixes what is and is not covered. On eICU and on the
+person-level VitalDB partition the unit is the person. On the case-level
+VitalDB partition the unit is the surgical case: $230$ of $5{,}974$ people
+($3.9\,\%$) underwent more than one operation, and for them the guarantee
+holds per operation and extends to the person only by group privacy over at
+most $14$ cases, composed across clients for the $68$ training persons whose
+cases lie on two. On the wearable deployment each client is one participant, and the
+mechanism evaluated there is record-level; a person-level guarantee would
+require client-level privacy at the edge, which is not evaluated. Outside the
+guarantee are the validation cohort, which is used without noise for checkpoint
+selection, the input standardization constants, which are computed once from
+the training cohort, and the declared client sizes, which are treated as
+public, as is conventional for privately trained models \cite{ref6}. Adding or
+removing a patient changes the realized cohort but not the mechanism, because
+every parameter is fixed by the declared sizes before training; this is the
+setting in which the Poisson-subsampled Gaussian is analyzed
+\cite{ref29, ref33}. In the experiments the declared sizes equal the realized
+cohort sizes; where a size is sensitive, it can be replaced by a coarse public
+value or released by a private count, and the theorem holds for whichever
+declared values are used.
 
 Finally, the audit statistic of Section~\ref{sec:method:mia} is the
 logit-scaled confidence of a patient, averaged over that patient's records,
 \begin{equation}
 \varphi(p) = \frac{1}{|W_p|}\sum_{(x,y)\in W_p}
 \Big( z_y(x) - \log\!\!\sum_{j \neq y} e^{z_j(x)} \Big),
-\tag{14}
+\tag{12}
 \label{eq:14}
 \end{equation}
 which is the numerically stable form of $\log\!\big(\hat{p}_y/(1-\hat{p}_y)\big)$,
@@ -759,7 +926,7 @@ and membership is scored by the ratio of the fitted in- and out-densities,
 \Lambda(p) = \log
 \frac{\mathcal{N}\!\big(\varphi(p);\, \mu_{\mathrm{in}}(p), \sigma^2_{\mathrm{in}}(p)\big)}
      {\mathcal{N}\!\big(\varphi(p);\, \mu_{\mathrm{out}}(p), \sigma^2_{\mathrm{out}}(p)\big)} .
-\tag{15}
+\tag{13}
 \label{eq:15}
 \end{equation}
 
@@ -769,5 +936,4 @@ The objective in Eq.~\eqref{eq:1} is minimized over the fusion head only,
 using the mechanism of Eqs.~\eqref{eq:3}--\eqref{eq:5} with the noise scale
 given by Eq.~\eqref{eq:6}, while the encoders remain frozen. Optimization uses
 stochastic gradient descent on the perturbed gradient. The reported model is
-selected by validation performance, and the composed budget of
-Eq.~\eqref{eq:13} is reported instead of the training term alone.
+selected by validation performance.

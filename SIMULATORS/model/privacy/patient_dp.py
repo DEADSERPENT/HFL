@@ -40,8 +40,17 @@ group as the unit):
   3. Clip that per-patient gradient to norm C. This is the step that makes
      the sensitivity patient-level: one patient can move the sum by at most C
      no matter how many windows they contributed.
-  4. Sum the clipped per-patient gradients, add N(0, sigma^2 C^2 I) ONCE.
-  5. Step.
+  4. Sum the clipped per-patient gradients, add N(0, sigma^2 C^2 I) ONCE,
+     and divide by the EXPECTED batch size q * n_patients, a constant.
+  5. Step. A step whose sample happens to be empty still releases the noise.
+
+Step 4's divisor must not be the realised batch size |S|. The accountant
+analyses the noisy sum; dividing it by a constant is post-processing, but
+dividing by |S| releases |S| as well (the noise norm reveals it), and |S|
+depends on whether the patient is present. At q = 1, as on the smallest eICU
+hospitals, it reveals the patient count exactly. Skipping an empty step is
+the same leak in its extreme form. Both were fixed 2026-10-22; every result
+produced before that date used the |S| divisor.
 
 Accounting then uses q = B / n_patients and the same RDP accountant, so the
 reported epsilon is patient-level by construction rather than by a group
@@ -111,6 +120,107 @@ def patient_level_noise_multiplier(target_epsilon: float,
     return sigma
 
 
+def patient_level_noise_multiplier_multidevice(target_epsilon: float,
+                                               target_delta: float,
+                                               device_n_patients,
+                                               patients_per_batch: int,
+                                               n_fl_calls: int,
+                                               local_epochs: int = 1,
+                                               tol: float = 1e-3,
+                                               max_iter: int = 60,
+                                               accountant: str = "rdp",
+                                               verbose: bool = True) -> float:
+    """Sigma such that NO client exceeds the patient-level budget.
+
+    patient_level_noise_multiplier calibrates on one client. Each client has
+    its own rate q_k = B / n_k and its own step count, and neither the
+    smallest nor the largest client dominates in general, so a one-client
+    calibration can leave another client over budget (the record-level path
+    hit exactly this: dp_engine.compute_fl_noise_multiplier_multidevice).
+    Steps per call are max(n_k // B, 1), matching patient_level_dp_train.
+    """
+    cfgs = []
+    for n in device_n_patients:
+        n = max(int(n), 1)
+        q = min(patients_per_batch / n, 1.0)
+        steps = max(n // max(patients_per_batch, 1), 1) * local_epochs * n_fl_calls
+        cfgs.append((q, steps))
+
+    def worst_eps(sigma: float) -> float:
+        worst = 0.0
+        for q, steps in cfgs:
+            acct = _new_accountant(accountant)
+            acct.history = [(sigma, q, steps)]
+            try:
+                worst = max(worst, acct.get_epsilon(delta=target_delta))
+            except Exception:
+                return float("inf")
+        return worst
+
+    lo, hi = 0.3, 2.0
+    while worst_eps(hi) > target_epsilon and hi < 4096:
+        hi *= 2.0
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        if worst_eps(mid) > target_epsilon:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < tol:
+            break
+    if verbose:
+        print(f"[patient-DP] multi-client calibration: {len(cfgs)} clients, "
+              f"eps<={target_epsilon}, delta={target_delta} -> sigma={hi:.4f} "
+              f"(worst-client eps={worst_eps(hi):.4f}, {accountant})")
+    return hi
+
+
+def patient_level_noise_multipliers_per_client(target_epsilon: float,
+                                               target_delta: float,
+                                               device_n_patients,
+                                               patients_per_batch: int,
+                                               n_fl_calls: int,
+                                               local_epochs: int = 1,
+                                               accountant: str = "rdp") -> list:
+    """One sigma per client, each the smallest that keeps THAT client's
+    patients within the budget.
+
+    A patient's records live on exactly one client, so only that client's
+    mechanism touches them (parallel composition across clients): a patient
+    is (eps, delta)-protected iff their own client is. One shared sigma
+    calibrated on the worst client is therefore sufficient but not necessary;
+    on eICU a 15-patient hospital (q = 1, no amplification) set sigma = 35.1
+    for every hospital, while the patient-weighted per-client mean is 11.7.
+    sigma_k depends only on the public client size n_k, so releasing it leaks
+    nothing about who is in the data.
+    """
+    cache = {}
+    out = []
+    for n in device_n_patients:
+        n = max(int(n), 1)
+        if n not in cache:
+            cache[n] = patient_level_noise_multiplier_multidevice(
+                target_epsilon, target_delta, [n], patients_per_batch,
+                n_fl_calls, local_epochs, accountant=accountant, verbose=False)
+        out.append(cache[n])
+    print(f"[patient-DP] per-client calibration: {len(out)} clients, "
+          f"eps<={target_epsilon}, delta={target_delta}, {accountant} -> sigma "
+          f"min {min(out):.4f} / median {float(np.median(out)):.4f} / max {max(out):.4f}")
+    return out
+
+
+def _new_accountant(kind: str):
+    """'rdp' (default, every pre-2026-10-23 run) or 'prv' (Gopi et al. 2021:
+    numerically tight composition of the same mechanism; returns its upper
+    bound, so the guarantee stays a guarantee)."""
+    from opacus.accountants import PRVAccountant, RDPAccountant
+    if kind == "rdp":
+        return RDPAccountant()
+    if kind == "prv":
+        return PRVAccountant()
+    raise ValueError(f"unknown accountant {kind!r}")
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Accountant
 # ─────────────────────────────────────────────────────────────────────
@@ -124,9 +234,9 @@ class PatientPrivacyAccountant:
     already fixed once on the per-sample path.
     """
 
-    def __init__(self, sample_rate: float, noise_multiplier: float):
-        from opacus.accountants import RDPAccountant
-        self._acct = RDPAccountant()
+    def __init__(self, sample_rate: float, noise_multiplier: float,
+                 accountant: str = "rdp"):
+        self._acct = _new_accountant(accountant)
         self.sample_rate = sample_rate
         self.noise_multiplier = noise_multiplier
         self.steps = 0
@@ -218,6 +328,9 @@ def patient_level_dp_train(model: nn.Module,
 
     n_pat = len(patient_groups)
     q = min(patients_per_batch / max(n_pat, 1), 1.0)
+    # Expected batch size: a function of the public sampling rate and client
+    # size only, never of which patients were drawn. See the module docstring.
+    expected_batch = q * n_pat
     steps_per_epoch = max(n_pat // max(patients_per_batch, 1), 1)
     total_loss, total_seen, n_steps, n_pat_seen = 0.0, 0, 0, 0
     # How often the clip actually binds. If N-D works, this falls: that is the
@@ -235,8 +348,6 @@ def patient_level_dp_train(model: nn.Module,
             # report.
             mask = torch.rand(n_pat, generator=generator) < q
             chosen = torch.nonzero(mask, as_tuple=False).flatten().tolist()
-            if not chosen:
-                continue
 
             summed = torch.zeros(sum(p.numel() for p in params), device=device)
 
@@ -288,7 +399,7 @@ def patient_level_dp_train(model: nn.Module,
             # ── one noise draw per step, scaled to the patient clip ──
             noise = torch.normal(0.0, noise_multiplier * max_grad_norm,
                                  size=summed.shape, device=device)
-            avg = (summed + noise) / max(len(chosen), 1)
+            avg = (summed + noise) / expected_batch
 
             opt.zero_grad(set_to_none=False)
             _assign_flat(params, avg)

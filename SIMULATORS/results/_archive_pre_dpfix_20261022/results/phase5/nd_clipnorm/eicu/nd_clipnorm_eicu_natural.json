@@ -1,0 +1,64 @@
+{
+  "dataset": "eicu",
+  "k": null,
+  "partition": "natural",
+  "partition_dir": "/home/mit/DEADSERPENT/HFL/SIMULATORS/data/processed/partitions/eicu",
+  "epsilon": 0.8,
+  "note": "epsilon identical across modes; clip_norm changes optimisation geometry only, never sensitivity",
+  "rows": [
+    {
+      "seed": 42,
+      "mode": "none",
+      "auprc": 0.22771116714011336,
+      "auroc": 0.8214882671740897
+    },
+    {
+      "seed": 42,
+      "mode": "k",
+      "auprc": 0.22769744644014653,
+      "auroc": 0.8214915647267815
+    },
+    {
+      "seed": 42,
+      "mode": "sqrt_k",
+      "auprc": 0.22776447597065672,
+      "auroc": 0.8214887744107083
+    },
+    {
+      "seed": 43,
+      "mode": "none",
+      "auprc": 0.2136639654564978,
+      "auroc": 0.7899858353810172
+    },
+    {
+      "seed": 43,
+      "mode": "k",
+      "auprc": 0.21702167155608493,
+      "auroc": 0.7838471028876415
+    },
+    {
+      "seed": 43,
+      "mode": "sqrt_k",
+      "auprc": 0.20687142867902644,
+      "auroc": 0.787641178430363
+    },
+    {
+      "seed": 44,
+      "mode": "none",
+      "auprc": 0.23831912357665272,
+      "auroc": 0.7731549206885677
+    },
+    {
+      "seed": 44,
+      "mode": "k",
+      "auprc": 0.23467146139529477,
+      "auroc": 0.7727410685235601
+    },
+    {
+      "seed": 44,
+      "mode": "sqrt_k",
+      "auprc": 0.23793919211444306,
+      "auroc": 0.7720902593520587
+    }
+  ]
+}

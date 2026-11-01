@@ -1,0 +1,19 @@
+{
+  "dataset": "vitaldb_person",
+  "seed": 42,
+  "rounds": 10,
+  "select_on": "auc",
+  "best_val": 0.8322968863246192,
+  "selected_round": 10,
+  "epsilon_spent": 0.9,
+  "uplink_bytes_total": 251973000,
+  "test": {
+    "accuracy": 0.8113125453226976,
+    "macro_auc": 0.8261377005174919,
+    "auprc": 0.47550231842975205,
+    "n_groups": 886,
+    "case_accuracy": 0.8160270880361173,
+    "case_auc": 0.829595499325408,
+    "case_auprc": 0.4766470538223029
+  }
+}

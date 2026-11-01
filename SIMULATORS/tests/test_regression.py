@@ -13,6 +13,11 @@ crashes announces itself, a bug that returns 0.87 instead of 0.83 does not.
   R6  a reused PrivacyEngine COMPOSES epsilon across calls
   R7  the compressor transmits nothing for an all-zero tensor
   R8  --no_dp is genuinely no-DP, not a loose budget
+  R9  patient DP divides by the expected batch size and releases every step
+  R10 conformal quantile is patient-level, with the split-conformal level
+  R11 per-client sigma keeps EVERY client within budget, never above worst-client
+  R12 prior-art baselines follow their papers: FL2DP draws from its candidate
+      set with the exponential-mechanism law; HED-FL samples every group
 
 Dataset-driven: every shape, path, client count and class count comes from
 the registry, so this suite tests the model that actually trains.
@@ -269,6 +274,134 @@ def test_r8_no_dp_is_genuinely_no_dp():
            f"weights_updated={moved}")
 
 
+class _HeadOnly(torch.nn.Module):
+    """Two-input stub with the (mod_a, mod_b) signature patient DP expects."""
+    def __init__(self, d_in, n_classes):
+        super().__init__()
+        self.fc = torch.nn.Linear(d_in, n_classes)
+
+    def forward(self, xa, xb):
+        return self.fc(xa)
+
+
+def test_r9_patient_dp_constant_divisor():
+    """
+    The noisy patient sum must be divided by the EXPECTED batch size, and a
+    step whose Poisson sample is empty must still release noise and be
+    accounted. Dividing by the realised |S| releases |S| through the noise
+    norm, which the accountant does not cover; skipping empty steps leaks the
+    same event. With sigma huge, the update is ~noise / divisor, so its norm
+    is constant across steps iff the divisor is.
+    """
+    import patient_dp
+    from torch.utils.data import TensorDataset
+    n_pat, d_in = 50, 64
+    ds = TensorDataset(torch.randn(n_pat, d_in), torch.zeros(n_pat, 1),
+                       torch.zeros(n_pat, 1), torch.randint(0, 2, (n_pat,)))
+    groups = [np.array([i]) for i in range(n_pat)]
+    norms, real = [], patient_dp._assign_flat
+    patient_dp._assign_flat = lambda params, flat: (norms.append(float(flat.norm())),
+                                                   real(params, flat))[1]
+    try:
+        acct = patient_dp.PatientPrivacyAccountant(sample_rate=2 / n_pat,
+                                                   noise_multiplier=1e4)
+        r = patient_dp.patient_level_dp_train(
+            _HeadOnly(d_in, 2), ds, groups, torch.device("cpu"),
+            noise_multiplier=1e4, max_grad_norm=1.0, lr=1e-3,
+            patients_per_batch=2, accountant=acct,
+            generator=torch.Generator().manual_seed(0))
+    finally:
+        patient_dp._assign_flat = real
+    expected_steps = n_pat // 2
+    cv = float(np.std(norms) / np.mean(norms))
+    _check("R9 patient DP: every step released and accounted",
+           r["n_steps"] == expected_steps == len(norms) == acct.steps,
+           f"n_steps={r['n_steps']} released={len(norms)} accounted={acct.steps} "
+           f"expected={expected_steps}")
+    # |S| ~ Binomial(50, 0.04): a realised-size divisor gives cv ~ 0.6
+    _check("R9 patient DP: divisor does not depend on the sample",
+           cv < 0.1, f"coefficient of variation of update norm = {cv:.3f}")
+
+
+def test_r10_conformal_patient_level():
+    """
+    Under patient-level DP the conformal quantile must see ONE score per
+    patient (sensitivity 1 per patient), and the split-conformal level must be
+    ceil((n+1)(1-alpha))/n, not the n/(n+1) the old expression returned.
+    """
+    from fedconform_hc import LocalConformCalibrator
+    from torch.utils.data import TensorDataset, DataLoader as TDL
+    # patient 0 contributes 40 windows, patients 1..9 one each
+    groups = np.array([0] * 40 + list(range(1, 10)))
+    n_win = len(groups)
+    ds = TensorDataset(torch.randn(n_win, 8), torch.zeros(n_win, 1),
+                       torch.zeros(n_win, 1), torch.randint(0, 2, (n_win,)))
+    cal = LocalConformCalibrator(alpha=0.1, epsilon_conf=0.2)
+    seen = {}
+    cal._dp_quantile = lambda s, level, **kw: seen.update(n=len(s), level=level) or 0.5
+    cal.calibrate(_HeadOnly(8, 2), TDL(ds, batch_size=16), torch.device("cpu"),
+                  groups=groups, seed=0)
+    _check("R10 conformal: one score per calibration patient",
+           seen.get("n") == 10, f"scores passed to the mechanism = {seen.get('n')}")
+    cal.calibrate(_HeadOnly(8, 2), TDL(ds, batch_size=16), torch.device("cpu"))
+    want = min(np.ceil((n_win + 1) * 0.9) / n_win, 1.0)
+    _check("R10 conformal: split-conformal level",
+           abs(seen["level"] - want) < 1e-12 and seen["level"] < n_win / (n_win + 1),
+           f"level={seen['level']:.4f} want={want:.4f}")
+
+
+def test_r11_per_client_sigma():
+    """Per-client calibration must keep each client's patients at <= eps when
+    its own steps are replayed through the accountant, and no sigma_k may
+    exceed the shared worst-client sigma (else it buys nothing)."""
+    from patient_dp import (PatientPrivacyAccountant,
+                            patient_level_noise_multiplier_multidevice,
+                            patient_level_noise_multipliers_per_client)
+    n, B, calls, eps = [12, 15, 180, 408, 2465], 64, 20, 0.8
+    for acc in ("rdp", "prv"):
+        sig = patient_level_noise_multipliers_per_client(eps, 1e-5, n, B, calls,
+                                                        accountant=acc)
+        worst = patient_level_noise_multiplier_multidevice(eps, 1e-5, n, B, calls,
+                                                           accountant=acc, verbose=False)
+        spent = []
+        for k, s_ in zip(n, sig):
+            a = PatientPrivacyAccountant(min(B / k, 1.0), s_, accountant=acc)
+            a.step(max(k // B, 1) * calls)
+            spent.append(a.epsilon())
+        _check(f"R11 per-client sigma within budget ({acc})",
+               max(spent) <= eps + 1e-3 and max(sig) <= worst + 1e-3,
+               f"max eps={max(spent):.4f}, sigma {min(sig):.2f}..{max(sig):.2f} "
+               f"vs worst-client {worst:.2f}")
+
+
+def test_r12_lit_baselines():
+    """FL2DP (Gu et al., Eqs. 12-13): every perturbed value must be one of the
+    N candidates g + j*C/N, j = 1..N, drawn with probability proportional to
+    exp(-a*j). HED-FL (De Rango et al., Table 1): the published fraction of
+    every group trains in each low-level round, at least one per group."""
+    import numpy as np
+    import lit_baselines as lb
+    torch.manual_seed(0)
+    n, c = 15, torch.full((200_000,), 0.3)
+    for scale in (1e-4, 20.0):            # ~uniform, and strongly geometric
+        off = lb._exp_mech_offsets(c, scale, n)
+        j = torch.round(off / c * n)
+        on_grid = bool(torch.allclose(off, j * c / n)) and int(j.min()) >= 1 \
+            and int(j.max()) <= n
+        a = scale * 0.3 / n
+        p = torch.exp(-a * torch.arange(1, n + 1, dtype=torch.float64))
+        p = p / p.sum()
+        emp = torch.bincount(j.long(), minlength=n + 1)[1:].double() / len(j)
+        _check(f"R12 FL2DP candidate law (scale={scale:g})",
+               on_grid and float((emp - p).abs().max()) < 0.01,
+               f"max |empirical - exponential| = {float((emp - p).abs().max()):.4f}")
+    groups = {0: [0, 1, 2, 3, 4], 1: [5, 6, 7, 8]}
+    chosen = lb.hedfl_select(groups, 0.6, np.random.default_rng(0))
+    per = [len(chosen & set(g)) for g in groups.values()]
+    _check("R12 HED-FL samples the published fraction of every group",
+           per == [3, 2], f"selected per group = {per}")
+
+
 def main():
     global SPEC
     ap = argparse.ArgumentParser(description=__doc__,
@@ -292,6 +425,10 @@ def main():
     test_r6_dp_epsilon_composes()
     test_r7_compressor_skips_zero_tensors()
     test_r8_no_dp_is_genuinely_no_dp()
+    test_r9_patient_dp_constant_divisor()
+    test_r10_conformal_patient_level()
+    test_r11_per_client_sigma()
+    test_r12_lit_baselines()
 
     passed = sum(1 for _, ok, _ in _results if ok)
     total = len(_results)

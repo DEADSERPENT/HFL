@@ -359,7 +359,8 @@ def main():
         spec.partition_dir, f"device_{d:02d}_{k}.npy")) for d in range(n_dev)])
         for k in ("train", "val", "test")}
 
-    gpath = os.path.join(spec.data_dir, "meta", "case_ids.npy")
+    # Registry metric grouping (eICU: stay, not person; see baselines.py).
+    gpath = os.path.join(spec.data_dir, spec.metric_group_file)
     groups_test = np.load(gpath)[idx["test"]] if os.path.exists(gpath) else None
 
     names = {"a": spec.modality_a_desc[:44], "b": spec.modality_b_desc[:44],

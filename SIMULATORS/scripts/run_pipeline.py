@@ -99,7 +99,7 @@ def build_stages(a, spec) -> list:
     sys.path.insert(0, str(_SIM / "scripts"))
     from ns3_phase5_integration import resolve_topology
     spec_params_mb = resolve_topology(ds)["model_bytes_fp32"] / 1e6
-    lat_out = res / f"latency_{ds}.json"
+    lat_out = res / f"latency_{ds}.csv"     # inference_bench.py writes CSV
 
     S = []
 

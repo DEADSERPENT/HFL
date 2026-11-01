@@ -13,7 +13,7 @@
 %     Artifact: results/phase5/fusbal_test_n0.4.json
 %   - N-D on eICU (PREREGISTRATION_ND_CLIPNORM.md, amendment N-A2):
 %     whether part of the unit's cost is a clipping artifact. N2e is the test.
-%     N2e FAIL (-0.0001 AUPRC, one-sided 95% UB +0.0058 < +0.010).
+%     N2e FAIL post-fix (-0.0012 AUPRC, one-sided 95% UB +0.0043 < +0.010).
 %     Artifact: results/phase5/nd_clipnorm/eicu/nd_clipnorm_eicu_natural.json
 %
 % The former BLOCKER (results.tex conflating initialization with DP scope) is
@@ -24,9 +24,13 @@
 % sentence that said the hierarchy "costs accuracy" (contradicting Results)
 % is corrected.
 %
-% UNSUPPORTED IN RESULTS (flagged, not removed): the "attribution analysis"
-% limitation and the "adaptive per-layer allocation" finding have no Results
-% subsection. Either add the evidence or delete the sentences.
+% Attribution limitation: SUPPORTED 2026-10-22 by \label{sec:results:attribution}.
+% "relies substantially" was dropped: indicators are 42 % of the inputs and
+% carry 16-28 % of the attribution, so only the increase under DP is claimed.
+% The "adaptive per-layer allocation" finding was DELETED 2026-10-22 (here and
+% in the Conclusion): its only measurement was window-level DP on the removed
+% legacy ECG+CXR corpus, and the per-layer engine does not implement the
+% patient-level unit, so it was never tested at this paper's operating point.
 %==============================================================================
 
 \section{Discussion}
@@ -38,15 +42,15 @@
 The central finding of this paper is not that an individual-level guarantee
 has a cost, which was expected, but that the cost is not constant. At a single
 operating point, the guarantee reduces the area under the ROC curve by
-$0.0188$. When the per-step budget and the number of units per step are held
+$0.0170$. When the per-step budget and the number of units per step are held
 fixed, so that only the clipping geometry differs, the penalty is
 indistinguishable from zero at one record per individual and increases
-monotonically with the number of records, reaching $0.0866$ in average
+monotonically with the number of records, reaching $0.0872$ in average
 precision at eight records and largely saturating before that point.
 
 Two features of this measurement are important. First, the design contains its
 own control: at one record per individual, the two units coincide by
-construction, so the arms must agree, and they do ($-0.0052$, with an interval
+construction, so the arms must agree, and they do ($-0.0071$, with an interval
 covering zero). The divergence at larger contributions can therefore be
 attributed to the unit. Second, the divergence is asymmetric. The
 individual-level arm remains flat across the whole range, whereas the
@@ -60,9 +64,9 @@ On a second clinical corpus with real hospitals as clients, a median of $444$
 individuals per client and encoders pretrained on a verified disjoint
 population, the ordering is reproduced, from a negative gap at $k = 1$ to an
 increasing positive gap through $k = 8$. The registered saturation is also
-reproduced: from $k = 8$ to $k = 16$, the gap changes by $-0.0030$
-$[-0.0316, +0.0255]$, so the cost approaches a bound in $k$. The magnitude,
-however, is approximately one sixth of the pre-registered forecast and is not
+reproduced: from $k = 8$ to $k = 16$, the gap changes by $+0.0004$
+$[-0.0134, +0.0141]$, so the cost approaches a bound in $k$. The magnitude,
+however, is approximately one ninth of the pre-registered forecast and is not
 resolved at three seeds. The shape of the law is therefore interpreted as
 structural and its scale as corpus-dependent, and the two corpora are not
 combined into a single estimate.
@@ -84,18 +88,18 @@ face value the budget explains none of the shortfall. The matched grid,
 however, fails its own $k = 1$ control, and under the conservative assumption
 that this offset applies at every $k$, the budget accounts for approximately
 half of the difference at $k = 8$. Under neither interpretation does it account
-for the factor of six, and under neither does the corpus term change sign.
+for the factor of nine, and under neither does the corpus term change sign.
 
-The cost is also not an artifact of the clipping rule
+The tested count normalization does not explain the cost on eICU
 (Section~\ref{sec:results:kscaling:nd}). Clipping the summed contribution
 affects individuals with many records most strongly, but normalizing the
 clipping bound by the record count, which reduced the clipped fraction in every
-round from the third onward, did not improve utility, and the registered effect
-size is excluded by the one-sided upper bound. The cost is therefore a property
-of the individual-level unit. This conclusion rests on three seeds, one of
-which selected a first-round checkpoint, and applies only to the external
-corpus, since the first corpus has an almost constant number of records per
-individual.
+round, did not improve utility, and the registered effect size is excluded by
+the one-sided upper bound ($+0.0043$). This conclusion rests on three seeds, one
+of which selected a first-round checkpoint. On VitalDB, where records per
+individual are capped at $k$, the same test is inconclusive (upper bound
+$+0.0113$), but even that bound is one eighth of the cost, so the clipping rule
+accounts for at most a small part of it.
 
 \subsection{What the Initialization Provides, and What the Privatized Subset Does
 Not}
@@ -106,12 +110,12 @@ respects: it starts from pretrained encoders and privatizes only the fusion
 head. Compared with full-model private training from a random initialization,
 it shows a large advantage that grows as the budget tightens. The three-arm
 decomposition shows that this advantage is due almost entirely to the
-initialization. Restricting the privatized subset contributes at most $0.0036$
-on the clinical corpus and $0.0013$ on the wearable corpus, with intervals
-covering zero. Across the full budget range, the randomly initialized arm loses
-$0.1181$ and $0.3716$ on the two corpora, while the pretrained arm loses
-$0.0079$ and $0.0157$; on the wearable corpus, the randomly initialized arm
-falls to chance.
+initialization. Under privacy, restricting the privatized subset changes the
+result by at most $0.0059$ on the clinical corpus and $0.0013$ on the wearable
+corpus, with intervals covering zero. Across the full budget range, the
+randomly initialized arm loses $0.1906$ and $0.3716$ on the two corpora, while
+the pretrained head-only arm loses $0.0225$ and $0.0157$; on the wearable
+corpus, the randomly initialized arm falls to chance.
 
 Two consequences follow. First, robustness to a tight budget depends on the
 initialization rather than on the fraction of the network that is privatized,
@@ -158,10 +162,10 @@ measurable effect.
 \subsection{Position Against Prior Art}
 \label{sec:discussion:position}
 
-The mechanisms used in this work are not new and are not claimed as
-contributions. User-level differential privacy, parameter-efficient private
-fine-tuning and differentially private quantile release are established. The
-open questions concern their combination and its cost. Hierarchical federated
+PP-HFM builds on two established mechanisms, user-level differential
+privacy and parameter-efficient private fine-tuning. Its contribution is their
+composition inside a hierarchy, with a proof of the resulting guarantee, and
+the measurement of its cost. Hierarchical federated
 learning has been developed for energy and communication efficiency without a
 formal privacy guarantee, and private federated learning without a hierarchy,
 so the cost of including the edge tier in the privacy accounting has not been
@@ -170,16 +174,26 @@ settings in which each individual contributes many records, which is the
 typical case in clinical and wearable sensing but uncommon in the benchmarks
 used to evaluate private federated learning.
 
+The re-implemented baselines of Section~\ref{sec:results:prior} place PP-HFM
+against both lines. On the external corpus HED-FL, the hierarchy without
+privacy, matches the non-private reference of PP-HFM, so its $3.2$-point lead
+in AUROC is the price of the patient-level guarantee. On VitalDB, PP-HFM matches
+HED-FL in AUROC, exceeds it in AUPRC, and leaks less under offline LiRA (margin
+$-0.005$ against $+0.026$). FL2DP adds noise yet leaks more than HED-FL, which adds none. Its
+candidate set is built from the private gradient value, so it satisfies no
+finite $\varepsilon$: a perturbation without a valid bound is not a weaker
+guarantee but no guarantee, and only an audit can show what it protects.
+
 The contributions are therefore measurements and the auditing practice under
 which they are reported, and several are negative: the privatized subset
 contributes nothing once initialization is controlled, compression does not
-affect accuracy, an adaptive per-layer allocation of the budget performs worse
-than a uniform allocation because composition across groups is more costly,
-the tested inclusion arm provides no benefit, and the hypothesized difference in
-membership leakage between the two units is not of the predicted magnitude.
-Each is reported with the control or power analysis required to interpret it.
-In particular, the membership-inference null is accompanied by a positive
-control on a configuration known to memorize.
+affect accuracy, and the tested inclusion arm provides no benefit. Each is
+reported with the control or power analysis required to interpret it. The
+membership-inference result is positive on VitalDB: with a control that
+detects leakage, record-level training remains detectably above its
+difficulty floor under offline LiRA and patient-level training does not,
+although the difference is smaller than predicted and is resolved by two of
+four attacks.
 
 \subsection{Practical Implications}
 \label{sec:discussion:practice}
@@ -219,7 +233,7 @@ tested on the third.} In the wearable corpus, each client corresponds to one
 participant, so client-level, user-level and individual-level guarantees
 coincide and the divergence addressed by the mechanism cannot occur. The
 external clinical corpus reproduces the ordering and the saturation of the
-scaling law, but not its magnitude, which is approximately one sixth of that of
+scaling law, but not its magnitude, which is approximately one ninth of that of
 the first corpus and unresolved at three seeds. The two corpora show that the
 law is not specific to one cohort, but they do not determine its constant, and
 no constant is reported.
@@ -235,35 +249,44 @@ precision gain is not resolved. No unconditional fusion benefit is claimed.
 \textbf{Utilities on the two original corpora are obtained with the oracle
 encoder configuration.} As stated in Section~\ref{sec:exp:impl}, the encoders
 for these results were pretrained on the pooled client training data, which
-does not provide a valid end-to-end guarantee. The deployable configuration
-costs $0.0322$ in area under the ROC curve, so the absolute utilities on these
-corpora are upper bounds. Differences between arms, on which the claims rely,
+does not satisfy assumption (A2). The configuration with disjoint encoders
+costs $0.0157$ in area under the ROC curve on VitalDB, so the absolute
+utilities on these corpora are upper bounds. Differences between arms, on which the claims rely,
 are unaffected because all arms share the same encoders. This limitation does
 \emph{not} apply to the external clinical corpus, whose encoders were
 pretrained on $526{,}867$ windows verified to be disjoint from every client's
 training data.
 
-\textbf{The membership-inference null bounds only a large effect.} The audit
-shows that the difference in leakage between record-level and individual-level
-guarantees is not of the hypothesized magnitude, but not that it is zero. At
-five paired seeds, the half-width for the strongest attack is $\pm 0.060$ in
-area under the curve, three of the four attacks point in the predicted
-direction, and the strongest reaches $p = 0.090$. An effect below
-approximately six points of AUC would not be detected, and the two guarantees
-cannot be considered equivalent.
+\textbf{The leakage difference is resolved by two of four attacks.} The
+offline likelihood ratio and the loss threshold resolve the difference between
+the units; the two online variants do not. The control is resolved above its
+floor by the online attack with a global variance, while the offline interval
+spans the floor at three seeds, so the attack that validates the control is
+not the one that separates the units. The control (three seeds) was not
+compared statistically with the record-level arm (five seeds), and the
+record-level arm lies below it under two attacks, so the results establish no
+equivalence between them. The record-level attack AUC, $0.576$, is well below
+the predicted $0.7$, and an empirical audit bounds what these attacks achieve
+without establishing the absence of leakage.
 
 \textbf{The audit uses sixteen shadow models.} The per-individual in- and
 out-distributions are estimated from approximately eight observations each,
 which is why a pooled-variance variant is also reported. A larger shadow
 population would improve these estimates. In addition, $600$ non-members are
 insufficient to resolve a $0.1\,\%$ false-positive rate, so the
-low-false-positive regime is characterized only at $1\,\%$.
+low-false-positive regime is characterized only at $1\,\%$. The audit is
+performed on VitalDB only. On eICU, sixteen shadow models per arm would require
+approximately $160$ hours of training at the cost of one run reported here, and
+on WEAR each client holds a single individual, so the two units do not differ.
 
-\textbf{One objective is inconclusive.} On the wearable deployment, the
-accuracy cost under the budget is $1.967$ pp with an interval of
-$[1.760, 2.173]$, which spans the $2$ pp requirement. The seed count of fifteen
-was fixed in advance and was not increased, so the objective is reported as
-undetermined.
+\textbf{The utility objective is not met everywhere.} On the external
+deployment the guarantee costs $3.09$ points of area under the ROC curve
+$[1.37, 4.81]$, an interval that spans the $2$-point requirement although the
+point estimate exceeds it, and $3.91$ $[2.40, 5.42]$ end to end, entirely
+above it; balanced accuracy meets it only with training-fitted constants; the cost is set by the smallest hospitals, whose noise multipliers
+are the largest. On the wearable deployment the accuracy cost is $1.967$ pp
+with an interval of $[1.760, 2.173]$, which spans the requirement. The seed
+counts were fixed in advance and were not increased.
 
 \textbf{Several supporting measurements use few seeds.} Each point of the
 privacy-budget sweep in Fig.~\ref{fig:epsilon} uses three seeds. This is
@@ -274,6 +297,18 @@ the privatized subset has no detectable effect at this power. The
 aggregation-rule comparison that led to a component being excluded was based
 on one seed.
 
+\textbf{Two VitalDB partitions.} Only the privacy cost, the cost of the unit,
+the baseline comparison and the audit are person-level. The remaining VitalDB
+results are case-level; for the $3.9\,\%$ of persons with
+several operations, their guarantee extends to the person only by group
+privacy.
+
+\textbf{The prior systems are re-implementations.} HED-FL and FL2DP are
+implemented from their papers inside the shared trainer, so implementation
+details their authors did not report may differ. FL2DP runs on VitalDB only,
+because its per-coordinate mechanism would need about two GPU days per seed on
+eICU, and the audit of both baselines is likewise limited to VitalDB.
+
 \textbf{Only the network is simulated at packet level.} Communication delay,
 delivery reliability and traffic volume are measured in a packet-level
 simulation, but the compute terms of the round latency (sensing,
@@ -283,9 +318,9 @@ valid, but the absolute round latency is not a measurement of a deployed
 system.
 
 \textbf{The interpretability evidence is associational.} The attribution
-analysis shows that the model relies substantially on indicators of whether a
-measurement was taken, and that this reliance increases under the privacy
-mechanism. It does not show that accuracy depends on these indicators, which
+analysis (Section~\ref{sec:results:attribution}) shows that the share of
+attribution carried by indicators of whether a measurement was taken increases
+under the privacy mechanism, by $8.4$ points on the clinical corpus. It does not show that accuracy depends on these indicators, which
 would require removing them.
 
 %==============================================================================

@@ -214,6 +214,46 @@ def evaluate_model(model: nn.Module, loader: DataLoader,
     return _compute_metrics(labels, probs, group_ids)
 
 
+def _predict(model: nn.Module, loader: DataLoader, device: torch.device):
+    model.eval()
+    P, Y = [], []
+    with torch.no_grad():
+        for ecg, cxr, _tab, labels in loader:
+            P.append(torch.softmax(model(ecg.to(device), cxr.to(device)), -1).cpu())
+            Y.append(labels.cpu())
+    return torch.cat(P).numpy(), torch.cat(Y).numpy()
+
+
+def _threshold_metrics(model, args, n_devices, full_ds, device) -> Dict:
+    """Accuracy at a threshold chosen on the VALIDATION cohort (Youden's J),
+    reported on test. Under strong DP the positive-class probabilities shrink
+    toward the prior, so the fixed 0.5 cut makes every prediction negative and
+    test accuracy equals the majority rate on every seed. The val cohort is
+    already used non-privately for checkpoint selection; picking the cut there
+    adds no new disclosure. Binary tasks only."""
+    try:
+        vl, _ = build_pooled_loader(args.partition_dir, n_devices, full_ds,
+                                    "val", args.batch_size)
+        tl, _ = build_pooled_loader(args.partition_dir, n_devices, full_ds,
+                                    "test", args.batch_size)
+        pv, yv = _predict(model, vl, device)
+        pt, yt = _predict(model, tl, device)
+        if pv.shape[1] != 2:
+            return {}
+        from sklearn.metrics import roc_curve
+        fpr, tpr, thr = roc_curve(yv, pv[:, 1])
+        t = float(thr[int(np.argmax(tpr - fpr))])
+        yh = (pt[:, 1] >= t).astype(int)
+        sens = float((yh[yt == 1] == 1).mean()) if (yt == 1).any() else float("nan")
+        spec = float((yh[yt == 0] == 0).mean()) if (yt == 0).any() else float("nan")
+        return {"val_threshold": t, "accuracy_valthr": float((yh == yt).mean()),
+                "balanced_accuracy_valthr": 0.5 * (sens + spec),
+                "sensitivity_valthr": sens, "specificity_valthr": spec}
+    except Exception as e:                       # never lose the run over this
+        print(f"[test][WARN] threshold metrics skipped: {e}")
+        return {}
+
+
 def evaluate_personalized(backbone: nn.Module, adapter: nn.Module, loader: DataLoader,
                           device: torch.device) -> Dict:
     """Same as evaluate_model, but passes the shared backbone's logits through
@@ -475,6 +515,22 @@ def train_hfl_mm_hc(args) -> Dict:
     # be wasted work in the hot loop.
     _patient_groups: Dict[int, list] = {}
     _case_ids = None
+    if args.dp_unit == "patient" and not args.no_dp and (
+            args.agg_mode == "aswa" or args.edge_distill_epochs > 0):
+        # Both re-weight or refine on unprotected quantities (local losses,
+        # edge validation data) that the patient-level guarantee does not cover.
+        raise SystemExit("[FATAL] --agg_mode aswa / --edge_distill_epochs are not "
+                         "covered by the patient-level guarantee")
+    if (args.sigma_mode != "worst" or args.accountant != "rdp") and \
+            args.dp_unit != "patient" and not args.no_dp:
+        raise SystemExit("[FATAL] --sigma_mode / --accountant apply to the "
+                         "patient-level path only (--dp_unit patient)")
+    if args.dp_unit == "patient" and args.dp_mode == "sadp" and not args.no_dp:
+        # The patient branch of the round loop never consults dp_mode, so this
+        # combination would train uniform patient-level DP and report it as SADP.
+        raise SystemExit(
+            "[FATAL] --dp_mode sadp is implemented for --dp_unit sample only; "
+            "under --dp_unit patient it would silently run uniform DP.")
     if args.dp_unit == "patient":
         _cid_path = os.path.join(args.data_dir, "meta", "case_ids.npy")
         if not os.path.exists(_cid_path):
@@ -488,7 +544,8 @@ def train_hfl_mm_hc(args) -> Dict:
         from patient_dp import (group_indices_by_patient,
                                 patient_level_dp_train,
                                 PatientPrivacyAccountant,
-                                patient_level_noise_multiplier)
+                                patient_level_noise_multiplier_multidevice,
+                                patient_level_noise_multipliers_per_client)
         for _d in range(args.n_devices):
             _tr = np.load(os.path.join(args.partition_dir,
                                        f"device_{_d:02d}_train.npy"))
@@ -634,16 +691,31 @@ def train_hfl_mm_hc(args) -> Dict:
         # patient would report a budget that describes neither unit — the
         # single most consequential thing to get wrong here.
         if args.dp_unit == "patient" and not args.no_dp:
-            _min_pat = min(len(g) for g in _patient_groups.values())
-            noise_multiplier = patient_level_noise_multiplier(
-                target_epsilon=args.epsilon, target_delta=args.delta,
-                n_patients=_min_pat,
-                patients_per_batch=args.patients_per_batch,
-                n_fl_calls=n_fl_calls_total, local_epochs=1)
+            # Worst-client calibration, as on the record-level path: a
+            # one-client calibration can leave another client over budget.
+            if args.sigma_mode == "per_client":
+                # Each client meets the budget with its own sigma_k (parallel
+                # composition: a patient is touched by one client only).
+                _sig = patient_level_noise_multipliers_per_client(
+                    target_epsilon=args.epsilon, target_delta=args.delta,
+                    device_n_patients=[len(g) for g in _patient_groups.values()],
+                    patients_per_batch=args.patients_per_batch,
+                    n_fl_calls=n_fl_calls_total, local_epochs=1,
+                    accountant=args.accountant)
+                _dev_sigma = dict(zip(_patient_groups.keys(), _sig))
+                noise_multiplier = max(_sig)        # logged; the worst client
+            else:
+                noise_multiplier = patient_level_noise_multiplier_multidevice(
+                    target_epsilon=args.epsilon, target_delta=args.delta,
+                    device_n_patients=[len(g) for g in _patient_groups.values()],
+                    patients_per_batch=args.patients_per_batch,
+                    n_fl_calls=n_fl_calls_total, local_epochs=1,
+                    accountant=args.accountant)
+                _dev_sigma = {d: noise_multiplier for d in _patient_groups}
             _patient_accountants = {
                 d: PatientPrivacyAccountant(
                     sample_rate=min(args.patients_per_batch / max(len(g), 1), 1.0),
-                    noise_multiplier=noise_multiplier)
+                    noise_multiplier=_dev_sigma[d], accountant=args.accountant)
                 for d, g in _patient_groups.items()}
             print(f"[patient-DP] privacy unit = PATIENT. Reported epsilon "
                   f"protects a whole person, not one 10-minute window.")
@@ -664,6 +736,17 @@ def train_hfl_mm_hc(args) -> Dict:
     _conformal_calls = [0]     # list so the inner scope can increment
     q_global = 0.9  # initial conformal quantile
     cumulative_eps = 0.0  # true per-device cumulative ε, max across devices
+
+    _baseline = getattr(args, "baseline", "none")
+    if _baseline != "none":
+        import lit_baselines as _lit
+        _lit_rng = np.random.default_rng(args.seed)
+        print(f"[baseline] {_baseline}: " + (
+            f"no DP, dense float32 upload, {args.hedfl_fraction:.0%} of each group "
+            f"per low-level round" if _baseline == "hedfl" else
+            f"flat FL, exponential-mechanism perturbation at nominal eps="
+            f"{args.epsilon} (N={args.fl2dp_candidates}), gradient shuffling "
+            f"w={tuple(args.fl2dp_weights)}, dense float32 upload"))
 
     print(f"\nStarting HFL-MM-HC training: {args.rounds} global rounds, "
           f"{args.tau_e} edge rounds, {n_devices} devices, {n_edges} edges")
@@ -691,8 +774,13 @@ def train_hfl_mm_hc(args) -> Dict:
             edge_client_losses = {e: [] for e in range(n_edges)}   # ASWA (IP-3)
             edge_teacher_logits = {e: [] for e in range(n_edges)}  # FedKD-E (IP-4)
 
+            _active = (_lit.hedfl_select(edge_assignments, args.hedfl_fraction, _lit_rng)
+                       if _baseline == "hedfl" else None)
+
             # Step 1: Local DP training on all devices
             for dev_id in range(n_devices):
+                if _active is not None and dev_id not in _active:
+                    continue
                 edge_id = next(e for e, devs in edge_assignments.items()
                                if dev_id in devs)
                 local_model = build_hfl_mm_hc(n_classes=args.n_classes, **_model_kw(args)).to(device)
@@ -705,13 +793,19 @@ def train_hfl_mm_hc(args) -> Dict:
                 if args.dp_unit == "patient" and not args.no_dp:
                     train_result = patient_level_dp_train(
                         local_model, full_ds, _patient_groups[dev_id], device,
-                        noise_multiplier=noise_multiplier,
+                        noise_multiplier=_dev_sigma[dev_id],
                         max_grad_norm=args.max_grad_norm, lr=args.lr,
                         n_epochs=1,
                         patients_per_batch=args.patients_per_batch,
                         accountant=_patient_accountants[dev_id],
                         class_weight=_class_weight,
                         clip_norm=args.clip_norm)
+                elif _baseline == "fl2dp":
+                    train_result = _lit.fl2dp_local_train(
+                        local_model, get_device_loaders(dev_id)["train"], device,
+                        lr=args.lr, epsilon=args.epsilon,
+                        n_candidates=args.fl2dp_candidates,
+                        class_weight=_class_weight)
                 else:
                     train_result = local_dp_train(
                         local_model, get_device_loaders(dev_id)["train"],
@@ -746,6 +840,15 @@ def train_hfl_mm_hc(args) -> Dict:
                     for n in global_state
                     if global_state[n].is_floating_point()
                 }
+                if _baseline != "none":
+                    # Both prior-art systems upload the model uncompressed.
+                    round_uplink_bytes += _lit.dense_uplink_bytes(local_model)
+                    edge_client_states[edge_id].append(
+                        {k: v.detach().clone() for k, v in local_model.state_dict().items()})
+                    edge_client_sizes[edge_id].append(train_result["n_samples"])
+                    del local_model
+                    torch.cuda.empty_cache()
+                    continue
                 compressed = compressor.compress(delta_params)
                 # Measure actual uplink bytes: int32 indices + payload + 8B
                 # header per layer. The payload width is read with .nbytes
@@ -768,7 +871,15 @@ def train_hfl_mm_hc(args) -> Dict:
                     updated_state[n] = updated_state[n] + decompressed[n]
 
                 edge_client_states[edge_id].append(updated_state)
-                edge_client_sizes[edge_id].append(train_result["n_samples"])
+                # Under patient-level DP the averaging weight must be public.
+                # n_samples counts the windows of the patients Poisson-drawn this
+                # call, so it depends on who was sampled and how many records
+                # they hold; the edge would receive it unprotected. The client's
+                # static training size is the public weight the paper states.
+                edge_client_sizes[edge_id].append(
+                    get_device_loaders(dev_id)["n_train"]
+                    if args.dp_unit == "patient" and not args.no_dp
+                    else train_result["n_samples"])
 
                 # Conformal calibration. Runs on the FINAL round only by
                 # default: it is a post-hoc procedure that does not feed
@@ -795,7 +906,15 @@ def train_hfl_mm_hc(args) -> Dict:
                     cal_loader = get_device_loaders(dev_id)["val"]
                     cal = LocalConformCalibrator(alpha=args.alpha_conf,
                                                  epsilon_conf=args.epsilon_conf)
-                    q_tilde = cal.calibrate(local_model, cal_loader, device)
+                    # Patient-level release whenever the run is: one score per
+                    # calibration patient (see LocalConformCalibrator).
+                    _cal_groups = None
+                    if _case_ids is not None:
+                        _cal_groups = _case_ids[np.load(os.path.join(
+                            args.partition_dir, f"device_{dev_id:02d}_val.npy"))]
+                    q_tilde = cal.calibrate(local_model, cal_loader, device,
+                                            groups=_cal_groups,
+                                            seed=args.seed * 1000 + dev_id)
                     edge_q_tildes[edge_id].append(q_tilde)
                     _conformal_calls[0] += 1
 
@@ -812,6 +931,20 @@ def train_hfl_mm_hc(args) -> Dict:
                 # Free GPU memory — critical: without this, 18 models accumulate per global round
                 del local_model
                 torch.cuda.empty_cache()
+
+            if _baseline == "fl2dp":
+                # Trusted shuffler: identity i is aggregated with the update it
+                # is reassigned, under its own FedAvg weight (FL2DP Eq. 2).
+                _tk = [n for n, p in global_model.named_parameters() if p.requires_grad]
+                for edge_id in range(n_edges):
+                    _st = edge_client_states[edge_id]
+                    if len(_st) < 2:
+                        continue
+                    _upd = [torch.cat([(s[k] - edge_states[edge_id][k]).flatten()
+                                       for k in _tk]) for s in _st]
+                    _perm = _lit.fl2dp_shuffle(_upd, args.epsilon,
+                                               args.fl2dp_weights, _lit_rng)
+                    edge_client_states[edge_id] = [_st[j] for j in _perm]
 
             # Step 2: Edge aggregation
             for edge_id in range(n_edges):
@@ -971,6 +1104,8 @@ def train_hfl_mm_hc(args) -> Dict:
                         "accuracy": float(test_metrics["accuracy"]),
                         "macro_auc": float(test_metrics["macro_auc"]),
                         "auprc": float(test_metrics["auprc"]),
+                        **_threshold_metrics(global_model, args, n_devices,
+                                             full_ds, device),
                         "selected_on": args.select_on,
                         "best_val_auc": float(best_auc)}, _f, indent=2)
         print(f"[test] metrics written -> {_tp}")
@@ -1202,6 +1337,12 @@ if __name__ == "__main__":
                              "Requires meta/case_ids.npy.")
     parser.add_argument("--patients_per_batch", type=int, default=16,
                         help="Poisson-sampled patients per step under --dp_unit patient.")
+    parser.add_argument("--sigma_mode", choices=["worst", "per_client"], default="worst",
+                        help="patient DP: one sigma calibrated on the worst client "
+                             "(default), or each client's own sigma_k (still eps per "
+                             "patient: a patient is on one client only)")
+    parser.add_argument("--accountant", choices=["rdp", "prv"], default="rdp",
+                        help="patient DP accountant for calibration and reporting")
     parser.add_argument("--no_dp", action="store_true",
                         help="Disable differential privacy entirely: no clipping, no "
                              "noise, no accountant (epsilon reported as inf). Required "
@@ -1263,7 +1404,30 @@ if __name__ == "__main__":
                         help="Skip pre-run environment/data safety checks")
     parser.add_argument("--no_monitor",    action="store_true",
                         help="Disable the background resource watchdog")
+    # Prior-art systems, run through this same loop so that only the mechanism
+    # differs (see lit_baselines.py). Defaults are the published settings.
+    parser.add_argument("--baseline", choices=["none", "hedfl", "fl2dp"], default="none",
+                        help="hedfl: hierarchical FedAvg, no DP, dense upload, partial "
+                             "participation (De Rango et al. 2023). fl2dp: flat FL with "
+                             "exponential-mechanism gradient perturbation and gradient "
+                             "shuffling (Gu et al. 2024), at nominal --epsilon.")
+    parser.add_argument("--hedfl_fraction", type=float, default=0.6,
+                        help="HED-FL: devices drawn per group per low-level round "
+                             "(3 of 5 in its Table 1)")
+    parser.add_argument("--fl2dp_candidates", type=int, default=15,
+                        help="FL2DP: candidates N per coordinate (largest, most "
+                             "accurate value in its Table II)")
+    parser.add_argument("--fl2dp_weights", type=float, nargs=2, default=[0.1, 0.9],
+                        help="FL2DP: (w1, w2) of Eq. 15 (its most private setting)")
     args = parser.parse_args()
+    if args.baseline != "none":
+        # Neither system has a patient-level mechanism; the DP-SGD path,
+        # patient accounting and budget stop do not apply to them.
+        if args.dp_unit == "patient":
+            raise SystemExit("[FATAL] --baseline runs without --dp_unit patient")
+        args.no_dp = True
+        if args.baseline == "fl2dp":
+            args.n_edges = 1     # flat FL: one aggregator, every round global
 
     # Fill anything the user did not set from the dataset registry, so
     # `--dataset wear` alone is a complete specification.

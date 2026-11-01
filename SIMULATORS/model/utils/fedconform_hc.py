@@ -51,10 +51,18 @@ class LocalConformCalibrator:
         self.scorer = ConformScoreComputer(score_type)
 
     def calibrate(self, model: nn.Module, cal_loader,
-                  device: torch.device) -> float:
+                  device: torch.device,
+                  groups: Optional[np.ndarray] = None,
+                  seed: Optional[int] = None) -> float:
         """
         Run forward pass on calibration data, compute DP-noised quantile.
         Returns: q_tilde (noised local quantile)
+
+        `groups` (one id per item, in cal_loader order) makes the release
+        PATIENT-level: one window is drawn uniformly per patient, so a patient
+        moves the rank utility by at most 1 however many windows they have.
+        Without it the sensitivity is one per WINDOW, and a patient with k
+        windows is protected only at k * epsilon_conf.
         """
         model.eval()
         all_scores = []
@@ -69,9 +77,20 @@ class LocalConformCalibrator:
                 all_scores.append(scores.cpu())
 
         scores_np = torch.cat(all_scores).numpy()
+        if groups is not None:
+            groups = np.asarray(groups)
+            if len(groups) != len(scores_np):
+                raise ValueError(f"groups has {len(groups)} ids for "
+                                 f"{len(scores_np)} calibration scores")
+            rng = np.random.default_rng(seed)
+            _, inv = np.unique(groups, return_inverse=True)
+            pick = [rng.choice(np.flatnonzero(inv == g)) for g in range(inv.max() + 1)]
+            scores_np = scores_np[np.asarray(pick)]
         n = len(scores_np)
-        level = np.ceil((1 - self.alpha) * (1 + 1.0 / n)) / (1 + 1.0 / n)
-        level = min(level, 1.0)
+        # Split-conformal level ceil((n+1)(1-alpha))/n. The earlier expression
+        # ceil((1-alpha)(1+1/n))/(1+1/n) evaluates to n/(n+1) for every alpha,
+        # i.e. the near-maximum score: valid but needlessly wide sets.
+        level = min(np.ceil((n + 1) * (1 - self.alpha)) / max(n, 1), 1.0)
         return self._dp_quantile(scores_np, level)
 
     def _dp_quantile(self, scores: np.ndarray, level: float,
@@ -111,7 +130,10 @@ class LocalConformCalibrator:
         p = np.exp(log_w)
         s = p.sum()
         if not np.isfinite(s) or s <= 0:
-            return float(np.quantile(scores, level))  # degenerate: fall back
+            # Unreachable for finite scores (the max weight is exp(0) = 1), but
+            # an exact quantile here would be a non-private release; return
+            # the data-independent upper bound instead.
+            return float(hi)
         p /= s
         i = int(np.random.choice(len(p), p=p))
         return float(np.random.uniform(z[i], z[i + 1]))

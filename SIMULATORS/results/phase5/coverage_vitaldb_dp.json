@@ -1,0 +1,64 @@
+{
+  "dataset": "vitaldb",
+  "target": 0.9,
+  "n": 4,
+  "mean": 0.8005434782608696,
+  "ci95": 0.0,
+  "runs": {
+    "dp_s42": {
+      "q": 0.6058,
+      "coverage": 0.8005434782608696,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": true,
+      "selected_round": 10
+    },
+    "dp_s43": {
+      "q": 0.5009,
+      "coverage": 0.8005434782608696,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": true,
+      "selected_round": 10
+    },
+    "dp_s44": {
+      "q": 0.5191,
+      "coverage": 0.8005434782608696,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": true,
+      "selected_round": 10
+    },
+    "dp_s45": {
+      "q": 0.4248,
+      "coverage": 0.8005434782608696,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": false,
+      "selected_round": 8
+    },
+    "dp_s46": {
+      "q": 0.5611,
+      "coverage": 0.8005434782608696,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": true,
+      "selected_round": 10
+    }
+  }
+}

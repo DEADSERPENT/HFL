@@ -1,0 +1,65 @@
+{
+  "rules": {
+    "split": "priority train > test > val; other-split cases dropped",
+    "client": "client with most of the person's cases in their split; tie -> client of lowest caseid; other-client cases dropped"
+  },
+  "before": {
+    "splits": {
+      "train": {
+        "windows": 34044,
+        "cases": 4372,
+        "persons": 4221
+      },
+      "test": {
+        "windows": 7360,
+        "cases": 947,
+        "persons": 940
+      },
+      "val": {
+        "windows": 7308,
+        "cases": 938,
+        "persons": 931
+      }
+    },
+    "person_overlap": {
+      "train_test": 55,
+      "train_val": 51,
+      "val_test": 16,
+      "train_persons_on_several_clients": 68
+    }
+  },
+  "after": {
+    "splits": {
+      "train": {
+        "windows": 33491,
+        "cases": 4302,
+        "persons": 4221
+      },
+      "test": {
+        "windows": 6895,
+        "cases": 886,
+        "persons": 885
+      },
+      "val": {
+        "windows": 6773,
+        "cases": 869,
+        "persons": 868
+      }
+    },
+    "person_overlap": {
+      "train_test": 0,
+      "train_val": 0,
+      "val_test": 0,
+      "train_persons_on_several_clients": 0
+    }
+  },
+  "cases_dropped": 200,
+  "cases_dropped_by_split": {
+    "val": 69,
+    "test": 61,
+    "train": 70
+  },
+  "windows_dropped": 1553,
+  "train_persons_with_several_cases": 63,
+  "train_max_cases_per_person": 10
+}

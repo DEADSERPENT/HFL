@@ -1,0 +1,95 @@
+
+==============================================================================
+STATISTICAL ANALYSIS — VITALDB   (Phase 6, D6.4)
+==============================================================================
+  min seeds required by Phase 6 §6.4.1 : 5
+  intervals are Student-t 95 % CIs; contrasts are PAIRED by seed
+
+==============================================================================
+1. PRIVACY–UTILITY CURVE  (per point, across seeds)
+==============================================================================
+     eps  recipe     metric      mean              95% CI   n
+  ---------------------------------------------------------------
+     0.5    full  macro_auc    0.7141                   —   1
+     0.5    head  macro_auc    0.8455                   —   1
+       1    full  macro_auc    0.7364                   —   1
+       1    head  macro_auc    0.8498                   —   1
+       2    full  macro_auc    0.7539                   —   1
+       2    head  macro_auc    0.8507                   —   1
+       4    full  macro_auc    0.7710                   —   1
+       4    head  macro_auc    0.8492                   —   1
+       8    full  macro_auc    0.7888                   —   1
+       8    head  macro_auc    0.8490                   —   1
+     inf    full  macro_auc    0.8338                   —   1
+     inf    head  macro_auc    0.8425                   —   1
+
+==============================================================================
+2. RECIPE CONTRAST  head-only DP vs full-model DP
+==============================================================================
+   (paired by seed at each eps; positive = head-only better)
+
+==============================================================================
+3. COST OF PRIVACY  (Objective 2: accuracy loss <= 2 pp)
+==============================================================================
+   — needs the eps=inf reference AND an eps<=1 point at shared seeds.
+
+==============================================================================
+4. COMPONENT ABLATION  (effect of removing each component)
+==============================================================================
+   arm  removes       AUROC     ΔvsA0   note
+   --------------------------------------------------------
+   A0   —            0.8519   +0.0000   
+   A0   —            0.8591   +0.0072   
+   A0   —            0.8514   -0.0005   
+   A1   C1           0.8421   -0.0098   contributes
+   A1   C1           0.8560   +0.0041   no measurable contribution
+   A1   C1           0.8470   -0.0050   contributes
+   A2   C2           0.8228   -0.0291   contributes
+   A2   C2           0.8319   -0.0200   contributes
+   A2   C2           0.8375   -0.0145   contributes
+   A3   C3           0.8561   +0.0041   no measurable contribution
+   A3   C3           0.8567   +0.0047   no measurable contribution
+   A3   C3           0.8533   +0.0013   no measurable contribution
+   A4   C4           0.8518   -0.0001   contributes
+   A4   C4           0.8594   +0.0075   no measurable contribution
+   A4   C4           0.8516   -0.0003   contributes
+   A5   C5           0.8283   -0.0237   contributes
+   A6   —            0.8517   -0.0003   contributes
+   A6   —            0.8595   +0.0076   no measurable contribution
+   A6   —            0.8515   -0.0005   contributes
+
+   Single-seed deltas — a component whose Δ is smaller than the seed sd
+   in section 1 is NOT evidenced; re-run the ablation across seeds to settle it.
+
+==============================================================================
+5. JOINT EVALUATION  (S0–S4)
+==============================================================================
+   sys  name                        acc    AUROC   ΔaccS0
+   ------------------------------------------------------
+   S0   CentralizedFL            0.7765   0.8612    +0.00
+   S1   FlatFL_NoDP              0.7973   0.8173    -2.08
+   S2   FL2DP                    0.8005   0.7364    -2.40
+   S3   HED-FL                   0.8118   0.8322    -3.53
+   S4   HFL-MM (PROPOSED)        0.8236   0.8541    -4.71
+
+   Single run per system — these are point estimates, not intervals.
+   Repeat across seeds before quoting any difference as a finding.
+
+==============================================================================
+POWER / SAMPLE-SIZE WARNINGS
+==============================================================================
+   ⚠ eps=0.5 recipe=full: n=1 < 5
+   ⚠ eps=0.5 recipe=head: n=1 < 5
+   ⚠ eps=1 recipe=full: n=1 < 5
+   ⚠ eps=1 recipe=head: n=1 < 5
+   ⚠ eps=2 recipe=full: n=1 < 5
+   ⚠ eps=2 recipe=head: n=1 < 5
+   ⚠ eps=4 recipe=full: n=1 < 5
+   ⚠ eps=4 recipe=head: n=1 < 5
+   ⚠ eps=8 recipe=full: n=1 < 5
+   ⚠ eps=8 recipe=head: n=1 < 5
+   ⚠ eps=inf recipe=full: n=1 < 5
+   ⚠ eps=inf recipe=head: n=1 < 5
+
+   Phase 6 §6.4.1 requires >= 5 seeds. Results above with fewer
+   are reported for completeness but must not be quoted as significant.

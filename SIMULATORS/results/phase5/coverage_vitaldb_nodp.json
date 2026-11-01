@@ -1,0 +1,64 @@
+{
+  "dataset": "vitaldb",
+  "target": 0.9,
+  "n": 0,
+  "mean": null,
+  "ci95": null,
+  "runs": {
+    "nodp_s42": {
+      "q": 0.5232,
+      "coverage": 0.8070652173913043,
+      "coverage_by_class": {
+        "0": 0.9022403258655805,
+        "1": 0.4250681198910082
+      },
+      "mean_set_size": 1.001766304347826,
+      "valid": false,
+      "selected_round": 1
+    },
+    "nodp_s43": {
+      "q": 0.4382,
+      "coverage": 0.8080163043478261,
+      "coverage_by_class": {
+        "0": 0.9188730482009504,
+        "1": 0.3630790190735695
+      },
+      "mean_set_size": 0.996195652173913,
+      "valid": false,
+      "selected_round": 6
+    },
+    "nodp_s44": {
+      "q": 0.5427,
+      "coverage": 0.8134510869565217,
+      "coverage_by_class": {
+        "0": 0.9192124915139172,
+        "1": 0.38896457765667575
+      },
+      "mean_set_size": 1.0059782608695653,
+      "valid": false,
+      "selected_round": 2
+    },
+    "nodp_s45": {
+      "q": 0.6689,
+      "coverage": 0.8177989130434783,
+      "coverage_by_class": {
+        "0": 0.9180244399185336,
+        "1": 0.41553133514986373
+      },
+      "mean_set_size": 1.0144021739130435,
+      "valid": false,
+      "selected_round": 2
+    },
+    "nodp_s46": {
+      "q": 0.4131,
+      "coverage": 0.8039402173913044,
+      "coverage_by_class": {
+        "0": 0.9127630685675492,
+        "1": 0.36716621253405995
+      },
+      "mean_set_size": 0.993070652173913,
+      "valid": false,
+      "selected_round": 2
+    }
+  }
+}

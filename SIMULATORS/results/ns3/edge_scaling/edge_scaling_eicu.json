@@ -1,0 +1,153 @@
+{
+  "dataset": "eicu",
+  "n_devices": 187,
+  "target_pct": 99.0,
+  "min_edges_mean_meets_target": 6,
+  "min_edges_every_round_meets_target": 8,
+  "rows": [
+    {
+      "n_edges": 2,
+      "stations_per_edge": 93.5,
+      "scenario": "CentralizedFL",
+      "n_rounds": 20,
+      "reliability_mean": 95.114,
+      "reliability_min": 94.063,
+      "rounds_meeting_target": 0,
+      "latency_ms": 261.45,
+      "comm_ms": 194.57,
+      "source": "results/ns3/ns3_results_eicu.csv"
+    },
+    {
+      "n_edges": 2,
+      "stations_per_edge": 93.5,
+      "scenario": "FlatFL_DP",
+      "n_rounds": 20,
+      "reliability_mean": 95.036,
+      "reliability_min": 94.246,
+      "rounds_meeting_target": 0,
+      "latency_ms": 264.88,
+      "comm_ms": 200.0,
+      "source": "results/ns3/ns3_results_eicu.csv"
+    },
+    {
+      "n_edges": 2,
+      "stations_per_edge": 93.5,
+      "scenario": "FlatFL_NoDP",
+      "n_rounds": 20,
+      "reliability_mean": 95.165,
+      "reliability_min": 94.169,
+      "rounds_meeting_target": 0,
+      "latency_ms": 258.2,
+      "comm_ms": 194.32,
+      "source": "results/ns3/ns3_results_eicu.csv"
+    },
+    {
+      "n_edges": 2,
+      "stations_per_edge": 93.5,
+      "scenario": "HFL_Proposed",
+      "n_rounds": 20,
+      "reliability_mean": 97.833,
+      "reliability_min": 96.813,
+      "rounds_meeting_target": 0,
+      "latency_ms": 174.15,
+      "comm_ms": 115.48,
+      "source": "results/ns3/ns3_results_eicu.csv"
+    },
+    {
+      "n_edges": 2,
+      "stations_per_edge": 93.5,
+      "scenario": "HierarchicalFL_NoDP",
+      "n_rounds": 20,
+      "reliability_mean": 98.008,
+      "reliability_min": 97.455,
+      "rounds_meeting_target": 0,
+      "latency_ms": 175.14,
+      "comm_ms": 115.26,
+      "source": "results/ns3/ns3_results_eicu.csv"
+    },
+    {
+      "n_edges": 3,
+      "stations_per_edge": 62.3,
+      "scenario": "HFL_Proposed",
+      "n_rounds": 20,
+      "reliability_mean": 98.425,
+      "reliability_min": 98.118,
+      "rounds_meeting_target": 1,
+      "latency_ms": 150.35,
+      "comm_ms": 91.68,
+      "source": "results/ns3/edge_scaling/ns3_eicu_e3.csv"
+    },
+    {
+      "n_edges": 4,
+      "stations_per_edge": 46.8,
+      "scenario": "HFL_Proposed",
+      "n_rounds": 20,
+      "reliability_mean": 98.769,
+      "reliability_min": 98.475,
+      "rounds_meeting_target": 1,
+      "latency_ms": 131.51,
+      "comm_ms": 72.85,
+      "source": "results/ns3/edge_scaling/ns3_eicu_e4.csv"
+    },
+    {
+      "n_edges": 6,
+      "stations_per_edge": 31.2,
+      "scenario": "HFL_Proposed",
+      "n_rounds": 20,
+      "reliability_mean": 99.342,
+      "reliability_min": 98.713,
+      "rounds_meeting_target": 19,
+      "latency_ms": 111.03,
+      "comm_ms": 52.36,
+      "source": "results/ns3/edge_scaling/ns3_eicu_e6.csv"
+    },
+    {
+      "n_edges": 8,
+      "stations_per_edge": 23.4,
+      "scenario": "HFL_Proposed",
+      "n_rounds": 20,
+      "reliability_mean": 99.732,
+      "reliability_min": 99.493,
+      "rounds_meeting_target": 20,
+      "latency_ms": 97.06,
+      "comm_ms": 38.39,
+      "source": "results/ns3/edge_scaling/ns3_eicu_e8.csv"
+    },
+    {
+      "n_edges": 12,
+      "stations_per_edge": 15.6,
+      "scenario": "HFL_Proposed",
+      "n_rounds": 20,
+      "reliability_mean": 99.924,
+      "reliability_min": 99.849,
+      "rounds_meeting_target": 20,
+      "latency_ms": 84.63,
+      "comm_ms": 25.96,
+      "source": "results/ns3/edge_scaling/ns3_eicu_e12.csv"
+    },
+    {
+      "n_edges": 16,
+      "stations_per_edge": 11.7,
+      "scenario": "CentralizedFL",
+      "n_rounds": 20,
+      "reliability_mean": 99.598,
+      "reliability_min": 99.545,
+      "rounds_meeting_target": 20,
+      "latency_ms": 100.25,
+      "comm_ms": 33.37,
+      "source": "results/ns3/edge_scaling/ns3_eicu_e16.csv"
+    },
+    {
+      "n_edges": 16,
+      "stations_per_edge": 11.7,
+      "scenario": "HFL_Proposed",
+      "n_rounds": 20,
+      "reliability_mean": 99.943,
+      "reliability_min": 99.848,
+      "rounds_meeting_target": 20,
+      "latency_ms": 82.97,
+      "comm_ms": 24.3,
+      "source": "results/ns3/edge_scaling/ns3_eicu_e16.csv"
+    }
+  ]
+}

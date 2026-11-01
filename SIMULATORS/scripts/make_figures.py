@@ -55,6 +55,14 @@ except Exception:
     OBJECTIVES = {}
 
 
+def latency_path(res, ds):
+    """inference_bench.py writes CSV. Older runs saved it as latency_<ds>.json;
+    read that legacy name when no .csv exists (the content is the same CSV)."""
+    p = res / f"latency_{ds}.csv"
+    return p if p.exists() or not (res / f"latency_{ds}.json").exists() \
+        else res / f"latency_{ds}.json"
+
+
 class Figures:
     def __init__(self, ds, out_dir):
         self.ds = ds
@@ -186,9 +194,17 @@ class Figures:
 
     # ── Fig 5 — latency CDF ─────────────────────────────────────────
     def fig5(self):
-        d = self.jload(self.res / f"latency_{self.ds}.json")
+        p = latency_path(self.res, self.ds)
+        if not p.exists():
+            return self.skip("Fig 5", f"{p.name} not found")
+        try:
+            d = self.jload(p)
+        except json.JSONDecodeError:
+            # inference_bench.py writes per-component CSV summaries, not the
+            # per-run samples a CDF needs
+            return self.skip("Fig 5", f"{p.name} holds summaries, not samples")
         if not d:
-            return self.skip("Fig 5", f"latency_{self.ds}.json not found")
+            return self.skip("Fig 5", f"{p.name} is empty")
 
         def samples(o):
             if isinstance(o, dict):
@@ -222,7 +238,7 @@ class Figures:
         ax.set_ylabel("Cumulative probability")
         ax.set_title(f"Fig. 5 — Inference latency CDF ({self.ds})")
         ax.legend(frameon=False, fontsize=8.5)
-        self.save(fig, "Fig5_latency_cdf", [f"results/phase5/latency_{self.ds}.json"])
+        self.save(fig, "Fig5_latency_cdf", [str(p.relative_to(_SIM))])
 
     # ── Fig 6 — energy ──────────────────────────────────────────────
     def fig6(self):

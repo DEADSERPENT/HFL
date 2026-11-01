@@ -8,16 +8,14 @@
     "head"
   ],
   "seeds": [
-    42,
-    43,
-    44,
-    45,
     46
   ],
   "rounds": 30,
   "select_on": "auprc",
-  "class_weight": true,
-  "pretrained_encoders": "checkpoints/pretrained_encoders_vitaldb.pt",
+  "class_weight": false,
+  "pretrained_encoders": "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_vitaldb.pt",
   "n_devices": 9,
-  "metric": "auprc"
+  "metric": "auprc",
+  "dp_unit": "patient",
+  "patients_per_batch": 64
 }

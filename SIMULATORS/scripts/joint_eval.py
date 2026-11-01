@@ -55,6 +55,14 @@ SYSTEMS = [
 ]
 
 
+def latency_path(res, ds):
+    """inference_bench.py writes CSV. Older runs saved it as latency_<ds>.json;
+    read that legacy name when no .csv exists (the content is the same CSV)."""
+    p = res / f"latency_{ds}.csv"
+    return p if p.exists() or not (res / f"latency_{ds}.json").exists() \
+        else res / f"latency_{ds}.json"
+
+
 def rows_of(path):
     if not Path(path).exists():
         return []
@@ -258,14 +266,14 @@ def main():
         "S4": res / f"proposed_{ds}.csv",
     }
     ns3 = last_row(res / f"ns3_{ds}.csv")
-    lat_path = res / f"latency_{ds}.json"
+    lat_path = latency_path(res, ds)
 
     def p95_ms(path):
         """End-to-end p95 inference latency, in ms, for the O3 (<100 ms) claim.
 
         inference_bench.py writes CSV (one row per pipeline component, columns
-        mean_ms/p50_ms/p95_ms/...) even though the driver names the file .json,
-        so parse CSV first and fall back to JSON. The value we want is the
+        mean_ms/p50_ms/p95_ms/...); older runs named that CSV file .json, so
+        parse CSV first and fall back to JSON. The value we want is the
         `total_ms` row: a component row such as `preproc_ms` is ~20x smaller
         and would silently understate the reported latency.
         """

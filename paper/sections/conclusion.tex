@@ -19,44 +19,65 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper presented a hierarchical federated learning system for multimodal
-clinical and wearable sensing that enforces differential privacy at the level
-of the individual rather than the record, and quantified the cost of that
-choice. On two deployments, the composed budget, including the conformal
-calibration release, is $0.970$ and $0.966$. Uplink traffic is reduced by
-$90.8\,\%$ and $96.1\,\%$, energy per round by $72.3\,\%$ and $76.8\,\%$, and
-the 95th-percentile inference latency is $3.0$ and $1.2$~ms against a
-requirement of $100$~ms. Because noise is added to gradients during training,
+This paper addressed a mismatch between what private hierarchical federated
+learning guarantees and what clinical IoT requires: existing systems protect
+individual records, whereas a clinical deployment must protect patients, each
+of whom contributes many records. It presented a hierarchical federated
+learning system for multimodal clinical and wearable sensing that enforces
+differential privacy at the level of the individual rather than the record,
+and quantified the cost of that choice. On three deployments the training budget is $0.900$ on both clinical
+deployments and $0.766$ on the wearable deployment, where the guarantee is
+record-level; the guarantee is proved for the training transcript and holds
+end to end only when the encoders and standardization constants are fitted on
+public data, which among the evaluated configurations is the external clinical
+one. The deployments therefore carry different evidence: the external corpus
+tests the patient-level guarantee end to end, the first clinical corpus tests
+it on the training transcript, and the wearable corpus evaluates the system at
+record level. The guarantee
+costs no utility on the first clinical deployment, partitioned by person, and $3.1$ points
+of area under the ROC curve $[1.4, 4.8]$ on the external one, inconclusive
+against the two-point target, and $3.9$ $[2.4, 5.4]$ end to end, which misses
+it. Uplink traffic is reduced
+by $90.8\,\%$, $96.1\,\%$ and $92.3\,\%$, modeled energy per round by
+$72.3\,\%$, $76.8\,\%$ and $79.6\,\%$, and the 95th-percentile inference
+latency on a workstation CPU is $2.3$, $0.75$ and $0.24$~ms against a requirement of $100$~ms. At $187$
+clients on two edges, update delivery reaches $97.83\,\%$, below the $99\,\%$
+target, because contention on the shared medium limits every configuration;
+with eight edges the target is met in every round. Because noise is added to gradients during training,
 the privacy mechanism adds no computation at inference.
 
-Two findings are central. First, robustness to a tight privacy budget is
-determined by the initialization rather than by the size of the privatized
-subset. A pretrained initialization improves on a random one by $0.0187$
-without noise and by $0.1447$ at the tightest budget, whereas restricting the
-privatized subset contributes at most $0.0036$, with intervals covering zero,
+Two findings are central. The first is that, on the clinical and wearable corpora, robustness to a tight
+privacy budget is determined by the initialization rather than by the size of the privatized
+subset. A pretrained initialization improves on a random one by $0.0129$
+without noise and by $0.1991$ at the tightest budget, whereas under privacy
+restricting the privatized subset changes the result by at most $0.0059$, with
+intervals covering zero,
 despite privatizing $3.3$ times fewer parameters. The restriction is therefore
 justified by its communication savings only.
 
-Second, the cost of an individual-level guarantee increases with the number of
+The second is that the cost of an individual-level guarantee increases with the number of
 records each individual contributes. At a fixed per-step budget and number of
 units per step, the penalty is indistinguishable from zero at one record per
-individual and reaches $0.0866$ in average precision at eight, saturating
-before that point. Because the two units coincide at one record per
+individual and reaches $0.0872$ in average precision at eight, following the
+one-parameter shape $A(1 - 1/k)$ predicted by Proposition~\ref{prop:scaling}. Because the two units coincide at one record per
 individual, this configuration serves as a built-in control. The
 individual-level arm remains flat while the record-level arm improves, so the
 cost arises from additional records that the stricter unit cannot exploit.
-Normalizing the clipping bound by the record count does not reduce this cost,
-which indicates that it is inherent to the unit rather than to the clipping
-rule. On a second clinical corpus of $132{,}736$ individuals across $187$
+On the external corpus, normalizing the clipping bound by the record count
+does not reduce this cost. On a second clinical corpus of $132{,}736$ individuals across $187$
 hospitals, the ordering and the saturation transfer, whereas the magnitude is
-approximately one sixth of the pre-registered forecast and is not resolved at
+approximately one ninth of the pre-registered forecast and is not resolved at
 three seeds.
 
+On VitalDB, a patient-level audit with a positive control is consistent with
+the unit mattering: record-level training remains detectably above its
+difficulty floor under offline LiRA (AUC $0.576$), whereas patient-level
+training does not ($0.503$), a difference of $0.073$ $[0.054, 0.092]$. Two of
+four attacks resolve the difference, and the audit bounds these attacks
+without establishing the absence of leakage.
+
 Several results are negative. Compression does not affect accuracy and is
-justified by traffic reduction alone. An adaptive per-layer allocation of the
-budget performs worse than a uniform allocation. The predicted difference in
-membership leakage between the two units is not observed under an attack whose
-positive control reaches $0.625$. The benefit of multimodal fusion is
+justified by traffic reduction alone. The benefit of multimodal fusion is
 conditional: it is $0.0370$ in area under the ROC curve on the first clinical
 corpus, untestable on the wearable corpus, where the better single modality
 reaches $0.9976$, and absent on the external clinical corpus. A titration on
@@ -66,9 +87,13 @@ fusion yields a significant gain in area under the ROC curve over the better
 single modality, although not in average precision and not relative to the
 intact stronger stream.
 
-Future work should establish whether the saturation level of the scaling law
-is a constant of the guarantee or a fixed fraction of the precision attainable
-on a task, which requires a third corpus. Establishing equivalence in leakage
-between the two units, rather than the absence of a large difference, requires
-a shadow population larger than sixteen and a non-member set large enough to
-resolve the low-false-positive regime.
+Several directions remain open. First, a third corpus is needed to
+establish whether the saturation level of the scaling law is a constant of the
+guarantee or a fixed fraction of the precision attainable on a task. Second,
+on eICU the cost is set by the smallest hospitals, whose high sampling rates
+force the largest noise multipliers; sampling patients across the clients of
+an edge is the most direct route to meeting the utility target there. Third,
+clipping each patient's gradient around its own mean, which the analysis
+indicates could recover part of the unit's cost, should be tested. Finally, the
+audit should be extended to eICU and, with more than sixteen shadow models and
+a larger non-member set, to the low-false-positive regime.

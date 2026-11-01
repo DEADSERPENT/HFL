@@ -15,7 +15,7 @@
 %   PRIVACY-AWARE — patient unit by construction; composed eps 0.970 / 0.966
 %                   INCLUDING the conformal quantile; MIA audit with a passing
 %                   positive control (0.625 on a memorizing configuration).
-%   LOW-LATENCY   — O3a P95 3.048 ms / 1.218 ms. Quote THIS. Never quote
+%   LOW-LATENCY   — O3a P95 2.299 ms / 0.754 ms (1000-run bench, FP32). Quote THIS. Never quote
 %                   absolute round latency: its compute terms are analytical.
 %   MULTIMODAL    — paired at source, and a CONDITIONAL result. +0.0370 AUROC
 %                   on vitaldb; wear cannot test it (best single 0.9976);
@@ -26,6 +26,12 @@
 %                   true of wear and FALSE of eICU. Never claim an
 %                   unconditional fusion benefit.
 %   IoT SYSTEMS   — packet-level NS-3, CloudSim energy, ONNX deployment.
+%   THREE DEPLOYMENTS (2026-10-22): eICU adds eps 0.834, O1 92.3 %, O4 79.6 %,
+%                   O3a 0.24 ms, so every bound quoted in the body sentence
+%                   ("at least 90.8 / 72.3 %", "at most 2.3 ms", eps <= 1) holds
+%                   on all three. eICU O3b FAILS (97.83 %) and O2b is
+%                   inconclusive: neither is claimed here, so do not add
+%                   delivery or accuracy to that sentence.
 %
 % LENGTH: 249 words in the rendered PDF, inside the ~250 cap IEEE TII and
 % IoT-J apply. Measure it from `pdftotext` in READING ORDER, not with
@@ -41,28 +47,29 @@
 %==============================================================================
 
 \begin{abstract}
-Clinical multimodal Internet-of-Things data cannot be centralized;
-hierarchical federated learning addresses that but supplies no privacy
-guarantee. Such systems guarantee privacy over records, while clinical
-practice requires it over individuals; the two differ wherever an episode of
-care yields many records. We present a three-tier framework
-whose privacy unit is the patient: gradients are grouped by individual before
-bounding, noise is calibrated against every client so the edge tier enters the
-budget, and the conformal quantile is charged to it. Across two deployments
-the composed budget is $\varepsilon \le 1$, uplink falls by at least
-$90.8\,\%$, energy per round by at least $72.3\,\%$, and $95$th-percentile
-inference latency is at most $3.0$~ms; collapsing the edge tier does not
-improve accuracy, so the savings cost no utility. Pretrained initialization,
-not head-only noise, makes a strict budget survivable: tightening
-$\varepsilon$ from $\infty$ to $0.5$ costs a randomly initialized arm $0.118$
-in area under the ROC curve and a pretrained one nothing measurable;
-restricting noise to the head adds nothing at any budget. The price of the
-guarantee grows with the records each individual contributes, vanishing where
-the units coincide, which provides a built-in control; against a forecast
-frozen before an external corpus of $187$ hospitals it reproduces in shape but
-not magnitude. Fusion is conditional on balance between streams: worth
-$0.0370$ on one cohort, untestable on a second at ceiling, and null on a third
-until its streams are equalized. An
-individual-level membership-inference audit with a passing positive control
-refutes the predicted leakage difference without establishing equivalence.
+Hierarchical federated learning keeps Internet-of-Things data local, but its differential-privacy guarantee protects single
+records, whereas clinical deployments must protect patients, each with many
+records. This paper proposes PP-HFM, a client--edge--cloud framework whose
+privacy unit is the patient. Each client clips a patient's summed gradient,
+calibrates noise to its population and accounts for every hierarchical
+release. The guarantee is proved for the training transcript and holds end to
+end with public encoders and standardization constants (eICU). PP-HFM is evaluated on
+VitalDB, an eICU cohort of $187$ hospitals and, at record level, a wearable
+corpus. At a training budget of
+$\varepsilon = 0.9$ ($1.0$ with an evaluated conformal release), it reduces
+uplink traffic by $90.8$--$96.1\,\%$ and modeled energy per round by
+$72.3$--$79.6\,\%$; $95$th-percentile inference latency on a workstation CPU
+is at most $2.3$~ms. On VitalDB, partitioned by person, the guarantee costs no
+utility (area under the ROC curve, AUC, $0.832$ against $0.820$ non-private); on
+eICU it costs $3.1$ points (inconclusive against the two-point target) and
+$3.9$ end to end, which misses it; non-private HED-FL is more accurate
+($0.825$ against $0.794$). PP-HFM
+uploads $2.2$--$4.0$ times less than re-implemented HED-FL and FL2DP and shows
+lower measured leakage than both in the VitalDB audit. On VitalDB and WEAR, pretrained initialization,
+not head-only noise,
+makes a strict budget survivable; the cost of the patient unit follows
+$A(1 - 1/k)$ in records per patient $k$. A VitalDB membership-inference audit
+with a positive control finds record-level training above its difficulty floor
+(likelihood-ratio attack AUC $0.576$) and patient-level training at it
+($0.503$).
 \end{abstract}

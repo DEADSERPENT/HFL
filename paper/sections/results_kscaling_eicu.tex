@@ -55,23 +55,23 @@ built.}
 \toprule
 $k$ & Record & Individual & Gap & $p$ & Predicted \\
 \midrule
-$1$ & $0.2105$ & $0.2212$ & $-0.0107 \pm 0.0211$ & $0.1594$ & $0.0000$ \\
-$2$ & $0.2245$ & $0.2185$ & $+0.0060 \pm 0.0100$ & $0.1215$ & $0.0515$ \\
-$4$ & $0.2318$ & $0.2208$ & $+0.0110 \pm 0.0714$ & $0.5746$ & $0.0816$ \\
-$8$ & $0.2374$ & $0.2239$ & $+0.0135 \pm 0.0592$ & $0.4296$ & $0.0876$ \\
-$16$ & $0.2363$ & $0.2258$ & $+0.0105 \pm 0.0354$ & $0.3310$ & $0.0878$ \\
+$1$ & $0.2105$ & $0.2116$ & $-0.0011 \pm 0.0369$ & $0.909$ & $0.0000$ \\
+$2$ & $0.2245$ & $0.2197$ & $+0.0048 \pm 0.0057$ & $0.068$ & $0.0515$ \\
+$4$ & $0.2318$ & $0.2237$ & $+0.0081 \pm 0.0554$ & $0.593$ & $0.0816$ \\
+$8$ & $0.2374$ & $0.2274$ & $+0.0099 \pm 0.0437$ & $0.431$ & $0.0876$ \\
+$16$ & $0.2363$ & $0.2260$ & $+0.0103 \pm 0.0332$ & $0.314$ & $0.0878$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The control holds. At $k = 1$, the gap is $-0.0107$, with an interval covering
+The control holds. At $k = 1$, the gap is $-0.0011$, with an interval covering
 zero and a magnitude within the pre-specified tolerance of $0.020$. The two arms
 are therefore not separated where the construction requires them to agree, and
 the remaining rows can be attributed to the privacy unit.
 
 The point forecasts are not confirmed. At every $k > 1$, the gap lies outside
-the $\pm 0.030$ band, and the measured cost is approximately one sixth of the
-predicted cost: $0.0135$ against $0.0876$ at $k = 8$.
+the $\pm 0.030$ band, and the measured cost is approximately one ninth of the
+predicted cost: $0.0099$ against $0.0876$ at $k = 8$.
 
 Two properties of the law are reproduced. The first is the ordering: the gap is
 negative at $k = 1$, positive at $k = 2$, and increases through $k = 4$ to
@@ -82,12 +82,12 @@ for individuals who contribute additional records.
 The second is the saturation, which the first corpus cannot test. The
 registered prediction was that the gap beyond $k = 8$ would exceed the gap at
 $k = 8$ by less than $0.015$. Across paired seeds, the increment from $k = 8$ to
-$k = 16$ is $-0.0030$, with an interval of $[-0.0316, +0.0255]$ ($p = 0.692$).
+$k = 16$ is $+0.0004$, with an interval of $[-0.0134, +0.0141]$ ($p = 0.91$).
 The gap does not continue to increase, and the registered bound is met. The
 cost of the guarantee therefore approaches a ceiling in $k$ on both corpora.
 
 The asymmetry between the arms is also reproduced. Across all $k$, the
-individual-level arm varies within $[0.2185, 0.2258]$, a range of $0.0073$
+individual-level arm varies within $[0.2116, 0.2274]$, a range of $0.0158$
 against the pre-specified $0.020$, whereas the record-level arm increases from
 $0.2105$ to $0.2374$. As on the first corpus, the widening gap reflects
 improvement of the record-level arm rather than degradation of the
@@ -97,21 +97,21 @@ interpreted as structural and the magnitude as corpus-dependent.
 
 The statistical power of this replication is limited. At three seeds, no gap in
 Table~\ref{tab:kscaling_eicu} is resolved: every interval covers zero, and no
-$p$-value is below $0.12$. The seed standard deviation of the gap at $k = 8$ is
+$p$-value is below $0.06$. The seed standard deviation of the gap at $k = 8$ is
 of the same order as the gap, and resolving an effect of this size at
-conventional power would require approximately fifty seeds, against the three
+conventional power would require approximately twenty-five seeds, against the three
 fixed in advance. The seed count was not increased after inspecting the
 results. The trend is therefore reported as directionally consistent with the
 VitalDB law and unresolved on this corpus. The area under the ROC curve is
-less informative: its gaps over the same values of $k$ are $-0.0012$,
-$-0.0015$, $+0.0018$, $+0.0001$ and $+0.0105$, with no trend over the range
+less informative: its gaps over the same values of $k$ are $-0.0018$,
+$-0.0021$, $+0.0011$, $-0.0007$ and $+0.0098$, with no trend over the range
 covered by the first corpus. Average precision is the primary measure on this
 corpus, as on the first, and the area under the ROC curve provides no evidence
 either way.
 
 One possible explanation for a preserved shape at a lower ceiling is offered as
 a hypothesis. The two tasks differ in attainable precision by approximately a
-factor of two: the arms on this corpus lie within $[0.1960, 0.2446]$ at a
+factor of two: the arms on this corpus lie within $[0.1848, 0.2446]$ at a
 prevalence of $0.0422$, whereas those on the first corpus lie between $0.4967$
 and $0.5955$. A gap in average precision is bounded by the attainable
 precision, so a cost that is a fixed fraction of attainable performance would

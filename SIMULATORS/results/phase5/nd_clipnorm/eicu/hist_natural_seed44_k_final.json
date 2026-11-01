@@ -3,17 +3,17 @@
   "seed": 44,
   "rounds": 10,
   "select_on": "auc",
-  "best_val": 0.740062675625561,
+  "best_val": 0.7400738964203479,
   "selected_round": 6,
-  "epsilon_spent": 0.7956,
+  "epsilon_spent": 0.8,
   "uplink_bytes_total": 5235439000,
   "test": {
     "accuracy": 0.9578014184397163,
-    "macro_auc": 0.7727410685235601,
-    "auprc": 0.23467146139529477,
+    "macro_auc": 0.7728050322620652,
+    "auprc": 0.2323918998313093,
     "n_groups": 27816,
     "case_accuracy": 0.9630788035662928,
-    "case_auc": 0.7791615990853257,
-    "case_auprc": 0.2301324688690529
+    "case_auc": 0.7792952847313435,
+    "case_auprc": 0.22777723112223355
   }
 }

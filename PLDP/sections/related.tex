@@ -1,0 +1,114 @@
+\section{Related Work}
+\label{sec:related}
+
+This section reviews the four lines of work on which PP-HFM draws and states,
+for each, what it achieves and what it leaves open.
+
+\subsection{Hierarchical Federated Learning}
+Liu \emph{et al.} \cite{ref2} introduced client--edge--cloud federated
+learning, in which an edge tier performs several rounds of local aggregation
+before each global round, so that the wide-area link no longer limits how
+often clients update. HED-FL \cite{ref3} clusters devices dynamically at the
+edge to extend the lifetime of energy-constrained installations. HCEF
+\cite{ref4} adapts computation frequency and update compression to device
+heterogeneity. Mhaisen \emph{et al.} \cite{ref5} assign clients to edge
+aggregators using local data statistics, which reduces divergence when client
+distributions differ. These works establish the communication and energy
+benefits that PP-HFM adopts. None of them, however, provides a formal privacy
+guarantee, and the assignment of \cite{ref5} requires clients to disclose
+their label statistics, which is itself a release of protected information.
+
+\subsection{Differential Privacy in Federated Learning}
+DP-SGD \cite{ref6} clips the gradient of each record and adds Gaussian noise;
+its privacy cost is tracked by R\'enyi \cite{ref7, ref29} or
+privacy-loss-distribution \cite{ref33} accountants within the framework of
+\cite{ref8}. FL2DP \cite{ref9} combines noise with shuffling to strengthen
+the guarantee, and RoPPFL \cite{ref10} pairs local differential privacy with
+robust aggregation at the edge. Neither accounts for the edge tier, and
+neither examines how the tier changes the number of steps, and hence the
+noise, of each client. User-level differential privacy \cite{ref11} bounds a
+user's entire contribution and is the mechanism closest to ours; its rates
+under heterogeneous contribution are analyzed in \cite{ref32}, but it has not
+been applied across an edge tier or to multimodal clinical records.
+
+Recent work brings privacy into hierarchical and multimodal settings.
+PCRHFeL \cite{ref34} chains sparsification, Wasserstein differential privacy
+and robust aggregation in a client--edge--cloud hierarchy. Fulcrum
+\cite{ref37} allocates noise per participant according to its exposure within
+a regional aggregate, a calibration close in spirit to the per-client
+multipliers of PP-HFM, but defined for a participant's class distribution
+rather than an individual's records. Hasan \emph{et al.} \cite{ref35} add
+noise to the local updates of an EHR--ECG fusion model, and MM-PFL-ADP
+\cite{ref36} gives client-level guarantees for multimodal imaging. To our
+knowledge, none of these groups an individual's records before clipping or
+measures the cost of that unit, which is largest exactly in clinical
+monitoring, where every participant contributes many records.
+
+\subsection{Parameter-Efficient Private Adaptation}
+Training privately only a compact subset of parameters above frozen
+pretrained features is markedly more robust at small $\varepsilon$ than
+end-to-end private training \cite{ref12, ref13}. The approach, however, is
+valid end to end only if the pretraining corpus is disjoint from the
+protected population. This condition is rarely stated and its cost rarely
+measured, and whether the robustness comes from the initialization or from
+the reduced dimension of the privatized subset has not been separated.
+
+\subsection{Membership Inference as an Audit}
+Shadow-model attacks \cite{ref14} and loss thresholding \cite{ref15} measure
+what an adversary achieves in practice, and calibrating for per-example
+difficulty \cite{ref16}, as in the likelihood-ratio attack (LiRA)
+\cite{ref17}, makes attacks substantially stronger. Audits, however, are
+almost always performed per record, and null results are rarely accompanied
+by a positive control showing that the attack could have detected leakage.
+
+\subsection{Multimodal and Clinical Federated Learning}
+Federated learning is well motivated in medicine, where governance rather
+than data volume prevents pooling \cite{ref18, ref19}. Many multimodal
+benchmarks pair modalities by a construction rule, so an apparent fusion gain
+may reflect the rule rather than the data; corpora whose modalities come from
+the same individual and are aligned at capture \cite{ref20} or synchronized
+in hardware \cite{ref21} avoid this. Conformal prediction \cite{ref22, ref23}
+adds distribution-free coverage, but its calibration quantile is a statistic
+of protected data whose private release \cite{ref24, ref30} is costly at
+small cohorts, as Section~\ref{sec:results:privacy} shows. Inference latency
+at the edge is studied mainly outside federated learning \cite{ref25, ref26}.
+
+\subsection{Summary}
+Table~\ref{tab:related} compares representative systems along six
+properties. Hierarchical systems lack a formal guarantee, private federated
+systems
+protect records or clients rather than individuals, user-level DP has not
+been applied across a hierarchy, and no system audits its
+guarantee at the individual level; these are the gaps listed in
+Section~\ref{sec:intro}. Among the works compared, PP-HFM is the only one that
+combines a hierarchy with a guarantee whose unit is the individual, accounts
+for every release of the edge tier, and audits the guarantee at the
+individual level.
+
+\begin{table}[!t]
+\centering
+\caption{Comparison with representative prior systems}
+\label{tab:related}
+\setlength{\tabcolsep}{4.2pt}
+\begin{tabular}{lcccccc}
+\toprule
+Work & H & DP & Ind. & MM & Aud. & Lat. \\
+\midrule
+HED-FL \cite{ref3}         & \checkmark & -- & -- & -- & -- & -- \\
+HCEF \cite{ref4}           & \checkmark & -- & -- & -- & -- & -- \\
+Mhaisen \emph{et al.} \cite{ref5} & \checkmark & -- & -- & -- & -- & -- \\
+FL2DP \cite{ref9}          & -- & \checkmark & -- & -- & -- & -- \\
+RoPPFL \cite{ref10}        & $\circ$ & \checkmark & -- & -- & -- & -- \\
+PCRHFeL \cite{ref34}      & \checkmark & $\ast$ & -- & -- & -- & -- \\
+Fulcrum \cite{ref37}      & \checkmark & \checkmark & -- & -- & -- & -- \\
+Hasan \emph{et al.} \cite{ref35} & -- & \checkmark & -- & \checkmark & -- & -- \\
+MM-PFL-ADP \cite{ref36}   & -- & \checkmark & -- & \checkmark & -- & -- \\
+User-level DP \cite{ref11} & -- & \checkmark & \checkmark & -- & -- & -- \\
+PP-HFM (this work)         & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\tabnote{H: hierarchical aggregation; DP: formal guarantee; Ind.: the unit is
+the individual; MM: multimodal records; Aud.: individual-level audit; Lat.:
+inference latency reported; $\circ$: edge tier outside the privacy accounting;
+$\ast$: Wasserstein differential privacy; --: not reported.}
+\end{table}

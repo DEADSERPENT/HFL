@@ -1,3 +1,5 @@
+> **Superseded (2026-10-29).** Historical record of the August state. The final, authoritative results are in [`../RESULTS_FINAL.md`](../RESULTS_FINAL.md).
+
 # Phase 5 artifact status
 
 `RESULTS.md` is the authoritative record. This file exists so nobody cites a

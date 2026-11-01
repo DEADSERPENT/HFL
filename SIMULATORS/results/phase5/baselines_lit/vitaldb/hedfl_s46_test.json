@@ -1,0 +1,15 @@
+{
+  "dataset": "vitaldb",
+  "split": "test",
+  "pooled_over_devices": true,
+  "accuracy": 0.8131793478260869,
+  "macro_auc": 0.8337744593417205,
+  "auprc": 0.5248314668581676,
+  "val_threshold": 0.0009536788566038013,
+  "accuracy_valthr": 0.7491847826086957,
+  "balanced_accuracy_valthr": 0.7502580509109474,
+  "sensitivity_valthr": 0.7520435967302452,
+  "specificity_valthr": 0.7484725050916496,
+  "selected_on": "auc",
+  "best_val_auc": 0.8296529921492406
+}

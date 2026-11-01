@@ -3,8 +3,13 @@
   "split": "test",
   "pooled_over_devices": true,
   "accuracy": 0.8005434782608696,
-  "macro_auc": 0.8268440234854076,
-  "auprc": 0.48252033993120713,
+  "macro_auc": 0.826112532395101,
+  "auprc": 0.485486757794135,
+  "val_threshold": 0.001733174896799028,
+  "accuracy_valthr": 0.6951086956521739,
+  "balanced_accuracy_valthr": 0.7543327580370373,
+  "sensitivity_valthr": 0.8528610354223434,
+  "specificity_valthr": 0.6558044806517311,
   "selected_on": "auc",
-  "best_val_auc": 0.818936324529812
+  "best_val_auc": 0.8170096014596315
 }

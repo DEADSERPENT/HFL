@@ -1,0 +1,103 @@
+\section{Introduction}
+\label{sec:intro}
+
+\IEEEPARstart{T}{he} Internet of Things (IoT) is increasingly used to monitor
+people continuously: in the operating room, in the intensive care unit and
+through wearable sensors. Much of the value of these deployments comes from
+combining different kinds of data. In an operating room, monitors record
+physiological waveforms while the hospital record holds the patient's
+clinical history; in a wearable installation, inertial sensors record motion
+while a camera records what the wearer sees. A model that sees both streams
+can recognize states that neither reveals alone.
+
+Such data cannot simply be collected in one place. Clinical records are
+governed by consent and by data-protection law, and continuous multimodal
+sensing produces volumes that are costly to move. Federated learning (FL)
+\cite{ref1} addresses this by training a shared model where the data reside
+and exchanging only model updates. Hierarchical FL \cite{ref2, ref3} adds an
+edge tier between the clients and the cloud, so that most aggregation happens
+close to the data and the wide-area link is used only once every several
+rounds, which reduces both traffic and energy.
+
+Keeping the data local, however, does not by itself keep it private. Model
+updates are computed from the records, and an adversary can often infer from
+a released model whether a particular record was used in training
+\cite{ref14}. Differential privacy (DP) gives a formal guarantee against such
+inference. Its standard training algorithm, differentially private stochastic
+gradient descent (DP-SGD) \cite{ref6}, bounds (clips) the influence of each
+training record and adds calibrated noise, so the guarantee protects whatever
+unit is clipped. In a sensing deployment that unit is a short window of
+signal, not a person, and every patient contributes many windows. A
+record-level guarantee therefore answers whether a particular window was used,
+whereas a clinical deployment must answer whether a particular
+\emph{patient} was. Group privacy \cite{ref8} relates the two, but at the
+group sizes found in our data it turns a nominal $\varepsilon = 1$ into
+$\varepsilon \approx 8$ with $\delta \approx 0.09$, which supports no clinical
+claim.
+
+Existing work has addressed communication efficiency, privacy and multimodal
+learning largely separately. The review in Section~\ref{sec:related}
+identifies four gaps.
+\begin{enumerate}
+\item \emph{No patient-level guarantee across a hierarchy.} Hierarchical
+designs \cite{ref3, ref4, ref5} reduce communication and energy but provide no
+formal guarantee, and private designs \cite{ref9, ref10} provide one but do
+not account for how an edge tier changes each client's privacy expenditure.
+Recent systems join a hierarchy with privacy \cite{ref34, ref37} or privacy
+with multimodal clinical data \cite{ref35, ref36}; to our knowledge, none
+states its guarantee over an individual whose records are grouped before
+clipping.
+\item \emph{An unmeasured cost.} The utility cost of protecting individuals
+rather than records has not been measured on multimodal data paired at the
+source, nor related to the number of records each individual contributes.
+\item \emph{An implicit condition.} Private training of a small head on frozen
+pretrained features \cite{ref12, ref13} is valid end to end only if the
+features were pretrained on a population disjoint from the protected one.
+This condition is usually left implicit, and it is not known whether the
+benefit comes from the pretraining or from privatizing fewer parameters.
+\item \emph{Audits at the wrong unit.} Guarantees are usually reported from
+mechanism parameters alone and, where audited, audited per record, which is
+exactly what a record-level guarantee already protects.
+\end{enumerate}
+
+This paper proposes PP-HFM (Patient-Private Hierarchical Federated Multimodal
+learning), a client--edge--cloud framework in which the privacy unit is the
+patient by construction. Each client sums the gradients of a patient's records
+before clipping, so that the patient as a whole has bounded influence, and
+calibrates its noise to its own patient population. The main contributions
+are as follows.
+\begin{itemize}
+\item \emph{Patient-level privacy with complete accounting (gap 1).} A
+patient-level private training procedure for hierarchical multimodal FL, with
+per-client noise calibration, a proof of its guarantee
+(Theorem~\ref{thm:guarantee}), and a ledger of every release, edge tier
+included, that states which configurations are covered end to end.
+\item \emph{A law for the cost of the unit (gap 2).} A scaling hypothesis,
+motivated by excess-risk bounds (Proposition~\ref{prop:scaling}), under which
+the utility gap between record- and patient-level training grows as
+$A(1 - 1/k)$ with the number of records per individual $k$ and vanishes at
+$k = 1$ (Corollary~\ref{cor:k1}), tested out of sample and on an external
+corpus.
+\item \emph{What makes a strict budget affordable (gap 3).} A three-arm design
+showing that pretrained initialization, not the smaller privatized subset,
+accounts for robustness at small $\varepsilon$.
+\item \emph{System validation and an individual-level audit (gaps 1--4).} An
+evaluation on three multimodal corpora paired at the source, with up to $187$
+hospital clients; uplink traffic measured from the deployed encoding, delivery
+and round latency simulated at packet level in ns-3, energy modeled in
+CloudSim~Plus and inference latency timed on a workstation CPU; a patient-level membership-inference audit with a positive control;
+and a comparison with re-implemented HED-FL and FL2DP under identical data,
+encoders and seeds.
+\end{itemize}
+PP-HFM builds on user-level differential privacy \cite{ref11} and
+parameter-efficient private fine-tuning \cite{ref12, ref13}; the
+contributions are the system that composes them across all tiers, its proof,
+and its evaluation on three multimodal corpora.
+
+The rest of the paper is organized as follows. Section~\ref{sec:related}
+reviews related work. Section~\ref{sec:model} states the problem, the system
+and threat models and the research objectives. Section~\ref{sec:method}
+presents PP-HFM and its privacy analysis. Section~\ref{sec:setup} describes the
+experimental setup, Section~\ref{sec:results} reports the results,
+Section~\ref{sec:discussion} discusses implications and limitations, and
+Section~\ref{sec:conclusion} concludes with directions for future work.

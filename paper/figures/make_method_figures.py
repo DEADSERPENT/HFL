@@ -41,14 +41,16 @@ INK, MUTED, RULE, SURF = "#1a1a1a", "#5c5c5c", "#c8c8c4", "#fcfcfb"
 
 plt.rcParams.update({
     "font.family": "serif",
-    "font.serif": ["DejaVu Serif"],
+    "font.serif": ["Times New Roman", "Times", "Nimbus Roman", "STIXGeneral",
+                   "DejaVu Serif"],
+    "mathtext.fontset": "stix",
     "font.size": 7.2,
     "text.color": INK,
     "axes.edgecolor": RULE,
     "axes.labelcolor": INK,
     "xtick.color": MUTED, "ytick.color": MUTED,
-    "figure.facecolor": SURF, "axes.facecolor": SURF,
-    "savefig.facecolor": SURF,
+    "figure.facecolor": "white", "axes.facecolor": "white",
+    "savefig.facecolor": "white",
     "pdf.fonttype": 42,        # embed TrueType: editable, no Type-3 warnings
     "ps.fonttype": 42,
 })
@@ -93,6 +95,14 @@ def load_facts(dataset="vitaldb"):
     f["d_b"] = int(m.encoder_b.out_dim)
     f["n_head"] = int(sum(p.numel() for p in m.fusion.parameters()))
     f["n_total"] = int(m.n_total)
+    ea = m.encoder_a
+    import torch
+    f["ks"] = [int(c.kernel_size[0]) for c in ea.stem[0].modules()
+               if isinstance(c, torch.nn.Conv1d)]
+    f["stride"] = int(ea.stem[1].stride[0])
+    f["pool"] = int(ea.conv2[3].kernel_size)
+    f["gru_layers"] = int(ea.gru.num_layers)
+    f["hid_b"] = int(m.encoder_b.net[0].out_features)
     return f
 
 
@@ -203,36 +213,43 @@ def fig_backbone(f):
     ax.text(63.5, 30.2, f"DP-trained ($\\varepsilon\\leq{f['eps']:.0f}$)",
             fontsize=6.0, color=VERM, va="top", style="italic")
 
-    # modality A
-    box(ax, 4.5, 19.0, 11, 6.2,
+    # modality A: stages as built in fedmamba_hc.FedMambaHC
+    box(ax, 4.5, 19.0, 8.5, 6.2,
         f"$x_A$\n{f['n_ch_a']}$\\times$T", fc="white", fs=6.0)
-    box(ax, 17.5, 19.0, 13, 6.2, "multi-scale conv\n$k{=}3,7,15$", fc=BLUE,
-        ec="none", fs=5.8, tc="white")
-    box(ax, 32.5, 19.0, 11, 6.2, "BiGRU", fc=BLUE, ec="none", fs=6.0, tc="white")
-    box(ax, 45.5, 19.0, 13, 6.2, "attention\npooling", fc=BLUE, ec="none",
-        fs=5.8, tc="white")
-    for a, b in ((15.5, 17.5), (30.5, 32.5), (43.5, 45.5)):
-        arrow(ax, (a, 22.1), (b, 22.1), color=MUTED, lw=0.8)
+    ks = ",".join(str(k) for k in f["ks"])
+    stages = [f"multi-scale\n$k{{=}}{ks}$",
+              f"strided conv\n$s{{=}}{f['stride']}$, GN",
+              f"conv + GN\nmax-pool {f['pool']}",
+              f"BiGRU\n{f['gru_layers']} layers",
+              "attention\npool + proj."]
+    w, g, x = 8.0, 1.25, 14.5
+    xs = [x + i * (w + g) for i in range(len(stages))]
+    for xi, t in zip(xs, stages):
+        box(ax, xi, 19.0, w, 6.2, t, fc=BLUE, ec="none", fs=5.2, tc="white")
+    for a, b in zip([13.0] + [xi + w for xi in xs[:-1]], xs):
+        arrow(ax, (a, 22.1), (b, 22.1), color=MUTED, lw=0.7)
+    for xi, t in zip(xs[1:3], (f"T/{f['stride']}", f"T/{f['stride'] * f['pool']}")):
+        ax.text(xi + w / 2, 18.2, t, fontsize=5.0, color=BLUE, ha="center", va="top")
 
-    # modality B
-    box(ax, 4.5, 7.0, 11, 6.2, f"$x_B$\n{f['n_feat_b']}-d", fc="white", fs=6.0)
-    box(ax, 17.5, 7.0, 26, 6.2, "MLP  +  GroupNorm  +  GELU", fc=BLUE,
-        ec="none", fs=6.0, tc="white")
-    arrow(ax, (15.5, 10.1), (17.5, 10.1), color=MUTED, lw=0.8)
-    arrow(ax, (43.5, 10.1), (45.5, 10.1), color=MUTED, lw=0.8)
-    box(ax, 45.5, 7.0, 13, 6.2, "", fc=BLUE, ec="none")
-    ax.text(52, 10.1, "project", fontsize=6.0, color="white", ha="center",
-            va="center")
+    # modality B: two-layer perceptron
+    box(ax, 4.5, 7.0, 8.5, 6.2, f"$x_B$\n{f['n_feat_b']}-d", fc="white", fs=6.0)
+    box(ax, 14.5, 7.0, 2 * w + g, 6.2, f"linear $\\rightarrow$ {f['hid_b']}\nGN + GELU",
+        fc=BLUE, ec="none", fs=5.6, tc="white")
+    box(ax, xs[2], 7.0, 2 * w + g, 6.2, f"linear $\\rightarrow$ {f['d_b']}\nGN + GELU",
+        fc=BLUE, ec="none", fs=5.6, tc="white")
+    arrow(ax, (13.0, 10.1), (14.5, 10.1), color=MUTED, lw=0.7)
+    arrow(ax, (14.5 + 2 * w + g, 10.1), (xs[2], 10.1), color=MUTED, lw=0.7)
+    xend = xs[-1] + w
 
-    ax.text(52, 26.4, f"$\\phi_A \\rightarrow {f['d_a']}$-d", fontsize=6.0,
-            color=BLUE, ha="center")
-    ax.text(52, 4.6, f"$\\phi_B \\rightarrow {f['d_b']}$-d", fontsize=6.0,
-            color=BLUE, ha="center")
+    ax.text(xs[-1] + w / 2, 26.4, f"$\\phi_A \\rightarrow {f['d_a']}$-d",
+            fontsize=6.0, color=BLUE, ha="center")
+    ax.text(xs[2] + w + g / 2, 4.6, f"$\\phi_B \\rightarrow {f['d_b']}$-d",
+            fontsize=6.0, color=BLUE, ha="center")
 
     # fusion
     box(ax, 64.0, 12.0, 8.5, 10.2, "concat\n$832$-d", fc="white", fs=5.8)
-    arrow(ax, (58.5, 22.1), (64.0, 19.5), color=MUTED, lw=0.8)
-    arrow(ax, (58.5, 10.1), (64.0, 14.5), color=MUTED, lw=0.8)
+    arrow(ax, (xend, 22.1), (64.0, 19.5), color=MUTED, lw=0.8)
+    arrow(ax, (xs[2] + 2 * w + g, 10.1), (64.0, 14.5), color=MUTED, lw=0.8)
     box(ax, 75.0, 12.0, 11, 10.2, "fusion\nhead", fc=VERM, ec="none",
         fs=6.4, tc="white", weight="bold")
     arrow(ax, (72.5, 17.1), (75.0, 17.1), color=MUTED, lw=0.8)
@@ -243,11 +260,8 @@ def fig_backbone(f):
     # Plain string, not mathtext: a backslash-escaped percent would print the
     # backslash literally.
     ax.text(80.5, 8.4, f"{f['n_head']:,} of {f['n_total']:,} parameters\n"
-                       f"({pct:.1f}%) receive noise",
+                       f"({pct:.1f}%, VitalDB) receive noise",
             fontsize=5.8, color=VERM, ha="center", va="top", linespacing=1.4)
-    ax.text(50, 0.6, "no batch normalization anywhere — it mixes statistics "
-                     "across a batch and destroys the per-patient gradient",
-            fontsize=5.8, color=MUTED, ha="center", style="italic")
     finish(fig, "fig2_backbone")
 
 
@@ -335,22 +349,23 @@ def fig_lira(f):
     # Labels sit just below each curve's own peak, inside the axes.
     axes[0].text(-3.2, peak * 1.06, "OUT", fontsize=6.0, color=BLUE,
                  ha="center", weight="bold")
-    axes[0].text(-0.5, peak * 0.55, "IN", fontsize=6.0, color=VERM,
+    axes[0].text(1.6, peak * 0.55, "IN", fontsize=6.0, color=VERM,
                  ha="left", weight="bold")
     # Two lines, anchored well left of the threshold: the single-line form
     # overran the dashed rule it was labelling.
-    axes[1].annotate("one global\nthreshold", xy=(1.0, peak * 0.80),
-                     xytext=(-7.6, peak * 1.10), fontsize=5.6, color=INK,
-                     ha="left", va="center", linespacing=1.3,
-                     arrowprops=dict(arrowstyle="-", lw=0.6, color=MUTED))
+    # the SAME global threshold tau in both panels; what it decides for each
+    for a_ in axes:
+        a_.text(1.0, peak * 1.27, "$\\tau$", fontsize=6.4, ha="center",
+                va="top", color=INK, bbox=dict(fc="white", ec="none", pad=0.4))
+    axes[0].text(2.3, peak * 1.0, "both below $\\tau$:\nmembers missed",
+                 fontsize=5.4, color=INK, ha="left", va="center", linespacing=1.25)
+    axes[1].text(-7.6, peak * 1.0, "same global $\\tau$;\nboth above it:\n"
+                 "non-members\nflagged", fontsize=5.4, color=INK, ha="left",
+                 va="center", linespacing=1.25)
     # The axis name goes in the caption, not under the panels: a centred
     # figure-level xlabel lands on the left panel's last tick.
-    fig.text(0.5, -0.16,
-             r"Horizontal axis: $\varphi(p)$. A single threshold misclassifies "
-             "both patients;\nthe per-patient IN/OUT fit separates each on its "
-             "own scale. Illustrative.",
-             fontsize=5.8, color=MUTED, ha="center", style="italic",
-             linespacing=1.5)
+    for a_ in axes:
+        a_.set_xlabel(r"$\varphi(p)$", fontsize=6.4)
     finish(fig, "fig4_lira")
 
 
@@ -463,14 +478,6 @@ def fig_noniid(f):
         for s in ("top", "right"):
             a.spines[s].set_visible(False)
         a.grid(axis="y", color=RULE, lw=0.5, alpha=0.6, zorder=0)
-    fig.text(0.5, -0.16,
-             f"Clients (c0\u2013c8) ordered by prevalence. Nine clients partitioned "
-             f"by surgical specialty; prevalence spans "
-             f"{min(rate):.2f}\u2013{max(rate):.2f} % and size "
-             f"{min(n):,}\u2013{max(n):,} windows.\nThe heterogeneity arises from "
-             "the partition, not from a synthetic skew.",
-             fontsize=5.8, color=MUTED, ha="center", style="italic",
-             linespacing=1.5)
     finish(fig, "fig6_noniid")
 
 

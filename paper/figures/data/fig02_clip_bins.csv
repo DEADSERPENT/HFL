@@ -1,0 +1,9 @@
+# source: document/01_planning/PREREGISTRATION_ND_CLIPNORM.md, amendment N-A1 (b)
+# eICU, 2,923 per-patient summed gradients, C = 1; frozen registered record
+# spearman_k_saturated: rho=+0.138 p=6.0e-14
+k_bin,patients,mean_preclip_norm,saturation
+1-4,27,1.784,0.148
+5-12,125,2.708,0.216
+13-24,1937,61.838,0.384
+25-48,605,58.622,0.436
+49+,229,69.070,0.502

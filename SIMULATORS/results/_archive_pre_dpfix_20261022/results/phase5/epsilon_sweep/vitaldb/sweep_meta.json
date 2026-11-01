@@ -1,0 +1,27 @@
+{
+  "dataset": "vitaldb",
+  "epsilons": [
+    0.5,
+    1.0,
+    2.0,
+    4.0,
+    8.0,
+    "inf"
+  ],
+  "recipes": [
+    "full",
+    "full_pre",
+    "head"
+  ],
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "rounds": 10,
+  "select_on": "auprc",
+  "class_weight": true,
+  "pretrained_encoders": "/home/mit/DEADSERPENT/HFL/SIMULATORS/checkpoints/pretrained_encoders_vitaldb.pt",
+  "n_devices": 9,
+  "metric": "auprc"
+}

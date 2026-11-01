@@ -1,0 +1,64 @@
+{
+  "dataset": "eicu",
+  "target": 0.9,
+  "n": 1,
+  "mean": 0.9572712590407977,
+  "ci95": null,
+  "runs": {
+    "dp_s42": {
+      "q": 0.5058,
+      "coverage": 0.9531458464995436,
+      "coverage_by_class": {
+        "0": 0.9885017421602788,
+        "1": 0.16105176663927692
+      },
+      "mean_set_size": 1.0019485991152306,
+      "valid": false,
+      "selected_round": 1
+    },
+    "dp_s43": {
+      "q": 0.5034,
+      "coverage": 0.9572712590407977,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": false,
+      "selected_round": 9
+    },
+    "dp_s44": {
+      "q": 0.4929,
+      "coverage": 0.9572712590407977,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": false,
+      "selected_round": 9
+    },
+    "dp_s45": {
+      "q": 0.5124,
+      "coverage": 0.9572712590407977,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": true,
+      "selected_round": 10
+    },
+    "dp_s46": {
+      "q": 0.4901,
+      "coverage": 0.9572712590407977,
+      "coverage_by_class": {
+        "0": 1.0,
+        "1": 0.0
+      },
+      "mean_set_size": 1.0,
+      "valid": false,
+      "selected_round": 1
+    }
+  }
+}

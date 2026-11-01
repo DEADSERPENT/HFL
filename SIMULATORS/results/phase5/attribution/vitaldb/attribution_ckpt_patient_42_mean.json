@@ -6,6 +6,6 @@
   "baseline": "mean",
   "steps": 64,
   "target": "positive",
-  "missingness_share_pct": 23.534741404238105,
-  "completeness_rel_err": 0.06060710879438336
+  "missingness_share_pct": 22.554545914737908,
+  "completeness_rel_err": 0.02545852259223569
 }

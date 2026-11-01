@@ -43,6 +43,8 @@ def main():
     ap.add_argument("--recipes", nargs="+", default=["full", "full_pre", "head"])
     ap.add_argument("--rounds", type=int, default=10)
     ap.add_argument("--batch_size", type=int, default=64)
+    ap.add_argument("--dp_unit", choices=["sample", "patient"], default="sample",
+                    help="privacy unit of the private arms (epsilon_sweep --dp_unit)")
     a = ap.parse_args()
 
     for ds in a.datasets:
@@ -63,6 +65,7 @@ def main():
                "--batch_size", str(a.batch_size),
                "--select_on", sel,
                "--pretrained_encoders", str(enc),
+               "--dp_unit", a.dp_unit,
                "--resume"]
         if ds in PHYS_BATCH:
             cmd += ["--max_physical_batch_size", str(PHYS_BATCH[ds])]

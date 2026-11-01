@@ -1,0 +1,18 @@
+{
+  "full_dp_seed_rho_mean": 0.8358234440365405,
+  "full_dp_top5_stable": false,
+  "full_nodp_seed_rho_mean": 0.9120350607587011,
+  "full_nodp_top5_stable": false,
+  "head_nodp_seed_rho_mean": 0.9923446882381398,
+  "head_nodp_top5_stable": false,
+  "patient_seed_rho_mean": 0.9599590198924272,
+  "patient_top5_stable": false,
+  "sample_seed_rho_mean": 0.9907225589800506,
+  "sample_top5_stable": false,
+  "patient_baseline_rho": 0.8008196021514556,
+  "full_dp_missingness_share": 28.236297396746334,
+  "full_nodp_missingness_share": 19.86597193650506,
+  "head_nodp_missingness_share": 15.79611882605171,
+  "patient_missingness_share": 22.039661433687726,
+  "sample_missingness_share": 21.596274111527375
+}

@@ -63,7 +63,7 @@ can relate the two. At the group sizes found in these datasets, however, the
 conversion is prohibitive: a nominal budget of one becomes a budget that
 supports no meaningful claim.
 
-Existing systems have developed along two separate lines. Hierarchical designs
+Existing systems have developed largely along two separate lines. Hierarchical designs
 make a convincing case for communication and energy savings. HED-FL
 \cite{ref3} extends deployment lifetime by avoiding long-range transmission,
 HCEF \cite{ref4} adapts computation and compression to device heterogeneity,
@@ -75,18 +75,34 @@ Neither is hierarchical in the sense that matters here, and neither examines
 how an intermediate tier changes how often each client's budget is spent. In
 both lines the local objective is treated as the aggregation of generic
 parameter vectors. Neither the presence of several modalities per record nor
-the grouping of records by individual plays any role.
+the grouping of records by individual plays any role. More recent systems
+join a hierarchy with privacy \cite{ref34, ref37} or privacy with multimodal
+clinical data \cite{ref35, ref36}, but, to our knowledge, none states its
+guarantee over an individual whose records are grouped before clipping, and
+none accounts for that unit across an edge tier.
 
-Three difficulties follow, and they affect deployability as much as privacy.
-First, the unit at which a guarantee is stated is rarely examined, so its cost
-on genuinely paired multimodal data has not been quantified. Second,
-parameter-efficient private training is valid only if the corpus used to
-pretrain the frozen representation is disjoint from the protected population
+The review in Section~\ref{sec:related} identifies five gaps that affect
+deployability as much as privacy.
+\begin{enumerate}
+\item \emph{Hierarchy and privacy are designed separately.} Hierarchical
+systems provide no guarantee, and private systems do not examine how an
+intermediate tier changes each client's budget expenditure.
+\item \emph{The cost of the unit is unmeasured.} The unit at which a guarantee
+is stated is rarely examined, so its cost on genuinely paired multimodal data
+has not been quantified.
+\item \emph{A validity condition is left implicit.} Parameter-efficient private
+training is valid only if the corpus used to pretrain the frozen
+representation is disjoint from the protected population
 \cite{ref12, ref13}. This condition is often left implicit, and where it is
-respected, its cost is not measured. Third, guarantees are usually reported
-from the parameters of the mechanism rather than verified by attack. Where an
-audit is performed, it is done at the level of the record, which is exactly
-what a record-level guarantee already protects.
+respected, its cost is not measured.
+\item \emph{Guarantees are not audited at the right unit.} Guarantees are
+usually reported from the parameters of the mechanism rather than verified by
+attack. Where an audit is performed, it is done at the level of the record,
+which is exactly what a record-level guarantee already protects.
+\item \emph{Inference latency is not reported.} Federated designs report
+training costs, but not the inference latency experienced at the point of
+care.
+\end{enumerate}
 
 Two remedies follow directly. First, the unit can be fixed at the point of
 clipping instead of being recovered afterwards through group privacy. If the
@@ -104,44 +120,48 @@ multimodal sensing in which the privacy unit is the individual by construction.
 Records are grouped by individual before they are bounded. The noise scale is
 calibrated to meet the budget for every client at once, not for a single
 representative client, so the reported figure reflects the effect of the edge
-tier. The cost of releasing a conformal calibration quantile is included in
-that figure rather than left out. Representation learning is separated from
+tier. Representation learning is separated from
 private adaptation: the encoders are pretrained on a population disjoint from
 every client and then frozen, so only a compact fusion head is privatized. The
 framework is evaluated on two corpora whose modalities are linked by the
-recording apparatus rather than by a pairing rule. The protocol measures
+recording apparatus rather than by a pairing rule, and its central privacy
+result is tested on an external clinical corpus of $187$ hospitals. The protocol measures
 communication, latency, reliability and energy on a simulated topology, and it
 audits the privacy guarantee by attack.
 
-The paper makes five contributions.
-
-First, the framework enforces an individual-level guarantee within a
-hierarchical multimodal system and reports a composed budget that covers both
-training and calibration. The accounting this requires is specified in enough
+The main contributions of this paper are as follows.
+\begin{itemize}
+\item \emph{An individual-level guarantee across the hierarchy (gap 1).} The framework enforces an individual-level guarantee within a
+hierarchical multimodal system and reports a budget that includes the edge
+tier. The accounting this requires is specified in enough
 detail to be checked by others: the noise is calibrated against every client
-rather than a representative one, and the calibration release is charged to
-the same budget. An error in either is not detectable from a training log.
+rather than a representative one, and the noise sum is normalized by a public
+constant rather than the realized batch. An error in either is not detectable
+from a training log.
 
-Second, the cost of the choice of unit is measured on genuinely paired clinical
+\item \emph{The measured cost of the unit and of disjointness (gaps 2 and 3).} The cost of the choice of unit is measured on genuinely paired clinical
 multimodal data. So is the cost of the disjointness condition that makes the
 guarantee valid end to end. Neither is assumed to be negligible.
 
-Third, the guarantee is audited by patient-level membership inference, using
+\item \emph{A patient-level audit with a positive control (gap 4).} The guarantee is audited by patient-level membership inference, using
 both a threshold attack and a likelihood-ratio attack \cite{ref17}. Each attack
 is reported together with a positive control on a configuration known to
-memorize. The audit returns a null on the private arms, and the
-control attributes that null to the defense rather than to a weak adversary.
+memorize. On VitalDB, record-level training remains detectably above its
+difficulty floor under offline LiRA, whereas patient-level training does not.
+The same audit, data, encoders and seeds are applied to two re-implemented
+prior systems, HED-FL \cite{ref3} and FL2DP \cite{ref9}, so the comparison
+covers leakage as well as utility and traffic.
 
-Fourth, the system-level behavior is validated on two deployments that differ
-in topology and payload. Every network quantity is measured on rounds in which
+\item \emph{System validation on three deployments (gaps 1 and 5).} The system-level behavior is validated on three deployments that
+differ in topology and payload, up to $187$ clients, where contention keeps
+update delivery below its target until the clients are spread over eight edge
+aggregators. Every network quantity is measured on rounds in which
 the payload actually crossed the simulated topology, not computed
 analytically. The same protocol shows that the guarantees are affordable in
-real time. The conformal set construction, which carries the coverage
-guarantee, takes $0.68\,\%$ of the inference path. The private mechanism takes
-none of it, because its noise is added to gradients during training and adds
+real time. The private mechanism takes no part of the inference path, because its noise is added to gradients during training and adds
 no operation at inference.
 
-Fifth, the price of the individual-level guarantee is shown to be not a fixed
+\item \emph{A scaling law for the price of the unit (gap 2).} The price of the individual-level guarantee is shown to be not a fixed
 quantity but a function of how much each individual contributes. With the
 per-step budget and the number of units per step held constant, the penalty is
 indistinguishable from zero when each individual contributes a single record.
@@ -149,21 +169,21 @@ It grows monotonically as that number rises and saturates by eight records.
 At one record per individual the two units coincide by construction, so this
 configuration serves as a control, and the divergence at larger contributions
 is attributable to the unit rather than to the experimental setup.
+\end{itemize}
 
-User-level differential
-privacy \cite{ref11}, parameter-efficient differentially private fine-tuning
-\cite{ref12, ref13} and differentially private quantile release \cite{ref24}
-are established prior art and are used, not proposed, in this work. The
-contributions are measurements of these mechanisms in a setting where they
-have not previously been evaluated, together with the corresponding auditing
-practice.
+PP-HFM builds on user-level differential privacy \cite{ref11} and
+parameter-efficient differentially private fine-tuning \cite{ref12, ref13}.
+The contributions are the system that composes them across every tier of a
+hierarchy, the proof of its patient-level guarantee, and its evaluation and
+audit on three multimodal corpora.
 
 The rest of the paper is organized as follows. Section~\ref{sec:related}
 reviews related work on hierarchical and private federated learning, on the
 unit at which a guarantee is stated, and on membership inference as an
-auditing tool. Section~\ref{sec:method} presents the proposed framework.
+auditing tool. Section~\ref{sec:method} states the problem and the research
+objectives and presents the proposed framework.
 Section~\ref{sec:experiments} describes the corpora, the implementation, the
 evaluation measures and the experimental protocol. Section~\ref{sec:results}
 reports the results, Section~\ref{sec:discussion} discusses their
 interpretation and the limitations of the study, and
-Section~\ref{sec:conclusion} concludes.
+Section~\ref{sec:conclusion} concludes with directions for future work.

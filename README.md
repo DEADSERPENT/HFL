@@ -1,167 +1,120 @@
-# PP-HFM — Patient-Private Hierarchical Federated Multimodal Learning
+# PP-HFM: Patient-Level Differential Privacy in Hierarchical Federated Multimodal Learning
 
-Privacy-preserving federated learning for multimodal clinical IoT, with
-differential privacy at the **patient** level rather than the record level.
+Research code, results and manuscripts for *Patient-Level Differential Privacy in
+Hierarchical Federated Learning for Multimodal Medical IoT* (Samartha H V, Shreyas J,
+Udayaprasad P K, Shreelakshmi Yadav N, Sowmya T Rao; MIT Bengaluru, MAHE). This
+private repository is the study's research record: every reported number traces to a
+file and the command that produced it, and inconclusive and failed outcomes are kept.
 
-**Samartha H V** · M.Tech CSE, MIT Bengaluru (MAHE) · Regd. 251580130019
-Guide: Dr. Shreyas J · Industry: Mr. Tejas J (Capgemini)
-Target venue: IEEE Trans. Industrial Informatics / IEEE IoT Journal
+## Research question
 
----
+Differentially private training protects one unit of data. In sensing that unit is a
+window of signal, but a clinical deployment must protect the *patient*, who contributes
+many correlated windows. PP-HFM gives a client–edge–cloud federated system a guarantee
+whose unit is the patient: each client sums a patient's gradients before clipping and
+calibrates noise to its own population, and every release of the hierarchy is accounted for.
 
-## What this is
+The guarantee is proved for the training transcript (Theorem 1). It holds end to end only
+with public encoders and standardization constants: eICU, and the VitalDB disjoint
+variant.
 
-Hospital data cannot be centralised, and model updates leak. This system trains
-across sites without moving raw records, fuses two genuinely co-recorded
-modalities per patient, and bounds what the trained model reveals about any
-individual — validated end to end across network, compute, energy and deployed
-inference.
+## Manuscripts
 
-The distinguishing claim: a sample here is a 10-minute window, and each patient
-contributes about eight of them. A textbook ε answers *"was this window in the
-training set?"*; the clinical guarantee must answer *"was this **patient** in
-the training set?"* Those differ, and the naive conversion is unusable.
+| Folder | Content | Build |
+|---|---|---|
+| `PLDP/` | submission manuscript (IEEEtran, 18 pp.); copy `PLDP.pdf` | `bash PLDP/build_paper.sh`; Overleaf: `bash PLDP/make_overleaf.sh` |
+| `paper/` | full-length manuscript (31 pp.) and figure generators | `bash paper/build_paper.sh` |
 
----
+Both manuscripts are updated together. Compile through these scripts; the files in
+`sections/` are fragments.
+
+## Data
+
+| | VitalDB | WEAR | eICU-CRD |
+|---|---|---|---|
+| Clients / individuals | 9 specialties / 5,974 | 22 participants / 22 | 187 hospitals / 132,736 |
+| Modalities | 18 vital trends + 34 preoperative variables | inertial + video features | 12 vitals + 5 admission variables |
+| Task | ICU admission | 18 activities | in-unit mortality |
+| Privacy unit evaluated | patient | record (one participant per client) | patient |
+| Access | open (CC BY 4.0) | public; redistribution unverified | credentialed (PhysioNet DUA) |
+
+Splits are by individual. For VitalDB, four analyses use the **person-level** partition:
+the privacy cost, the cost of the unit, the prior-system comparison and the audit. All
+other VitalDB analyses are **case-level** and labeled so.
+
+## Reviewed objective assessment
+
+Scored by `SIMULATORS/scripts/check_objectives.py` from the final result files. Each
+verdict follows the prespecified rule, taken from the interval, not the point estimate.
+An inconclusive result is neither a pass nor evidence of equivalence.
+
+| Objective | Target | VitalDB | WEAR | eICU |
+|---|---|---|---|---|
+| O1 uplink reduction (measured payload) | ≥ 50 % | 90.8 % | 96.1 % | 92.3 % |
+| O1b round-latency reduction (ns-3) | > 0 % | 16.9 % | 21.7 % | 33.4 % |
+| O2a training ε (total incl. conformal) | ≤ 1 | 0.900 (1.0) | 0.766 (0.966) | 0.900 (1.0) |
+| O2b utility loss | ≤ 2 | −1.18 [−1.63, −0.73] AUROC | 1.97 [1.76, 2.17] acc. pp | 3.09 [1.37, 4.81] AUROC |
+| O3a P95 latency (workstation CPU) | < 100 ms | 2.30 ms | 0.75 ms | 0.24 ms |
+| O3b update delivery (ns-3) | > 99 % | 100.00 % | 99.94 % | 97.83 % |
+| O4 energy saving (CloudSim Plus model) | ≥ 20 % | 72.3 % | 76.8 % | 79.6 % |
+| **Verdict** | | **7 of 7** | **6 of 7; utility inconclusive** | **5 of 7; utility inconclusive, delivery fails** |
+
+- **eICU utility:** the point estimate exceeds 2. End to end (pool-fitted constants) the cost is 3.91 [2.40, 5.42], a miss.
+- **eICU delivery** reaches 99 % from eight edges. **WEAR utility** is a record-level accuracy loss, not comparable with the clinical AUROC costs.
+- **Score files:** canonical `SIMULATORS/results/phase5/objectives_*.json`; earlier scorings kept as `*_superseded.json`.
+- **Full record:** [`SIMULATORS/results/RESULTS_FINAL.md`](SIMULATORS/results/RESULTS_FINAL.md).
+
+## Further findings, with their scope
+
+- **Initialization, not the privatized subset** (VitalDB case-level, WEAR): from ε = ∞ to 0.5, a random initialization loses 0.19 AUROC and a pretrained one 0.004. Head-only noise changes AUROC by ≤ 0.006.
+- **Cost of the unit:** at a matched budget, VitalDB AUROC changes by −0.0170 [−0.0269, −0.0071] (person-level). The cost follows A(1 − 1/k) in records per patient (VitalDB case-level). On eICU the shape transfers at about one ninth of the forecast magnitude, mostly unresolved at three seeds.
+- **Membership inference (VitalDB, person-level):** under offline LiRA, record-level training remains above its floor (0.576 vs 0.511) and patient-level does not (0.503 vs 0.508), a difference of +0.073 [0.054, 0.092]. Two of four attacks resolve it, and the positive control is resolved by a different attack. The audit does not establish absence of leakage.
+- **Prior systems** (re-implemented HED-FL, FL2DP): PP-HFM uploads 2.2–4.0× less; on VitalDB, under offline LiRA, it leaks less than both (margin −0.005 vs +0.026 and +0.049); on eICU, non-private HED-FL is more accurate (AUROC 0.825 vs 0.794).
+- **Fusion is conditional:** +0.037 AUROC on VitalDB; on eICU +0.002 on the natural streams and +0.029 (p = 0.019) only when the streams are balanced; no headroom on WEAR.
+- **Hierarchy:** removing the edge tier changes accuracy by about −0.005. This is not a benefit of hierarchy, because the flat arm also changes the aggregation schedule.
 
 ## Repository layout
 
 ```
-├── README.md                  this file
-├── docs/                      research narrative, roadmap, runbook
-│   ├── Research.md            the work explained (plain + technical)
-│   ├── roadmap.md             what is done, what is next
-│   └── RUNBOOK.md             operational procedures
-├── figures/                   publication figures + their generator
-├── document/                  formal project documents
-│   ├── document/05_reference/literature/          problem statement, literature
-│   ├── document/02_phase_reports/          Phases 1-6
-│   ├── DATASET & MODEL GUIDE/ data, model, simulator integration
-│   └── OVERALL PROJECT OUTPUT/ status, IP & novelty register
-└── SIMULATORS/                the codebase
-    ├── data/loaders/          dataset registry + preprocessors
-    ├── model/
-    │   ├── architecture/      encoders, fusion head
-    │   ├── privacy/           DP-SGD, patient-level DP, accounting
-    │   ├── training/          trainer, baselines, epsilon sweep
-    │   ├── deploy/            ONNX export, inference benchmark
-    │   └── utils/             compression, conformal prediction
-    ├── engineering/           preflight, run context, monitoring
-    ├── scripts/               pipeline driver, analysis, simulators
-    ├── tests/                 dataset audit, regression, traceability
-    ├── ns3/                   NS-3 network simulation
-    ├── cloudsim-plus/         CloudSim Plus energy simulation
-    ├── config/                shared configuration
-    ├── deploy/                exported ONNX artifacts
-    └── results/               measured outputs
+├── PLDP/, paper/            manuscripts (paper/figures/: one generator per figure)
+├── docs/, document/         notes, plans, pre-registrations (document/01_planning/)
+├── report/                  plain-language project report
+└── SIMULATORS/              codebase: data/loaders, model, engineering, scripts, tests,
+                             ns3, cloudsim-plus, config, results (RESULTS_FINAL.md = index)
 ```
 
----
+The release staging copy (`pp-hfm-release/`) and its review folder are git-ignored.
 
-## Quick start
+## Reproducing
 
 ```bash
-cd SIMULATORS && source ../hfl_env/bin/activate
-
-python scripts/run_pipeline.py --dataset vitaldb   # full study, 16 stages
-python tests/traceability.py --dataset vitaldb     # what exists
-python scripts/check_objectives.py --dataset vitaldb   # O1-O4 vs targets
+source hfl_env/bin/activate && cd SIMULATORS
+python tests/test_regression.py --dataset vitaldb_person      # 17 regression guards
+bash scripts/run_dpfix_stageF.sh                              # privacy cost, five paired seeds
+bash scripts/run_person_vitaldb.sh                            # person-level cost, unit, baselines, LiRA
+bash scripts/run_lit_baselines.sh                             # HED-FL and FL2DP
+python scripts/check_objectives.py --dataset vitaldb --headline vitaldb_person
 ```
 
-The pipeline is resumable: completed stages are skipped, and a stage whose
-inputs are missing refuses to run rather than producing a number from stale
-data. Per-stage logs and a manifest recording the exact command behind every
-result land in `results/pipeline/<dataset>/`.
+Drivers are resumable and refuse to run on missing inputs. Run one GPU job at a time,
+using `scripts/run_detached.sh`. Every run writes `run_metadata_*.json` with its command,
+commit and package versions. `RESULTS_FINAL.md` §9 maps each result to its driver.
 
----
+Environment: Python 3.11, PyTorch 2.5.1 (CUDA 12.1), Opacus 1.5.4, ns-3 3.46.1
+(`scripts/install_ns3.sh`), CloudSim Plus 8.5.6 (`scripts/install_cloudsim.sh`), ONNX
+Runtime 1.25.
 
-## Datasets
+## Data policy and integrity
 
-| | VitalDB (primary) | WEAR (fast iteration) |
-|---|---|---|
-| Domain | clinical IoMT | wearable IoT |
-| Windows | 48,712 from 6,257 surgeries | 38,578 |
-| Clients | 9 (surgical specialty) | 22 (subject) |
-| Modality A | (18, 300) intraop trends + masks | (12, 100) inertial |
-| Modality B | (34,) preoperative clinical | (2048,) egocentric video |
-| Pairing | same patient, same second | hardware-synchronised |
-| Split | by case | temporal within (subject, activity) |
+- **eICU:** used under the PhysioNet DUA. Only code and aggregate results are kept. Patient-level arrays, per-hospital counts, partitions and eICU-trained models are git-ignored and must never be committed.
+- **Redistribution:** public availability is not permission to redistribute. Check each dataset's terms first.
+- **Pre-registrations:** amendments are dated in the text. The eICU forecast was committed on 2026-09-05, before its corpus was built; the fusion and clipping ones first appear in git on 2026-10-21.
+- **Measurement types:** network is simulated (ns-3), energy is modeled (CloudSim Plus), and latency was timed on a workstation CPU. Nothing was measured on edge hardware.
 
-Both are open published corpora. No private patient data is used — the privacy
-mechanism is *demonstrated* on open research data, which is how DP methods are
-validated.
+## Limitations
 
----
-
-## Results
-
-**Objectives** — vitaldb 6/6 PASS · wear 5 PASS + 1 INCONCLUSIVE, 0 FAIL
-
-| | Target | vitaldb | wear |
-|---|---|---|---|
-| O1 uplink reduction | ≥ 50 % | 90.8 % | 96.1 % |
-| O2a privacy budget | ε ≤ 1 | 0.963 | 0.989 |
-| O2b accuracy loss | ≤ 2 pp | −0.92 pp | +1.97 pp † |
-| O3a P95 latency | < 100 ms | 2.99 ms | 1.22 ms |
-| O3b update reliability | > 99 % | 99.27 % | 99.05 % |
-| O4 energy saving | ≥ 20 % | 72.3 % | 76.8 % |
-
-† INCONCLUSIVE: pre-registered n=15, 95 % CI [+1.760, +2.173] spans the target.
-
-**Head-only DP** — the gap over full-model DP widens as the budget tightens and
-nearly vanishes without privacy, which is the pre-registered signature of a
-noise-tolerance effect rather than a parameter-count effect:
-
-| ε | 0.5 | 1 | 2 | 4 | 8 | ∞ |
-|---|---|---|---|---|---|---|
-| vitaldb | +0.131 | +0.113 | +0.097 | +0.078 | +0.060 | +0.009 |
-| wear | +0.395 | +0.309 | +0.208 | +0.131 | +0.088 | +0.002 |
-
-**Multimodal fusion** — beats *both* single modalities, not just the weaker one:
-+0.0411 AUROC / +0.1062 AUPRC over the best unimodal arm (14× seed sd).
-
----
-
-## Verification
-
-```bash
-python tests/verify_datasets.py --dataset vitaldb   # adversarial data audit
-python tests/test_regression.py --dataset vitaldb   # 8 regression guards
-python tests/traceability.py   --dataset vitaldb    # deliverables vs code
-```
-
-Every reported ε is checked against its budget. Every objective reports
-`NOT MEASURED` rather than guessing when its artifact is absent, and
-`INCONCLUSIVE` when a confidence interval spans the threshold.
-
----
-
-## Known limitations
-
-1. Encoder pretraining uses a disjoint in-corpus pool; the strongest claim needs
-   an external public corpus.
-2. WEAR is at ceiling — it cannot evidence fusion, and its O2b is inconclusive.
-3. Most contrasts are single-seed; only O2b and the patient-level comparison
-   carry intervals.
-4. ASWA is implemented but unablated, so it is not claimed.
-5. No feature-level explainability — the system outputs a calibrated conformal
-   prediction set, not attributions.
-
-PHANTOM-FL is **not** part of this system. Its components were either unbuilt,
-measured negative, or architecturally incompatible with head-only DP. See
-`document/06_project_output/01_PHANTOM_FL_Novel_Model.txt`.
-
----
-
-## Environment
-
-Python 3.11 · PyTorch + Opacus · NS-3 v3.46.1 (cppyy bindings) ·
-CloudSim Plus v8.5.6 · ONNX Runtime
-
-```bash
-bash SIMULATORS/scripts/install_ns3.sh
-bash SIMULATORS/scripts/install_cloudsim.sh
-pip install cppyy      # required by NS-3 >= 3.36 Python bindings
-```
-
-NS-3 and CloudSim Plus are third-party checkouts fetched by those scripts.
+1. eICU utility is inconclusive against the two-point target and missed end to end.
+2. VitalDB and WEAR headline runs use oracle encoders (utilities are upper bounds); disjoint encoders cost 1.6 AUROC on VitalDB.
+3. Scaling grids and the recipe sweep use three seeds, fixed in advance.
+4. WEAR's guarantee is record-level, and private conformal prediction did not attain coverage.
+5. The membership-inference audit covers VitalDB only, at a 1 % false-positive rate.

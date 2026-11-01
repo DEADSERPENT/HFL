@@ -1,0 +1,87 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{What the Price of the Unit Depends On}
+The central finding is not that an individual-level guarantee has a cost,
+which was expected, but that the cost has a predictable shape. At one operating
+point on person-level VitalDB it is $0.0170$ AUROC. Holding the per-step budget and the units per step
+fixed, so that only the clipping geometry differs, it is indistinguishable
+from zero at one record per individual and grows as $A(1-1/k)$, with a single
+parameter that a fit on $k \le 4$ already determines. The patient-level arm
+stays flat while the record-level arm improves, so a patient-level guarantee
+becomes relatively more expensive, not cheaper, as more records are collected
+per patient. Normalizing the clipping bound by the record count does not
+recover the cost on eICU and could explain at most one eighth of it on VitalDB,
+so the cost belongs mainly to the unit. Proposition~\ref{prop:scaling}
+also points to what would: clipping around an estimate of each individual's
+mean gradient, whose user-level rates improve with $k$ \cite{ref32}. The
+external corpus reproduces the shape and the saturation but not the
+magnitude, so the shape is interpreted as structural and the magnitude as
+corpus-dependent.
+
+\subsection{Position Against Prior Art}
+PP-HFM builds on user-level privacy \cite{ref11}
+and parameter-efficient private fine-tuning \cite{ref12, ref13}; its
+contribution is their composition inside a hierarchy, with a proof, and its
+cost. Hierarchical systems
+\cite{ref3, ref4, ref5} report savings without a guarantee, and private
+systems \cite{ref9, ref10} leave the edge tier out of the accounting; PP-HFM
+measures both on the same configuration and shows that the savings cost no
+utility. The re-implemented baselines make this concrete
+(Section~\ref{sec:results:prior}). On eICU, HED-FL matches the non-private
+reference, so its $3.2$-point lead over PP-HFM is the price of the
+patient-level guarantee; on VitalDB, PP-HFM matches HED-FL in AUROC, exceeds
+it in AUPRC, and leaks less under offline LiRA (margin $-0.005$ against $+0.026$). FL2DP adds noise yet leaks more than HED-FL, which adds none:
+a perturbation without a finite $\varepsilon$ is not a weaker guarantee but
+no guarantee, and only an audit can show what it protects. The parameter-efficient literature attributes
+robustness at small $\varepsilon$ to the reduced privatized dimension; the
+three-arm decomposition attributes it to the initialization instead, which
+changes what a practitioner should optimize first. Several results are
+negative and are reported with the control or the power that makes them
+interpretable: the privatized subset contributes nothing to accuracy once the
+initialization is controlled, compression and loss-aware weighting do not
+affect accuracy, and count-normalized clipping does not recover the cost of the unit on eICU.
+
+\subsection{Practical Implications}
+Four recommendations follow. First, choose the unit explicitly and price it
+in records per individual: where individuals contribute many records, a
+record-level budget bounds the wrong quantity. Second, secure a legitimate
+pretrained initialization before tuning anything else; under a tight budget
+it is the largest effect measured here. Third, calibrate each client to its
+own population (on eICU a single worst-case multiplier would impose $29.34$
+on every hospital against a median need of $13.39$), and consider a minimum
+cohort size, since the smallest hospitals set the cost. Fourth, use
+compression and the edge tier, which cut traffic and energy at no measurable
+cost in accuracy, and establish fusion per task.
+
+\subsection{Limitations}
+\emph{Utility objective.} On eICU the guarantee costs $3.09$ AUROC points
+$[1.37, 4.81]$, inconclusive against the two-point target under the
+prespecified interval criterion although the point estimate exceeds it, and
+$3.91$ $[2.40, 5.42]$ end to end, above the target; on WEAR the
+accuracy interval spans the target. \emph{Encoders.} VitalDB and WEAR results
+use the oracle encoders unless stated, so their absolute utilities are upper
+bounds; on the case-level VitalDB partition the disjoint encoders cost $1.57$
+AUROC points and the privacy cost with them is $+0.14$ points; differences between arms are
+unaffected, and on eICU every encoder is disjoint. \emph{Scope of the unit.} VitalDB results other than the privacy cost, the
+cost of the unit, the baseline comparison and the audit are case-level; for the $3.9\,\%$ of persons with several operations, their
+guarantee extends to the person only by group privacy. On WEAR the mechanism
+is record-level. The validation cohort is
+used without noise for checkpoint selection. \emph{Statistical power.} The
+scaling grids and the recipe sweep use three seeds; on eICU no gap of
+Table~\ref{tab:kscaling} is resolved, and resolving it would need about
+twenty-five.
+The audit (sixteen shadows, $600$ non-members, VitalDB only; about $160$ GPU
+hours on eICU) cannot resolve a $0.1\,\%$ false-positive rate, and at three
+seeds its positive control is resolved by online LiRA only, which does not
+separate the two units; the audit bounds these attacks and does not establish
+the absence of leakage. \emph{Baselines.} HED-FL and FL2DP are
+re-implemented from their papers, and FL2DP and both baseline audits are
+limited to VitalDB. \emph{Simulation.} Network terms are packet-level simulated and compute terms
+modeled, so round latencies compare topologies rather than measure a deployed
+system.
+\emph{Fusion.} A fusion gain is shown on VitalDB only: WEAR leaves no
+headroom, and the eICU second stream is admission data, so its balancing test
+identifies a mechanism rather than the benefit of a second sensor.
+\emph{Theory.} The $A(1-1/k)$ form assumes both arms attain their rate with a
+common constant; it is supported empirically, not proved.

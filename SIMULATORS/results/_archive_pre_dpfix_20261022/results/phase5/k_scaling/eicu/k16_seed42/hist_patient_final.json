@@ -1,0 +1,19 @@
+{
+  "dataset": "eicu",
+  "seed": 42,
+  "rounds": 10,
+  "select_on": "auc",
+  "best_val": 0.8068767072445966,
+  "selected_round": 1,
+  "epsilon_spent": 0.7956,
+  "uplink_bytes_total": 5235439000,
+  "test": {
+    "accuracy": 0.8289340636191279,
+    "macro_auc": 0.821507365500096,
+    "auprc": 0.2277047157150832,
+    "n_groups": 27816,
+    "case_accuracy": 0.8472821397756687,
+    "case_auc": 0.8329574408947155,
+    "case_auprc": 0.22302332177132853
+  }
+}

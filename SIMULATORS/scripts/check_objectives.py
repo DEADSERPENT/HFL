@@ -66,6 +66,14 @@ OBJECTIVES = {
 }
 
 
+def latency_path(res, ds):
+    """inference_bench.py writes CSV. Older runs saved it as latency_<ds>.json;
+    read that legacy name when no .csv exists (the content is the same CSV)."""
+    p = res / f"latency_{ds}.csv"
+    return p if p.exists() or not (res / f"latency_{ds}.json").exists() \
+        else res / f"latency_{ds}.json"
+
+
 def _rows(path):
     if not path or not os.path.exists(path):
         return []
@@ -102,7 +110,7 @@ def _scenario_mean(path, col, scenario):
     return sum(vals) / len(vals) if vals else None
 
 
-def collect(ds: str, res: Path) -> dict:
+def collect(ds: str, res: Path, headline: str = None) -> dict:
     """Gather each objective from whatever artifacts exist.
 
     Paths are resolved against where the simulators ACTUALLY write, not where
@@ -117,7 +125,7 @@ def collect(ds: str, res: Path) -> dict:
     prop = res / f"proposed_{ds}.csv"
     ns3 = sim / "ns3" / f"ns3_results_{ds}.csv"
     cloud = sim / "cloudsim" / f"cloudsim_results_{ds}.csv"
-    lat = res / f"latency_{ds}.json"
+    lat = latency_path(res, ds)
     sweep = res / "epsilon_sweep" / ds / "epsilon_sweep.csv"
     uplink_json = res / f"uplink_measured_{ds}.json"
 
@@ -189,6 +197,24 @@ def collect(ds: str, res: Path) -> dict:
                                      f"{len(rws)} rounds; composes upward)")
             break
 
+    # Final headline runs (o2b_system/<headline>/dp_s*) supersede the ledger
+    # above. The paper defines O2a on the TRAINING budget of the deployed
+    # system; the evaluated conformal release is not deployed, so its share is
+    # carried as total_with_conformal and must also stay within the target.
+    headline = headline or ds
+    _hl = sorted((res / "o2b_system" / headline).glob("dp_s*/privacy_total_*.json"))
+    if _hl:
+        _led = [json.loads(p_.read_text()) for p_ in _hl]
+        out["O2a"] = dict(value=max(d["epsilon_training"] for d in _led),
+                          total_with_conformal=max(d["epsilon_TOTAL"] for d in _led),
+                          source=f"o2b_system/{headline}/dp_s*/privacy_total_*.json: "
+                                 f"max epsilon_training over {len(_led)} seeds")
+    elif "O2a" in out and _tot.exists():
+        d = json.loads(_tot.read_text())
+        out["O2a"] = dict(value=float(d["epsilon_training"]),
+                          total_with_conformal=float(d["epsilon_TOTAL"]),
+                          source=f"{_tot.name}: epsilon_training")
+
     # ── O2b accuracy loss, PAIRED against the no-DP reference ───────
     #
     # Prefer the multi-seed run when it exists. A single seed cannot support a
@@ -197,7 +223,12 @@ def collect(ds: str, res: Path) -> dict:
     # measurements are -0.916 [-2.820, +0.988] and +1.783 [+1.429, +2.136].
     # The wear point estimate moved from ABOVE the threshold to BELOW it, so
     # reporting the single-seed number as a hard FAIL misstates the evidence.
-    ms = res / "o2b_multiseed" / ds / "epsilon_sweep.csv"
+    # The system-recipe measurement (o2b_system/, the proposed system itself
+    # with --no_dp as reference) supersedes the flat-FedAvg head sweep when
+    # present; both share the epsilon_sweep.csv schema.
+    ms = res / "o2b_system" / ds / "epsilon_sweep.csv"
+    if not ms.exists():
+        ms = res / "o2b_multiseed" / ds / "epsilon_sweep.csv"
     ms_rows = _rows(ms)
     if ms_rows:
         acc = {}
@@ -223,7 +254,20 @@ def collect(ds: str, res: Path) -> dict:
             out["O2b"] = dict(value=mean, ci_low=mean - half, ci_high=mean + half,
                               n_seeds=n,
                               source=f"{ms.parent.name}/{ds}: {n} paired seeds, "
-                                     f"eps=1 vs eps=inf (head recipe)")
+                                     f"eps=1 vs eps=inf ("
+                                     f"{'system recipe' if ms.parent.parent.name == 'o2b_system' else 'head recipe'})")
+            # A private arm whose accuracy is IDENTICAL on every seed is a
+            # constant predictor (eICU: 0.9578 = the majority-class rate on all
+            # five seeds). Its accuracy "gain" over the reference measures where
+            # the 0.5 threshold falls, not what privacy costs, and must not be
+            # scored as a pass. o2b_paired_summary.py gives the ranking metrics.
+            priv = {round(acc[("1", sd)], 12) for sd in seeds}
+            if len(priv) == 1:
+                out["O2b"]["degenerate"] = True
+                out["O2b"]["source"] += (f"; DEGENERATE: eps=1 accuracy is "
+                                         f"{acc[('1', seeds[0])]:.4f} on every seed "
+                                         f"(constant predictor) - see "
+                                         f"o2b_paired.json for AUROC/AUPRC")
             return_early_o2b = True
         else:
             return_early_o2b = False
@@ -253,6 +297,19 @@ def collect(ds: str, res: Path) -> dict:
                                          f"acc(eps<=1)={priv:.4f} vs "
                                          f"acc(inf)={ref:.4f}")
                 break
+
+    # Clinical corpora: the pre-declared primary measure is the paired AUROC
+    # cost of the final headline runs (accuracy at 0.5 is a constant
+    # predictor there). Where o2b_paired.json exists it supersedes accuracy.
+    _op = res / "o2b_system" / headline / "o2b_paired.json"
+    if _op.exists():
+        _c = json.loads(_op.read_text())["metrics"]["macro_auc"]["cost"]
+        out["O2b"] = dict(value=100 * _c["mean"], ci_low=100 * _c["ci_low"],
+                          ci_high=100 * _c["ci_high"], n_seeds=_c["n"],
+                          name="Utility loss under DP (AUROC)", unit="AUROC pts",
+                          source=f"o2b_system/{headline}/o2b_paired.json: macro_auc "
+                                 f"cost (reference - private) x 100, AUROC points, "
+                                 f"{_c['n']} paired seeds, p={_c['p']:.4f}")
 
     # ── O3a inference latency ───────────────────────────────────────
     if lat.exists():
@@ -292,6 +349,15 @@ def collect(ds: str, res: Path) -> dict:
                 out["O3a"] = dict(value=v, source=f"{lat.name}:{k}")
         except json.JSONDecodeError:
             pass
+
+    # The final benchmark (1000 runs, run_latency_bench.sh) supersedes the
+    # 200-run pipeline benchmark.
+    _lb = res / "latency_bench" / f"latency_{ds}_fp32.csv"
+    _lbr = next((r for r in _rows(_lb) if r.get("component") == "total_ms"), None)
+    if _lbr and _num(_lbr.get("p95_ms")) is not None:
+        out["O3a"] = dict(value=_num(_lbr["p95_ms"]),
+                          source=f"latency_bench/{_lb.name}: total_ms.p95_ms "
+                                 f"(1000 runs, workstation CPU)")
 
     # ── O3b update reliability (PER UPDATE) ─────────────────────────
     v = _scenario_mean(ns3, "reliability_pct", "HFL_Proposed")
@@ -342,13 +408,16 @@ def main():
     ap.add_argument("--dataset", required=True)
     ap.add_argument("--results_dir", default=None)
     ap.add_argument("--output", default=None)
+    ap.add_argument("--headline", default=None,
+                    help="dataset key of the final headline runs under o2b_system/ "
+                         "(e.g. vitaldb_person for VitalDB); default: --dataset")
     ap.add_argument("--strict", action="store_true",
                     help="exit non-zero unless every objective PASSES "
                          "(NOT MEASURED also counts as not passing)")
     a = ap.parse_args()
 
     res = Path(a.results_dir) if a.results_dir else _SIM / "results" / "phase5"
-    found = collect(a.dataset, res)
+    found = collect(a.dataset, res, a.headline)
 
     print("=" * 78)
     print(f"OBJECTIVES — {a.dataset.upper()}")
@@ -368,17 +437,21 @@ def main():
             report[key] = dict(**o, measured=None, verdict="NOT MEASURED")
             n_missing += 1
             continue
-        vd = verdict(key, m["value"], m.get("ci_low"), m.get("ci_high"))
+        vd = ("DEGENERATE" if m.get("degenerate") else
+              verdict(key, m["value"], m.get("ci_low"), m.get("ci_high")))
         n_pass += (vd == "PASS"); n_fail += (vd == "FAIL")
-        n_inconc += (vd == "INCONCLUSIVE")
+        n_inconc += (vd in ("INCONCLUSIVE", "DEGENERATE"))
         extra = ""
         if m.get("ci_low") is not None and m["ci_low"] == m["ci_low"]:
             extra = f"  [{m['ci_low']:+.3f}, {m['ci_high']:+.3f}] n={m.get('n_seeds','?')}"
         print(f"{key:<5}{o['name']:<30}{tgt:>12}"
               f"{m['value']:>12.3f}{vd:>16}{extra}")
-        report[key] = dict(**o, measured=m["value"], verdict=vd,
+        report[key] = dict(**{**o, **{k: m[k] for k in ("name", "unit") if k in m}},
+                           measured=m["value"], verdict=vd,
                            ci_low=m.get("ci_low"), ci_high=m.get("ci_high"),
-                           n_seeds=m.get("n_seeds"), evidence=m["source"])
+                           n_seeds=m.get("n_seeds"), evidence=m["source"],
+                           **({"total_with_conformal": m["total_with_conformal"]}
+                              if "total_with_conformal" in m else {}))
 
     print("-" * 78)
     for key, r in report.items():
@@ -387,6 +460,9 @@ def main():
     print("-" * 78)
     print(f"  {n_pass} PASS   {n_fail} FAIL   {n_inconc} INCONCLUSIVE   "
           f"{n_missing} NOT MEASURED")
+    if any(r.get("verdict") == "DEGENERATE" for r in report.values()):
+        print("\n  DEGENERATE = the metric is constant across seeds, so the test\n"
+              "  cannot measure the objective (counted as INCONCLUSIVE).")
     if n_inconc:
         print("\n  INCONCLUSIVE = the confidence interval spans the threshold.\n"
               "  Not a failure; the sample size cannot decide it. More seeds\n"

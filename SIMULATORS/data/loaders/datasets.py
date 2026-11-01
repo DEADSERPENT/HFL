@@ -172,6 +172,21 @@ REGISTRY = {
 }
 
 
+# Person-level VitalDB: the same arrays with the unit and split key moved from
+# the surgical case to the person (subjectid). The case partitions let one
+# person sit in two splits or on two clients; the derived partitions do not.
+# Built by scripts/make_person_partitions_vitaldb.py. Case-level metrics keep
+# grouping by the surgical case, whose label is single-valued.
+from dataclasses import replace as _replace          # noqa: E402
+REGISTRY["vitaldb_person"] = _replace(
+    REGISTRY["vitaldb"], name="vitaldb_person",
+    data_dir="data/processed/vitaldb_person",
+    partition_dir="data/processed/partitions/vitaldb_person",
+    metric_group_file="meta/surgical_case_ids.npy",
+    notes=REGISTRY["vitaldb"].notes + " PERSON-LEVEL variant: unit and split "
+          "key = subjectid; every person on one client and in one split.")
+
+
 def window_len(spec: "DatasetSpec", default: int = 100) -> int:
     """Length of modality A's time axis, read off the array on disk.
 

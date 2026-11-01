@@ -1,0 +1,11 @@
+{
+  "dataset": "vitaldb",
+  "checkpoint": "/home/mit/DEADSERPENT/HFL/SIMULATORS/results/phase5/patient_dp/vitaldb/ckpt_patient_43.pt",
+  "split": "test",
+  "n_windows": 512,
+  "baseline": "mean",
+  "steps": 256,
+  "target": "positive",
+  "missingness_share_pct": 23.35718866879765,
+  "completeness_rel_err": 0.048829056656263914
+}

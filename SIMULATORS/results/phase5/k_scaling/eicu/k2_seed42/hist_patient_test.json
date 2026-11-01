@@ -2,9 +2,14 @@
   "dataset": "eicu",
   "split": "test",
   "pooled_over_devices": true,
-  "accuracy": 0.8198915104276385,
-  "macro_auc": 0.8214904125124016,
-  "auprc": 0.22617817726314587,
+  "accuracy": 0.8198511340495752,
+  "macro_auc": 0.821634936329337,
+  "auprc": 0.22701253040247726,
+  "val_threshold": 0.2206232100725174,
+  "accuracy_valthr": 0.7282459096973527,
+  "balanced_accuracy_valthr": 0.7408608004622078,
+  "sensitivity_valthr": 0.7546384890589899,
+  "specificity_valthr": 0.7270831118654257,
   "selected_on": "auc",
-  "best_val_auc": 0.806950873209414
+  "best_val_auc": 0.8070908695971961
 }

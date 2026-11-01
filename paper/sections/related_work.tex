@@ -66,7 +66,18 @@ The distinction between record-level and individual-level guarantees is well
 established. McMahan \emph{et al.} \cite{ref11} introduced user-level
 differential privacy for federated language models, bounding the contribution
 of each user rather than each example, and group privacy provides the standard
-conversion between the two \cite{ref8}. What is missing is a measurement of the
+conversion between the two \cite{ref8}. Recent work brings privacy into
+hierarchical and multimodal settings. PCRHFeL \cite{ref34} chains
+sparsification, Wasserstein differential privacy and robust aggregation in a
+client--edge--cloud hierarchy. Fulcrum \cite{ref37} allocates noise per
+participant according to its exposure within a regional aggregate, a
+calibration close in spirit to the per-client noise multipliers used here but
+defined for a participant's class distribution rather than an individual's
+records. Multimodal clinical systems add noise to the local updates of an
+EHR--ECG fusion model \cite{ref35} or give client-level guarantees for
+multimodal medical imaging \cite{ref36}. To our knowledge, none of these
+groups an individual's records before clipping or measures the cost of that
+unit. What is missing is a measurement of the
 cost of the individual-level guarantee in the setting that most requires it.
 In clinical monitoring, every participant contributes many records, because a
 single episode of care yields many time-aligned windows. The conversion factor
@@ -171,24 +182,30 @@ the model.
 
 \subsection{Summary and Research Gap}
 
-Five gaps follow from this review. First, hierarchy and formal privacy have
+Five gaps follow from this review.
+\begin{enumerate}
+\item Hierarchy and formal privacy have
 been developed largely separately: hierarchical systems provide no guarantee,
 and private systems do not examine how an intermediate tier affects budget
-expenditure. Their interaction is therefore unmeasured. Second, the mechanism
+expenditure. Their interaction is therefore unmeasured.
+\item The mechanism
 for stating a guarantee over individuals is established, but its cost on
 genuinely paired clinical multimodal data is not. Without a characterization of
 how this cost varies with the number of records per individual, a single
-measurement cannot be distinguished from an artifact of the cohort. Third,
-parameter-efficient private adaptation is widely used, but the disjointness of
+measurement cannot be distinguished from an artifact of the cohort.
+\item Parameter-efficient private adaptation is widely used, but the disjointness of
 the pretraining corpus on which its validity depends is often left implicit,
-and its cost is not reported. Fourth, guarantees are usually reported from the
+and its cost is not reported.
+\item Guarantees are usually reported from the
 mechanism's parameters rather than audited by attack. Where audits exist, they
 operate at the record level, and null results are rarely accompanied by
-evidence that the attack could detect leakage. Fifth, the cost of federated
+evidence that the attack could detect leakage.
+\item The cost of federated
 designs is reported in training terms, such as rounds to convergence, bytes
 exchanged and energy consumed, while the inference latency experienced by the
 clinician is not measured, although it determines whether the system can be
 used at the point of care.
+\end{enumerate}
 
 The present work addresses these five gaps together. It combines a two-tier
 hierarchy with a guarantee enforced at the level of the individual at the point

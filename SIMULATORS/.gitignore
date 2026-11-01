@@ -48,4 +48,6 @@ Thumbs.db
 
 # ── Run logs (re-generated each run, not useful in history) ──
 results/**/*.txt
+!results/phase5/fusbal_alpha.txt
+!results/phase6/*/statistics.txt
 results/phase5/run_log.txt

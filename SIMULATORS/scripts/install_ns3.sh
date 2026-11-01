@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# NS-3.43 Installation Script for HFL Research Project
+# NS-3.46.1 Installation Script for HFL Research Project
 # Project: Hierarchical Federated Learning for Privacy-Aware Multimodal IoT
 # Student: Samartha H V | MIT Bengaluru
 # =============================================================================
@@ -11,7 +11,7 @@
 set -e  # Exit on any error
 
 NS3_DIR="/home/mit/DEADSERPENT/HFL/SIMULATORS/ns3"
-NS3_VERSION="ns-3.43"
+NS3_VERSION="ns-3.46.1"   # version used for every reported run
 CORES=$(nproc)
 
 echo "============================================================"

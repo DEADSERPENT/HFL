@@ -91,6 +91,12 @@ def main():
     ap.add_argument("--seeds", type=int, nargs="+", default=[42])
     ap.add_argument("--class_weight", choices=["none", "balanced", "auto"], default="auto")
     ap.add_argument("--select_on", choices=["auc", "auprc", "auto"], default="auto")
+    ap.add_argument("--dp_unit", choices=["sample", "patient"], default="sample",
+                    help="privacy unit of the private arms. 'patient' uses "
+                         "patient_dp (clip each patient's summed gradient) and "
+                         "needs <data_dir>/meta/case_ids.npy")
+    ap.add_argument("--patients_per_batch", type=int, default=64,
+                    help="Poisson-sampled patients per step under --dp_unit patient")
     ap.add_argument("--resume", action="store_true",
                     help="skip (eps, recipe, seed) combinations already in the CSV")
     args = ap.parse_args()
@@ -110,6 +116,20 @@ def main():
         args.select_on = "auprc" if spec.n_classes == 2 else "auc"
     use_cw = (args.class_weight == "balanced" or
               (args.class_weight == "auto" and spec.n_classes == 2))
+    case_ids = None
+    if args.dp_unit == "patient":
+        # Balanced weights are computed from the private training labels with
+        # no noise, a release the patient-level guarantee does not cover.
+        # hfl_trainer (the proposed system) trains unweighted; match it.
+        if args.class_weight == "balanced":
+            raise SystemExit("[sweep][FATAL] --class_weight balanced reads the "
+                             "private labels without noise; not allowed with "
+                             "--dp_unit patient")
+        use_cw = False
+        _cid = os.path.join(spec.data_dir, "meta", "case_ids.npy")
+        if not os.path.exists(_cid):
+            raise SystemExit(f"[sweep][FATAL] --dp_unit patient needs {_cid}")
+        case_ids = np.load(_cid)
     ckpt = args.pretrained_encoders or str(
         _sim / "checkpoints" / f"pretrained_encoders_{args.dataset}.pt")
 
@@ -133,7 +153,8 @@ def main():
     print(spec)
     print(f"  epsilons : {['inf' if e == float('inf') else e for e in epsilons]}")
     print(f"  recipes  : {args.recipes}   seeds: {args.seeds}   rounds: {args.rounds}")
-    print(f"  select_on: {args.select_on}   class_weight: {use_cw}")
+    print(f"  select_on: {args.select_on}   class_weight: {use_cw}   "
+          f"dp_unit: {args.dp_unit}")
     print(f"  output   : {out_dir}")
 
     full_ds, n_dev, device_loaders, pooled, order, group_test = build_loaders(
@@ -235,7 +256,9 @@ def main():
                         delta=args.delta, max_grad_norm=args.max_grad_norm,
                         head_only=(rec == "head"),
                         max_physical_batch_size=args.max_physical_batch_size,
-                        label=f"eps{elab}-{rec}", **common)
+                        label=f"eps{elab}-{rec}", dp_unit=args.dp_unit,
+                        case_ids=case_ids,
+                        patients_per_batch=args.patients_per_batch, **common)
 
                 rows.append({
                     "dataset": args.dataset, "epsilon": elab, "recipe": rec,
@@ -289,7 +312,10 @@ def main():
             "recipes": args.recipes, "seeds": args.seeds,
             "rounds": args.rounds, "select_on": args.select_on,
             "class_weight": use_cw, "pretrained_encoders": ckpt,
-            "n_devices": n_dev, "metric": key}, f, indent=2)
+            "n_devices": n_dev, "metric": key, "dp_unit": args.dp_unit,
+            "patients_per_batch": (args.patients_per_batch
+                                   if args.dp_unit == "patient" else None)},
+            f, indent=2)
 
 
 if __name__ == "__main__":
