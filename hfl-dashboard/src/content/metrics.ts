@@ -74,7 +74,7 @@ export const METRIC_DEFINITIONS: Record<MetricKind, MetricDefinition> = {
     shortName: "Inference latency",
     unit: "ms",
     definition:
-      "95th-percentile end-to-end time to produce one prediction (preprocessing, forward pass, post-processing).",
+      "95th-percentile end-to-end time to produce one prediction: preprocessing, forward pass, the evaluated (non-deployed) conformal-set step and post-processing.",
     baseline: "Absolute value against a 100 ms budget.",
     context:
       "Timed on a workstation CPU (Intel Core i7-14700) with ONNX Runtime, 1,000 timed runs after 100 warm-up runs.",
@@ -142,7 +142,7 @@ export const METRICS: MetricRecord[] = [
     target: { operator: ">=", value: 50, unit: "%" },
     basis: "measured",
     evidenceStatus: "measured",
-    evaluationContext: METRIC_DEFINITIONS.communication.context,
+    evaluationContext: `${METRIC_DEFINITIONS.communication.context} VitalDB system results use the case-level partition (unit: surgical case).`,
     baseline: METRIC_DEFINITIONS.communication.baseline,
     interpretation:
       "Edge aggregation of compressed head updates sends about one tenth of the baseline's uplink bytes.",
@@ -202,7 +202,7 @@ export const METRICS: MetricRecord[] = [
     target: { operator: ">", value: 0, unit: "%" },
     basis: "modelled",
     evidenceStatus: "modelled",
-    evaluationContext: `${METRIC_DEFINITIONS["round-latency"].context} Round duration fell from 90.5 ms to 75.2 ms.`,
+    evaluationContext: `${METRIC_DEFINITIONS["round-latency"].context} Round duration fell from 90.5 ms to 75.2 ms. VitalDB system results use the case-level partition (unit: surgical case).`,
     baseline: METRIC_DEFINITIONS["round-latency"].baseline,
     interpretation:
       "Rounds are shorter, but by far less than the traffic cut, because computation time is unchanged.",
@@ -263,7 +263,7 @@ export const METRICS: MetricRecord[] = [
     target: { operator: ">=", value: 20, unit: "%" },
     basis: "modelled",
     evidenceStatus: "modelled",
-    evaluationContext: METRIC_DEFINITIONS.energy.context,
+    evaluationContext: `${METRIC_DEFINITIONS.energy.context} VitalDB system results use the case-level partition (unit: surgical case).`,
     baseline: METRIC_DEFINITIONS.energy.baseline,
     interpretation:
       "Adding an edge tier alone raises modelled energy (1,266 J to 1,344 J); the saving comes from reduced device computation and transmission, which lowers the device term about fivefold.",
@@ -323,7 +323,7 @@ export const METRICS: MetricRecord[] = [
     target: { operator: "<", value: 100, unit: "ms" },
     basis: "measured",
     evidenceStatus: "measured",
-    evaluationContext: `${METRIC_DEFINITIONS["inference-latency"].context} The forward pass dominates (P95 2.17 ms of 2.30 ms).`,
+    evaluationContext: `${METRIC_DEFINITIONS["inference-latency"].context} The forward pass dominates (P95 2.165 ms of 2.299 ms). VitalDB system results use the case-level partition (unit: surgical case).`,
     baseline: METRIC_DEFINITIONS["inference-latency"].baseline,
     interpretation:
       "Well inside the 100 ms budget. The privacy mechanism adds no inference cost, because noise acts only on training gradients.",
@@ -384,7 +384,7 @@ export const METRICS: MetricRecord[] = [
     target: { operator: ">", value: 99, unit: "%" },
     basis: "modelled",
     evidenceStatus: "modelled",
-    evaluationContext: `${METRIC_DEFINITIONS["update-delivery"].context} Two edge aggregators, nine clients.`,
+    evaluationContext: `${METRIC_DEFINITIONS["update-delivery"].context} Two edge aggregators, nine clients. VitalDB system results use the case-level partition (unit: surgical case).`,
     baseline: METRIC_DEFINITIONS["update-delivery"].baseline,
     interpretation: "Every simulated update was delivered; nine clients share the two edges.",
     caveat: NETWORK_CAVEAT,

@@ -36,14 +36,14 @@ export const DATASETS: DatasetRecord[] = [
     clients:
       "Nine clients, one per surgical specialty. They differ naturally in size and outcome rate, because of how care is organized rather than an imposed skew.",
     partitioning:
-      "Person-level partition for the privacy and utility results: every person appears in exactly one split and one client. Some system results use an earlier case-level partition and are labelled as such in the manuscript.",
+      "The privacy and utility results use a person-level partition: every person appears in exactly one split and one client. The system results (uplink, round latency, inference latency, update delivery, energy) use the case-level partition, where the unit is the surgical case.",
     privacyUnit: "Person (all surgical cases of one person).",
     access:
       "A publicly available research database. Use is governed by the provider's data-use terms; this website does not provide or grant access to any data.",
     accessKind: "public",
     limitations: [
       "The headline encoders are pretrained on pooled client training data, so the guarantee covers the training transcript, not the full pipeline.",
-      "A single-centre surgical population; results may not generalize to other institutions.",
+      "Data from a single hospital (Seoul National University Hospital); results may not generalize to other institutions.",
     ],
   },
   {
@@ -56,7 +56,7 @@ export const DATASETS: DatasetRecord[] = [
       "Body-worn inertial sensing.",
       "Egocentric video features, synchronized with the inertial stream in hardware.",
     ],
-    task: "Human activity recognition.",
+    task: "Human activity recognition across 18 activity classes.",
     clients: "Twenty-two clients, each one participant.",
     partitioning: "Splits are made by individual.",
     privacyUnit: "Record. Each client holds one individual, so the evaluation is record-level.",

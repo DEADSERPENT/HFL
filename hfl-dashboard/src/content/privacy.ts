@@ -25,7 +25,7 @@ export const MIA_AUDIT: AuditRecord = {
   attack:
     "Offline likelihood-ratio membership-inference attack (LiRA) adapted to the patient unit, with 16 shadow models and per-patient calibration.",
   auc: 0.503,
-  interval: { lower: 0.475, upper: 0.531, method: "95% interval reported in the manuscript" },
+  interval: { lower: 0.475, upper: 0.531, method: "95% interval over five target seeds" },
   floor: 0.508,
   margin: -0.005,
   evidenceStatus: "measured",
