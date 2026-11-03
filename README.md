@@ -15,15 +15,15 @@ whose unit is the patient: each client sums a patient's gradients before clippin
 calibrates noise to its own population, and every release of the hierarchy is accounted for.
 
 The guarantee is proved for the training transcript (Theorem 1). It holds end to end only
-with public encoders and standardization constants: eICU, and the VitalDB disjoint
-variant.
+with public encoders and standardization constants, which among the evaluated runs is
+the eICU configuration only.
 
 ## Manuscripts
 
 | Folder | Content | Build |
 |---|---|---|
-| `PLDP/` | submission manuscript (IEEEtran, 18 pp.); copy `PLDP.pdf` | `bash PLDP/build_paper.sh`; Overleaf: `bash PLDP/make_overleaf.sh` |
-| `paper/` | full-length manuscript (31 pp.) and figure generators | `bash paper/build_paper.sh` |
+| `PLDP/` | submission manuscript (IEEEtran, 19 pp.); copy `PLDP.pdf` | `bash PLDP/build_paper.sh`; Overleaf: `bash PLDP/make_overleaf.sh` |
+| `paper/` | full-length manuscript (32 pp.) and figure generators | `bash paper/build_paper.sh` |
 
 Both manuscripts are updated together. Compile through these scripts; the files in
 `sections/` are fragments.

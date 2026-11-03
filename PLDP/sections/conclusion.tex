@@ -7,14 +7,17 @@ individual records, whereas a clinical deployment must protect patients, each
 of whom contributes many records. The proposed framework, PP-HFM, closes this
 gap by construction. Each client sums a patient's gradients before clipping,
 calibrates its noise to its own population, which parallel composition
-permits because every patient is held by one client, and accounts for every
+permits for every patient held by one client, and accounts for every
 release of the hierarchy, edge tier included. The guarantee was proved for the
 training transcript; it holds end to end only when the encoders and
 standardization constants are fitted on public data, which on the evaluated
-corpora is the eICU configuration.
+corpora is the eICU configuration, and there for the $97.1\,\%$ of training
+individuals treated at a single hospital.
 
 The evaluation on three corpora supports four conclusions. First, the system
-objectives are met on every corpus with two exceptions on eICU: the training
+objectives are met on every corpus with two exceptions on eICU and one on
+WEAR, where the record-level utility loss of $1.97$~pp is inconclusive
+against the two-point target: the training
 budget is at most $\varepsilon = 0.9$ ($1.0$ with the evaluated conformal
 release), uplink traffic falls by $90.8$--$96.1\,\%$, modeled energy per
 round by $72.3$--$79.6\,\%$, and the $95$th-percentile inference latency on
@@ -35,7 +38,7 @@ audit with a positive control is consistent with the distinction: record-level
 training remains detectably above its difficulty floor under offline LiRA,
 whereas patient-level training does not; the audit bounds these attacks
 without establishing the absence of leakage. The corpora carry different
-evidence: eICU tests the guarantee end to end, VitalDB tests it on the
+evidence: eICU tests the guarantee end to end for individuals at one hospital, VitalDB tests it on the
 training transcript, and WEAR, where each client is one participant,
 evaluates the system at record level.
 

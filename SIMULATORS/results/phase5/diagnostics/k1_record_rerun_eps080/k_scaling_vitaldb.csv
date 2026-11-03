@@ -1,0 +1,7 @@
+dataset,k,seed,arm,auroc,auprc,acc
+vitaldb,1,42,sample,0.8298,0.5169,0.8005
+vitaldb,1,42,patient,0.8253,0.4811,0.8005
+vitaldb,1,43,sample,0.8263,0.5058,0.8005
+vitaldb,1,43,patient,0.833,0.4912,0.8005
+vitaldb,1,44,sample,0.839,0.5665,0.8005
+vitaldb,1,44,patient,0.8289,0.4955,0.8005

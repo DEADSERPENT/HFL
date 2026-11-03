@@ -235,7 +235,7 @@ patient at every step and requires the largest noise multiplier, $29.34$,
 against a median of $13.39$, and its updates enter the edge average with their
 public weights. With standardization constants fitted on the disjoint pool and encoders
 pretrained in those units, the only configuration in which the guarantee holds
-end to end, the cost rises to $3.91$ points $[2.40, 5.42]$ ($0.8209$ to
+end to end for individuals at a single hospital, the cost rises to $3.91$ points $[2.40, 5.42]$ ($0.8209$ to
 $0.7819$, $p = 0.002$), with $2.66$ $[1.82, 3.49]$ in average precision and
 $2.69$ $[1.57, 3.82]$ in balanced accuracy. The end-to-end guarantee therefore
 misses the objective in area under the ROC curve, whose interval lies above the
@@ -843,7 +843,11 @@ leakage of three configurations on the person-level VitalDB partition under
 the attacks of Section~\ref{sec:method:mia}. Each attack uses sixteen shadow
 models trained on independently sampled halves of the patient population, and
 each configuration is scored on the same $600$ member and $600$ non-member
-patients.
+patients. The audited record- and patient-level models are the five-seed models
+of the unit comparison (Section~\ref{sec:results:unit}), trained at
+$\varepsilon = 1.0$ with $\varepsilon_{\mathrm{conf}} = 0.5$ and one
+worst-client multiplier under the R\'enyi accountant, a slightly weaker budget
+than the headline $\varepsilon = 0.9$.
 
 \begin{table}[!t]
 \centering
@@ -969,7 +973,11 @@ external one.
 $\varepsilon$ is the patient-level training budget at $\delta = 10^{-5}$; a
 dash denotes a mechanism without a finite bound. MB is the total uplink.
 LiRA is the offline attack AUC, with the margin above the per-configuration
-difficulty floor in parentheses; it was not run on eICU. Every AUROC
+difficulty floor in parentheses; it was not run on eICU. The PP-HFM LiRA
+entry is the patient-level audit target ($\varepsilon = 1.0$,
+$\varepsilon_{\mathrm{conf}} = 0.5$, one worst-client multiplier, R\'enyi
+accountant), not the $\varepsilon = 0.9$ model whose AUROC and uplink are
+listed. Every AUROC
 difference from PP-HFM excludes zero except HED-FL on VitalDB.}
 \label{tab:prior}
 \small
@@ -1014,7 +1022,7 @@ $0.078$ $[0.050, 0.106]$ and $0.105$ $[0.079, 0.130]$ above PP-HFM; the loss
 threshold gives $+0.047$ $[0.040, 0.053]$ and $+0.055$ $[0.051, 0.059]$. Both
 baselines also have higher difficulty floors ($0.555$ and $0.559$ against
 $0.508$), and their margins above them, the signal specific to the target
-model, are $+0.026$ and $+0.049$ against $-0.005$ for PP-HFM. FL2DP thus leaks more than HED-FL,
+model, are $+0.026$ and $+0.049$ against $-0.005$ for PP-HFM. The PP-HFM is the patient-level audit target, trained at $\varepsilon = 1.0$ with $\varepsilon_{\mathrm{conf}} = 0.5$ and one worst-client multiplier under the R\'enyi accountant, not the $\varepsilon = 0.9$ model whose AUROC and uplink are listed, so its leakage is measured at a slightly weaker budget than the headline. The comparison bounds what these attacks achieve and does not by itself establish the guarantee. FL2DP thus leaks more than HED-FL,
 which adds no noise at all. Its candidate set is constructed from the private
 gradient value (Eqs.~11--12 of \cite{ref9}), so the mechanism satisfies no
 finite $\varepsilon$, and the audit shows that its perturbation does not

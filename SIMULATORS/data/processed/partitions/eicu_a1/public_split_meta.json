@@ -1,0 +1,18 @@
+{
+  "dataset": "eicu",
+  "seed": 42,
+  "public_frac": 0.2,
+  "n_public_cases": 18582,
+  "n_public_windows": 526867,
+  "n_client_train_windows_after": 2122350,
+  "n_client_train_windows_removed": 526867,
+  "split_unit": "case (patient)",
+  "val_test_modified": false,
+  "disjoint_verified": {
+    "public \u2229 client-train  (window)": 0,
+    "public \u2229 client-train  (CASE)": 0,
+    "public \u2229 val/test      (CASE)": 0
+  },
+  "note_on_terminology": "'public' = outside the epsilon guarantee for the DP analysis; nothing is released or uploaded \u2014 all files are local",
+  "purpose": "encoders pretrain ONLY on public_indices.npy so the reported epsilon is a valid end-to-end guarantee rather than an upper bound"
+}

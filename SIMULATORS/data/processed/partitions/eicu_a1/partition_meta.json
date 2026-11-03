@@ -1,0 +1,2719 @@
+{
+  "dataset": "eICU-CRD",
+  "citation": "Pollard et al., Sci Data 5:180178, 2018",
+  "licence": "PhysioNet Credentialed Health Data License 1.5.0",
+  "domain": "clinical_iomt",
+  "pairing": "same stay (patientunitstayid); tabular is admission-time only",
+  "label": "in-unit mortality (unitdischargestatus == \"Expired\")",
+  "total_samples": 3782805,
+  "n_devices": 187,
+  "n_classes": 2,
+  "n_edges": 2,
+  "edge_assignments": {
+    "0": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      32,
+      34,
+      36,
+      38,
+      40,
+      42,
+      44,
+      46,
+      48,
+      50,
+      52,
+      54,
+      56,
+      58,
+      60,
+      62,
+      64,
+      66,
+      68,
+      70,
+      72,
+      74,
+      76,
+      78,
+      80,
+      82,
+      84,
+      86,
+      88,
+      90,
+      92,
+      94,
+      96,
+      98,
+      100,
+      102,
+      104,
+      106,
+      108,
+      110,
+      112,
+      114,
+      116,
+      118,
+      120,
+      122,
+      124,
+      126,
+      128,
+      130,
+      132,
+      134,
+      136,
+      138,
+      140,
+      142,
+      144,
+      146,
+      148,
+      150,
+      152,
+      154,
+      156,
+      158,
+      160,
+      162,
+      164,
+      166,
+      168,
+      170,
+      172,
+      174,
+      176,
+      178,
+      180,
+      182,
+      184,
+      186
+    ],
+    "1": [
+      1,
+      3,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21,
+      23,
+      25,
+      27,
+      29,
+      31,
+      33,
+      35,
+      37,
+      39,
+      41,
+      43,
+      45,
+      47,
+      49,
+      51,
+      53,
+      55,
+      57,
+      59,
+      61,
+      63,
+      65,
+      67,
+      69,
+      71,
+      73,
+      75,
+      77,
+      79,
+      81,
+      83,
+      85,
+      87,
+      89,
+      91,
+      93,
+      95,
+      97,
+      99,
+      101,
+      103,
+      105,
+      107,
+      109,
+      111,
+      113,
+      115,
+      117,
+      119,
+      121,
+      123,
+      125,
+      127,
+      129,
+      131,
+      133,
+      135,
+      137,
+      139,
+      141,
+      143,
+      145,
+      147,
+      149,
+      151,
+      153,
+      155,
+      157,
+      159,
+      161,
+      163,
+      165,
+      167,
+      169,
+      171,
+      173,
+      175,
+      177,
+      179,
+      181,
+      183,
+      185
+    ]
+  },
+  "devices": {
+    "0": {
+      "edge_id": 0,
+      "n_train": 339,
+      "n_val": 110,
+      "n_test": 89,
+      "total": 538,
+      "n_patients": 24,
+      "mortality_rate_pct": 8.55,
+      "class_distribution": {
+        "0": 492,
+        "1": 46
+      }
+    },
+    "1": {
+      "edge_id": 1,
+      "n_train": 4080,
+      "n_val": 979,
+      "n_test": 1106,
+      "total": 6165,
+      "n_patients": 232,
+      "mortality_rate_pct": 2.3,
+      "class_distribution": {
+        "0": 6023,
+        "1": 142
+      }
+    },
+    "2": {
+      "edge_id": 0,
+      "n_train": 18850,
+      "n_val": 4847,
+      "n_test": 5273,
+      "total": 28970,
+      "n_patients": 995,
+      "mortality_rate_pct": 5.03,
+      "class_distribution": {
+        "0": 27514,
+        "1": 1456
+      }
+    },
+    "3": {
+      "edge_id": 1,
+      "n_train": 3714,
+      "n_val": 998,
+      "n_test": 1015,
+      "total": 5727,
+      "n_patients": 243,
+      "mortality_rate_pct": 4.16,
+      "class_distribution": {
+        "0": 5489,
+        "1": 238
+      }
+    },
+    "4": {
+      "edge_id": 0,
+      "n_train": 300,
+      "n_val": 95,
+      "n_test": 79,
+      "total": 474,
+      "n_patients": 22,
+      "mortality_rate_pct": 17.93,
+      "class_distribution": {
+        "0": 389,
+        "1": 85
+      }
+    },
+    "5": {
+      "edge_id": 1,
+      "n_train": 1164,
+      "n_val": 253,
+      "n_test": 291,
+      "total": 1708,
+      "n_patients": 72,
+      "mortality_rate_pct": 8.2,
+      "class_distribution": {
+        "0": 1568,
+        "1": 140
+      }
+    },
+    "6": {
+      "edge_id": 0,
+      "n_train": 34809,
+      "n_val": 9302,
+      "n_test": 8961,
+      "total": 53072,
+      "n_patients": 1867,
+      "mortality_rate_pct": 6.08,
+      "class_distribution": {
+        "0": 49843,
+        "1": 3229
+      }
+    },
+    "7": {
+      "edge_id": 1,
+      "n_train": 2026,
+      "n_val": 535,
+      "n_test": 575,
+      "total": 3136,
+      "n_patients": 111,
+      "mortality_rate_pct": 0.26,
+      "class_distribution": {
+        "0": 3128,
+        "1": 8
+      }
+    },
+    "8": {
+      "edge_id": 0,
+      "n_train": 1077,
+      "n_val": 274,
+      "n_test": 414,
+      "total": 1765,
+      "n_patients": 55,
+      "mortality_rate_pct": 15.01,
+      "class_distribution": {
+        "0": 1500,
+        "1": 265
+      }
+    },
+    "9": {
+      "edge_id": 1,
+      "n_train": 2168,
+      "n_val": 603,
+      "n_test": 517,
+      "total": 3288,
+      "n_patients": 140,
+      "mortality_rate_pct": 2.07,
+      "class_distribution": {
+        "0": 3220,
+        "1": 68
+      }
+    },
+    "10": {
+      "edge_id": 0,
+      "n_train": 1824,
+      "n_val": 319,
+      "n_test": 472,
+      "total": 2615,
+      "n_patients": 110,
+      "mortality_rate_pct": 0.84,
+      "class_distribution": {
+        "0": 2593,
+        "1": 22
+      }
+    },
+    "11": {
+      "edge_id": 1,
+      "n_train": 6114,
+      "n_val": 1526,
+      "n_test": 1560,
+      "total": 9200,
+      "n_patients": 354,
+      "mortality_rate_pct": 2.85,
+      "class_distribution": {
+        "0": 8938,
+        "1": 262
+      }
+    },
+    "12": {
+      "edge_id": 0,
+      "n_train": 18846,
+      "n_val": 5278,
+      "n_test": 4781,
+      "total": 28905,
+      "n_patients": 911,
+      "mortality_rate_pct": 3.65,
+      "class_distribution": {
+        "0": 27850,
+        "1": 1055
+      }
+    },
+    "13": {
+      "edge_id": 1,
+      "n_train": 19550,
+      "n_val": 5544,
+      "n_test": 5445,
+      "total": 30539,
+      "n_patients": 1071,
+      "mortality_rate_pct": 6.14,
+      "class_distribution": {
+        "0": 28663,
+        "1": 1876
+      }
+    },
+    "14": {
+      "edge_id": 0,
+      "n_train": 8216,
+      "n_val": 2151,
+      "n_test": 2135,
+      "total": 12502,
+      "n_patients": 468,
+      "mortality_rate_pct": 1.69,
+      "class_distribution": {
+        "0": 12291,
+        "1": 211
+      }
+    },
+    "15": {
+      "edge_id": 1,
+      "n_train": 9172,
+      "n_val": 2440,
+      "n_test": 2348,
+      "total": 13960,
+      "n_patients": 525,
+      "mortality_rate_pct": 3.76,
+      "class_distribution": {
+        "0": 13435,
+        "1": 525
+      }
+    },
+    "16": {
+      "edge_id": 0,
+      "n_train": 15026,
+      "n_val": 3611,
+      "n_test": 3885,
+      "total": 22522,
+      "n_patients": 684,
+      "mortality_rate_pct": 2.72,
+      "class_distribution": {
+        "0": 21910,
+        "1": 612
+      }
+    },
+    "17": {
+      "edge_id": 1,
+      "n_train": 26414,
+      "n_val": 6531,
+      "n_test": 7142,
+      "total": 40087,
+      "n_patients": 1163,
+      "mortality_rate_pct": 4.27,
+      "class_distribution": {
+        "0": 38376,
+        "1": 1711
+      }
+    },
+    "18": {
+      "edge_id": 0,
+      "n_train": 15207,
+      "n_val": 4052,
+      "n_test": 3916,
+      "total": 23175,
+      "n_patients": 802,
+      "mortality_rate_pct": 4.65,
+      "class_distribution": {
+        "0": 22098,
+        "1": 1077
+      }
+    },
+    "19": {
+      "edge_id": 1,
+      "n_train": 15531,
+      "n_val": 3615,
+      "n_test": 3801,
+      "total": 22947,
+      "n_patients": 757,
+      "mortality_rate_pct": 5.06,
+      "class_distribution": {
+        "0": 21785,
+        "1": 1162
+      }
+    },
+    "20": {
+      "edge_id": 0,
+      "n_train": 8024,
+      "n_val": 2004,
+      "n_test": 2052,
+      "total": 12080,
+      "n_patients": 348,
+      "mortality_rate_pct": 4.62,
+      "class_distribution": {
+        "0": 11522,
+        "1": 558
+      }
+    },
+    "21": {
+      "edge_id": 1,
+      "n_train": 16400,
+      "n_val": 4673,
+      "n_test": 4450,
+      "total": 25523,
+      "n_patients": 737,
+      "mortality_rate_pct": 5.83,
+      "class_distribution": {
+        "0": 24035,
+        "1": 1488
+      }
+    },
+    "22": {
+      "edge_id": 0,
+      "n_train": 4304,
+      "n_val": 1195,
+      "n_test": 1067,
+      "total": 6566,
+      "n_patients": 223,
+      "mortality_rate_pct": 2.53,
+      "class_distribution": {
+        "0": 6400,
+        "1": 166
+      }
+    },
+    "23": {
+      "edge_id": 1,
+      "n_train": 1337,
+      "n_val": 495,
+      "n_test": 376,
+      "total": 2208,
+      "n_patients": 92,
+      "mortality_rate_pct": 3.26,
+      "class_distribution": {
+        "0": 2136,
+        "1": 72
+      }
+    },
+    "24": {
+      "edge_id": 0,
+      "n_train": 25906,
+      "n_val": 6550,
+      "n_test": 6967,
+      "total": 39423,
+      "n_patients": 1292,
+      "mortality_rate_pct": 4.43,
+      "class_distribution": {
+        "0": 37676,
+        "1": 1747
+      }
+    },
+    "25": {
+      "edge_id": 1,
+      "n_train": 49145,
+      "n_val": 13590,
+      "n_test": 12951,
+      "total": 75686,
+      "n_patients": 2396,
+      "mortality_rate_pct": 4.62,
+      "class_distribution": {
+        "0": 72191,
+        "1": 3495
+      }
+    },
+    "26": {
+      "edge_id": 0,
+      "n_train": 21885,
+      "n_val": 6028,
+      "n_test": 6741,
+      "total": 34654,
+      "n_patients": 930,
+      "mortality_rate_pct": 2.52,
+      "class_distribution": {
+        "0": 33781,
+        "1": 873
+      }
+    },
+    "27": {
+      "edge_id": 1,
+      "n_train": 841,
+      "n_val": 241,
+      "n_test": 235,
+      "total": 1317,
+      "n_patients": 53,
+      "mortality_rate_pct": 1.82,
+      "class_distribution": {
+        "0": 1293,
+        "1": 24
+      }
+    },
+    "28": {
+      "edge_id": 0,
+      "n_train": 5243,
+      "n_val": 1328,
+      "n_test": 1262,
+      "total": 7833,
+      "n_patients": 271,
+      "mortality_rate_pct": 3.84,
+      "class_distribution": {
+        "0": 7532,
+        "1": 301
+      }
+    },
+    "29": {
+      "edge_id": 1,
+      "n_train": 35282,
+      "n_val": 9102,
+      "n_test": 9639,
+      "total": 54023,
+      "n_patients": 1619,
+      "mortality_rate_pct": 3.53,
+      "class_distribution": {
+        "0": 52117,
+        "1": 1906
+      }
+    },
+    "30": {
+      "edge_id": 0,
+      "n_train": 258,
+      "n_val": 81,
+      "n_test": 104,
+      "total": 443,
+      "n_patients": 20,
+      "mortality_rate_pct": 5.42,
+      "class_distribution": {
+        "0": 419,
+        "1": 24
+      }
+    },
+    "31": {
+      "edge_id": 1,
+      "n_train": 4338,
+      "n_val": 1152,
+      "n_test": 1312,
+      "total": 6802,
+      "n_patients": 249,
+      "mortality_rate_pct": 5.85,
+      "class_distribution": {
+        "0": 6404,
+        "1": 398
+      }
+    },
+    "32": {
+      "edge_id": 0,
+      "n_train": 11034,
+      "n_val": 2847,
+      "n_test": 2901,
+      "total": 16782,
+      "n_patients": 630,
+      "mortality_rate_pct": 6.24,
+      "class_distribution": {
+        "0": 15735,
+        "1": 1047
+      }
+    },
+    "33": {
+      "edge_id": 1,
+      "n_train": 3902,
+      "n_val": 1171,
+      "n_test": 1298,
+      "total": 6371,
+      "n_patients": 204,
+      "mortality_rate_pct": 4.41,
+      "class_distribution": {
+        "0": 6090,
+        "1": 281
+      }
+    },
+    "34": {
+      "edge_id": 0,
+      "n_train": 18013,
+      "n_val": 4967,
+      "n_test": 4872,
+      "total": 27852,
+      "n_patients": 1049,
+      "mortality_rate_pct": 4.36,
+      "class_distribution": {
+        "0": 26638,
+        "1": 1214
+      }
+    },
+    "35": {
+      "edge_id": 1,
+      "n_train": 9673,
+      "n_val": 2480,
+      "n_test": 2268,
+      "total": 14421,
+      "n_patients": 530,
+      "mortality_rate_pct": 5.92,
+      "class_distribution": {
+        "0": 13567,
+        "1": 854
+      }
+    },
+    "36": {
+      "edge_id": 0,
+      "n_train": 41790,
+      "n_val": 11036,
+      "n_test": 11003,
+      "total": 63829,
+      "n_patients": 2291,
+      "mortality_rate_pct": 6.04,
+      "class_distribution": {
+        "0": 59975,
+        "1": 3854
+      }
+    },
+    "37": {
+      "edge_id": 1,
+      "n_train": 4508,
+      "n_val": 1247,
+      "n_test": 1104,
+      "total": 6859,
+      "n_patients": 251,
+      "mortality_rate_pct": 5.85,
+      "class_distribution": {
+        "0": 6458,
+        "1": 401
+      }
+    },
+    "38": {
+      "edge_id": 0,
+      "n_train": 14412,
+      "n_val": 3835,
+      "n_test": 3988,
+      "total": 22235,
+      "n_patients": 849,
+      "mortality_rate_pct": 2.97,
+      "class_distribution": {
+        "0": 21574,
+        "1": 661
+      }
+    },
+    "39": {
+      "edge_id": 1,
+      "n_train": 3754,
+      "n_val": 1223,
+      "n_test": 1227,
+      "total": 6204,
+      "n_patients": 240,
+      "mortality_rate_pct": 6.9,
+      "class_distribution": {
+        "0": 5776,
+        "1": 428
+      }
+    },
+    "40": {
+      "edge_id": 0,
+      "n_train": 21642,
+      "n_val": 5541,
+      "n_test": 5843,
+      "total": 33026,
+      "n_patients": 1178,
+      "mortality_rate_pct": 4.9,
+      "class_distribution": {
+        "0": 31408,
+        "1": 1618
+      }
+    },
+    "41": {
+      "edge_id": 1,
+      "n_train": 7882,
+      "n_val": 1961,
+      "n_test": 1973,
+      "total": 11816,
+      "n_patients": 471,
+      "mortality_rate_pct": 4.62,
+      "class_distribution": {
+        "0": 11270,
+        "1": 546
+      }
+    },
+    "42": {
+      "edge_id": 0,
+      "n_train": 43438,
+      "n_val": 11253,
+      "n_test": 12063,
+      "total": 66754,
+      "n_patients": 2205,
+      "mortality_rate_pct": 5.15,
+      "class_distribution": {
+        "0": 63313,
+        "1": 3441
+      }
+    },
+    "43": {
+      "edge_id": 1,
+      "n_train": 4493,
+      "n_val": 1190,
+      "n_test": 1221,
+      "total": 6904,
+      "n_patients": 319,
+      "mortality_rate_pct": 4.07,
+      "class_distribution": {
+        "0": 6623,
+        "1": 281
+      }
+    },
+    "44": {
+      "edge_id": 0,
+      "n_train": 1361,
+      "n_val": 370,
+      "n_test": 384,
+      "total": 2115,
+      "n_patients": 105,
+      "mortality_rate_pct": 4.49,
+      "class_distribution": {
+        "0": 2020,
+        "1": 95
+      }
+    },
+    "45": {
+      "edge_id": 1,
+      "n_train": 10000,
+      "n_val": 2851,
+      "n_test": 2833,
+      "total": 15684,
+      "n_patients": 656,
+      "mortality_rate_pct": 5.27,
+      "class_distribution": {
+        "0": 14857,
+        "1": 827
+      }
+    },
+    "46": {
+      "edge_id": 0,
+      "n_train": 1354,
+      "n_val": 341,
+      "n_test": 378,
+      "total": 2073,
+      "n_patients": 99,
+      "mortality_rate_pct": 3.38,
+      "class_distribution": {
+        "0": 2003,
+        "1": 70
+      }
+    },
+    "47": {
+      "edge_id": 1,
+      "n_train": 1818,
+      "n_val": 402,
+      "n_test": 468,
+      "total": 2688,
+      "n_patients": 125,
+      "mortality_rate_pct": 4.39,
+      "class_distribution": {
+        "0": 2570,
+        "1": 118
+      }
+    },
+    "48": {
+      "edge_id": 0,
+      "n_train": 2276,
+      "n_val": 689,
+      "n_test": 654,
+      "total": 3619,
+      "n_patients": 195,
+      "mortality_rate_pct": 0.0,
+      "class_distribution": {
+        "0": 3619
+      }
+    },
+    "49": {
+      "edge_id": 1,
+      "n_train": 11091,
+      "n_val": 2871,
+      "n_test": 3136,
+      "total": 17098,
+      "n_patients": 669,
+      "mortality_rate_pct": 8.82,
+      "class_distribution": {
+        "0": 15590,
+        "1": 1508
+      }
+    },
+    "50": {
+      "edge_id": 0,
+      "n_train": 7213,
+      "n_val": 1640,
+      "n_test": 2125,
+      "total": 10978,
+      "n_patients": 332,
+      "mortality_rate_pct": 3.02,
+      "class_distribution": {
+        "0": 10647,
+        "1": 331
+      }
+    },
+    "51": {
+      "edge_id": 1,
+      "n_train": 38354,
+      "n_val": 11220,
+      "n_test": 10185,
+      "total": 59759,
+      "n_patients": 1997,
+      "mortality_rate_pct": 3.52,
+      "class_distribution": {
+        "0": 57655,
+        "1": 2104
+      }
+    },
+    "52": {
+      "edge_id": 0,
+      "n_train": 1195,
+      "n_val": 376,
+      "n_test": 240,
+      "total": 1811,
+      "n_patients": 69,
+      "mortality_rate_pct": 4.91,
+      "class_distribution": {
+        "0": 1722,
+        "1": 89
+      }
+    },
+    "53": {
+      "edge_id": 1,
+      "n_train": 6709,
+      "n_val": 1766,
+      "n_test": 1726,
+      "total": 10201,
+      "n_patients": 393,
+      "mortality_rate_pct": 4.43,
+      "class_distribution": {
+        "0": 9749,
+        "1": 452
+      }
+    },
+    "54": {
+      "edge_id": 0,
+      "n_train": 7093,
+      "n_val": 1923,
+      "n_test": 1967,
+      "total": 10983,
+      "n_patients": 453,
+      "mortality_rate_pct": 6.02,
+      "class_distribution": {
+        "0": 10322,
+        "1": 661
+      }
+    },
+    "55": {
+      "edge_id": 1,
+      "n_train": 14417,
+      "n_val": 4487,
+      "n_test": 4253,
+      "total": 23157,
+      "n_patients": 768,
+      "mortality_rate_pct": 6.98,
+      "class_distribution": {
+        "0": 21541,
+        "1": 1616
+      }
+    },
+    "56": {
+      "edge_id": 0,
+      "n_train": 8490,
+      "n_val": 2258,
+      "n_test": 2252,
+      "total": 13000,
+      "n_patients": 525,
+      "mortality_rate_pct": 2.38,
+      "class_distribution": {
+        "0": 12690,
+        "1": 310
+      }
+    },
+    "57": {
+      "edge_id": 1,
+      "n_train": 5951,
+      "n_val": 1377,
+      "n_test": 1400,
+      "total": 8728,
+      "n_patients": 317,
+      "mortality_rate_pct": 4.27,
+      "class_distribution": {
+        "0": 8355,
+        "1": 373
+      }
+    },
+    "58": {
+      "edge_id": 0,
+      "n_train": 14203,
+      "n_val": 3661,
+      "n_test": 3393,
+      "total": 21257,
+      "n_patients": 791,
+      "mortality_rate_pct": 3.88,
+      "class_distribution": {
+        "0": 20432,
+        "1": 825
+      }
+    },
+    "59": {
+      "edge_id": 1,
+      "n_train": 17168,
+      "n_val": 4807,
+      "n_test": 5034,
+      "total": 27009,
+      "n_patients": 911,
+      "mortality_rate_pct": 4.62,
+      "class_distribution": {
+        "0": 25761,
+        "1": 1248
+      }
+    },
+    "60": {
+      "edge_id": 0,
+      "n_train": 50201,
+      "n_val": 13321,
+      "n_test": 13655,
+      "total": 77177,
+      "n_patients": 2541,
+      "mortality_rate_pct": 1.97,
+      "class_distribution": {
+        "0": 75656,
+        "1": 1521
+      }
+    },
+    "61": {
+      "edge_id": 1,
+      "n_train": 13241,
+      "n_val": 2939,
+      "n_test": 3446,
+      "total": 19626,
+      "n_patients": 681,
+      "mortality_rate_pct": 1.53,
+      "class_distribution": {
+        "0": 19325,
+        "1": 301
+      }
+    },
+    "62": {
+      "edge_id": 0,
+      "n_train": 7090,
+      "n_val": 1593,
+      "n_test": 1782,
+      "total": 10465,
+      "n_patients": 319,
+      "mortality_rate_pct": 2.24,
+      "class_distribution": {
+        "0": 10231,
+        "1": 234
+      }
+    },
+    "63": {
+      "edge_id": 1,
+      "n_train": 19830,
+      "n_val": 5400,
+      "n_test": 5847,
+      "total": 31077,
+      "n_patients": 1142,
+      "mortality_rate_pct": 4.19,
+      "class_distribution": {
+        "0": 29775,
+        "1": 1302
+      }
+    },
+    "64": {
+      "edge_id": 0,
+      "n_train": 4083,
+      "n_val": 975,
+      "n_test": 1021,
+      "total": 6079,
+      "n_patients": 240,
+      "mortality_rate_pct": 2.27,
+      "class_distribution": {
+        "0": 5941,
+        "1": 138
+      }
+    },
+    "65": {
+      "edge_id": 1,
+      "n_train": 2653,
+      "n_val": 573,
+      "n_test": 619,
+      "total": 3845,
+      "n_patients": 142,
+      "mortality_rate_pct": 1.85,
+      "class_distribution": {
+        "0": 3774,
+        "1": 71
+      }
+    },
+    "66": {
+      "edge_id": 0,
+      "n_train": 2930,
+      "n_val": 854,
+      "n_test": 923,
+      "total": 4707,
+      "n_patients": 187,
+      "mortality_rate_pct": 3.72,
+      "class_distribution": {
+        "0": 4532,
+        "1": 175
+      }
+    },
+    "67": {
+      "edge_id": 1,
+      "n_train": 39685,
+      "n_val": 11157,
+      "n_test": 10979,
+      "total": 61821,
+      "n_patients": 2176,
+      "mortality_rate_pct": 6.83,
+      "class_distribution": {
+        "0": 57599,
+        "1": 4222
+      }
+    },
+    "68": {
+      "edge_id": 0,
+      "n_train": 5281,
+      "n_val": 1301,
+      "n_test": 1383,
+      "total": 7965,
+      "n_patients": 310,
+      "mortality_rate_pct": 4.71,
+      "class_distribution": {
+        "0": 7590,
+        "1": 375
+      }
+    },
+    "69": {
+      "edge_id": 1,
+      "n_train": 5039,
+      "n_val": 1373,
+      "n_test": 1593,
+      "total": 8005,
+      "n_patients": 289,
+      "mortality_rate_pct": 4.7,
+      "class_distribution": {
+        "0": 7629,
+        "1": 376
+      }
+    },
+    "70": {
+      "edge_id": 0,
+      "n_train": 7596,
+      "n_val": 2253,
+      "n_test": 2504,
+      "total": 12353,
+      "n_patients": 419,
+      "mortality_rate_pct": 2.87,
+      "class_distribution": {
+        "0": 11999,
+        "1": 354
+      }
+    },
+    "71": {
+      "edge_id": 1,
+      "n_train": 3775,
+      "n_val": 1048,
+      "n_test": 930,
+      "total": 5753,
+      "n_patients": 193,
+      "mortality_rate_pct": 2.5,
+      "class_distribution": {
+        "0": 5609,
+        "1": 144
+      }
+    },
+    "72": {
+      "edge_id": 0,
+      "n_train": 5880,
+      "n_val": 1741,
+      "n_test": 1608,
+      "total": 9229,
+      "n_patients": 392,
+      "mortality_rate_pct": 10.42,
+      "class_distribution": {
+        "0": 8267,
+        "1": 962
+      }
+    },
+    "73": {
+      "edge_id": 1,
+      "n_train": 1749,
+      "n_val": 388,
+      "n_test": 498,
+      "total": 2635,
+      "n_patients": 112,
+      "mortality_rate_pct": 4.29,
+      "class_distribution": {
+        "0": 2522,
+        "1": 113
+      }
+    },
+    "74": {
+      "edge_id": 0,
+      "n_train": 56115,
+      "n_val": 15330,
+      "n_test": 15452,
+      "total": 86897,
+      "n_patients": 3234,
+      "mortality_rate_pct": 4.18,
+      "class_distribution": {
+        "0": 83261,
+        "1": 3636
+      }
+    },
+    "75": {
+      "edge_id": 1,
+      "n_train": 2225,
+      "n_val": 551,
+      "n_test": 712,
+      "total": 3488,
+      "n_patients": 153,
+      "mortality_rate_pct": 2.06,
+      "class_distribution": {
+        "0": 3416,
+        "1": 72
+      }
+    },
+    "76": {
+      "edge_id": 0,
+      "n_train": 2700,
+      "n_val": 762,
+      "n_test": 686,
+      "total": 4148,
+      "n_patients": 160,
+      "mortality_rate_pct": 1.13,
+      "class_distribution": {
+        "0": 4101,
+        "1": 47
+      }
+    },
+    "77": {
+      "edge_id": 1,
+      "n_train": 6877,
+      "n_val": 1791,
+      "n_test": 1914,
+      "total": 10582,
+      "n_patients": 376,
+      "mortality_rate_pct": 6.79,
+      "class_distribution": {
+        "0": 9864,
+        "1": 718
+      }
+    },
+    "78": {
+      "edge_id": 0,
+      "n_train": 8791,
+      "n_val": 2409,
+      "n_test": 2135,
+      "total": 13335,
+      "n_patients": 455,
+      "mortality_rate_pct": 3.75,
+      "class_distribution": {
+        "0": 12835,
+        "1": 500
+      }
+    },
+    "79": {
+      "edge_id": 1,
+      "n_train": 11375,
+      "n_val": 2985,
+      "n_test": 2993,
+      "total": 17353,
+      "n_patients": 616,
+      "mortality_rate_pct": 3.96,
+      "class_distribution": {
+        "0": 16665,
+        "1": 688
+      }
+    },
+    "80": {
+      "edge_id": 0,
+      "n_train": 13537,
+      "n_val": 3272,
+      "n_test": 3470,
+      "total": 20279,
+      "n_patients": 614,
+      "mortality_rate_pct": 3.56,
+      "class_distribution": {
+        "0": 19557,
+        "1": 722
+      }
+    },
+    "81": {
+      "edge_id": 1,
+      "n_train": 2000,
+      "n_val": 608,
+      "n_test": 558,
+      "total": 3166,
+      "n_patients": 92,
+      "mortality_rate_pct": 14.4,
+      "class_distribution": {
+        "0": 2710,
+        "1": 456
+      }
+    },
+    "82": {
+      "edge_id": 0,
+      "n_train": 6726,
+      "n_val": 1629,
+      "n_test": 1704,
+      "total": 10059,
+      "n_patients": 378,
+      "mortality_rate_pct": 4.08,
+      "class_distribution": {
+        "0": 9649,
+        "1": 410
+      }
+    },
+    "83": {
+      "edge_id": 1,
+      "n_train": 18291,
+      "n_val": 4474,
+      "n_test": 4611,
+      "total": 27376,
+      "n_patients": 895,
+      "mortality_rate_pct": 3.48,
+      "class_distribution": {
+        "0": 26423,
+        "1": 953
+      }
+    },
+    "84": {
+      "edge_id": 0,
+      "n_train": 7866,
+      "n_val": 1923,
+      "n_test": 2052,
+      "total": 11841,
+      "n_patients": 419,
+      "mortality_rate_pct": 2.83,
+      "class_distribution": {
+        "0": 11506,
+        "1": 335
+      }
+    },
+    "85": {
+      "edge_id": 1,
+      "n_train": 13018,
+      "n_val": 3406,
+      "n_test": 3346,
+      "total": 19770,
+      "n_patients": 651,
+      "mortality_rate_pct": 4.12,
+      "class_distribution": {
+        "0": 18956,
+        "1": 814
+      }
+    },
+    "86": {
+      "edge_id": 0,
+      "n_train": 28877,
+      "n_val": 8423,
+      "n_test": 8047,
+      "total": 45347,
+      "n_patients": 1493,
+      "mortality_rate_pct": 3.55,
+      "class_distribution": {
+        "0": 43738,
+        "1": 1609
+      }
+    },
+    "87": {
+      "edge_id": 1,
+      "n_train": 9950,
+      "n_val": 3138,
+      "n_test": 2807,
+      "total": 15895,
+      "n_patients": 593,
+      "mortality_rate_pct": 2.11,
+      "class_distribution": {
+        "0": 15560,
+        "1": 335
+      }
+    },
+    "88": {
+      "edge_id": 0,
+      "n_train": 22621,
+      "n_val": 6442,
+      "n_test": 6901,
+      "total": 35964,
+      "n_patients": 1177,
+      "mortality_rate_pct": 3.62,
+      "class_distribution": {
+        "0": 34661,
+        "1": 1303
+      }
+    },
+    "89": {
+      "edge_id": 1,
+      "n_train": 40476,
+      "n_val": 11384,
+      "n_test": 11063,
+      "total": 62923,
+      "n_patients": 2300,
+      "mortality_rate_pct": 4.52,
+      "class_distribution": {
+        "0": 60080,
+        "1": 2843
+      }
+    },
+    "90": {
+      "edge_id": 0,
+      "n_train": 11088,
+      "n_val": 2877,
+      "n_test": 3067,
+      "total": 17032,
+      "n_patients": 627,
+      "mortality_rate_pct": 3.18,
+      "class_distribution": {
+        "0": 16490,
+        "1": 542
+      }
+    },
+    "91": {
+      "edge_id": 1,
+      "n_train": 1502,
+      "n_val": 424,
+      "n_test": 410,
+      "total": 2336,
+      "n_patients": 100,
+      "mortality_rate_pct": 3.08,
+      "class_distribution": {
+        "0": 2264,
+        "1": 72
+      }
+    },
+    "92": {
+      "edge_id": 0,
+      "n_train": 21285,
+      "n_val": 5508,
+      "n_test": 5461,
+      "total": 32254,
+      "n_patients": 1228,
+      "mortality_rate_pct": 4.96,
+      "class_distribution": {
+        "0": 30653,
+        "1": 1601
+      }
+    },
+    "93": {
+      "edge_id": 1,
+      "n_train": 14260,
+      "n_val": 3298,
+      "n_test": 3749,
+      "total": 21307,
+      "n_patients": 639,
+      "mortality_rate_pct": 2.12,
+      "class_distribution": {
+        "0": 20856,
+        "1": 451
+      }
+    },
+    "94": {
+      "edge_id": 0,
+      "n_train": 6780,
+      "n_val": 1690,
+      "n_test": 1613,
+      "total": 10083,
+      "n_patients": 385,
+      "mortality_rate_pct": 5.43,
+      "class_distribution": {
+        "0": 9535,
+        "1": 548
+      }
+    },
+    "95": {
+      "edge_id": 1,
+      "n_train": 13523,
+      "n_val": 3241,
+      "n_test": 3416,
+      "total": 20180,
+      "n_patients": 790,
+      "mortality_rate_pct": 4.78,
+      "class_distribution": {
+        "0": 19215,
+        "1": 965
+      }
+    },
+    "96": {
+      "edge_id": 0,
+      "n_train": 5171,
+      "n_val": 1744,
+      "n_test": 1218,
+      "total": 8133,
+      "n_patients": 276,
+      "mortality_rate_pct": 0.3,
+      "class_distribution": {
+        "0": 8109,
+        "1": 24
+      }
+    },
+    "97": {
+      "edge_id": 1,
+      "n_train": 21437,
+      "n_val": 5802,
+      "n_test": 5576,
+      "total": 32815,
+      "n_patients": 1128,
+      "mortality_rate_pct": 2.1,
+      "class_distribution": {
+        "0": 32126,
+        "1": 689
+      }
+    },
+    "98": {
+      "edge_id": 0,
+      "n_train": 10613,
+      "n_val": 2929,
+      "n_test": 2861,
+      "total": 16403,
+      "n_patients": 600,
+      "mortality_rate_pct": 3.65,
+      "class_distribution": {
+        "0": 15805,
+        "1": 598
+      }
+    },
+    "99": {
+      "edge_id": 1,
+      "n_train": 6426,
+      "n_val": 1709,
+      "n_test": 1569,
+      "total": 9704,
+      "n_patients": 385,
+      "mortality_rate_pct": 4.01,
+      "class_distribution": {
+        "0": 9315,
+        "1": 389
+      }
+    },
+    "100": {
+      "edge_id": 0,
+      "n_train": 49971,
+      "n_val": 13063,
+      "n_test": 13021,
+      "total": 76055,
+      "n_patients": 2667,
+      "mortality_rate_pct": 4.39,
+      "class_distribution": {
+        "0": 72719,
+        "1": 3336
+      }
+    },
+    "101": {
+      "edge_id": 1,
+      "n_train": 2471,
+      "n_val": 638,
+      "n_test": 624,
+      "total": 3733,
+      "n_patients": 161,
+      "mortality_rate_pct": 0.64,
+      "class_distribution": {
+        "0": 3709,
+        "1": 24
+      }
+    },
+    "102": {
+      "edge_id": 0,
+      "n_train": 21597,
+      "n_val": 5281,
+      "n_test": 5408,
+      "total": 32286,
+      "n_patients": 1100,
+      "mortality_rate_pct": 3.89,
+      "class_distribution": {
+        "0": 31030,
+        "1": 1256
+      }
+    },
+    "103": {
+      "edge_id": 1,
+      "n_train": 793,
+      "n_val": 176,
+      "n_test": 171,
+      "total": 1140,
+      "n_patients": 47,
+      "mortality_rate_pct": 4.21,
+      "class_distribution": {
+        "0": 1092,
+        "1": 48
+      }
+    },
+    "104": {
+      "edge_id": 0,
+      "n_train": 782,
+      "n_val": 232,
+      "n_test": 171,
+      "total": 1185,
+      "n_patients": 48,
+      "mortality_rate_pct": 5.82,
+      "class_distribution": {
+        "0": 1116,
+        "1": 69
+      }
+    },
+    "105": {
+      "edge_id": 1,
+      "n_train": 8014,
+      "n_val": 2168,
+      "n_test": 2092,
+      "total": 12274,
+      "n_patients": 467,
+      "mortality_rate_pct": 2.87,
+      "class_distribution": {
+        "0": 11922,
+        "1": 352
+      }
+    },
+    "106": {
+      "edge_id": 0,
+      "n_train": 1068,
+      "n_val": 255,
+      "n_test": 172,
+      "total": 1495,
+      "n_patients": 57,
+      "mortality_rate_pct": 0.0,
+      "class_distribution": {
+        "0": 1495
+      }
+    },
+    "107": {
+      "edge_id": 1,
+      "n_train": 774,
+      "n_val": 241,
+      "n_test": 173,
+      "total": 1188,
+      "n_patients": 45,
+      "mortality_rate_pct": 3.96,
+      "class_distribution": {
+        "0": 1141,
+        "1": 47
+      }
+    },
+    "108": {
+      "edge_id": 0,
+      "n_train": 7147,
+      "n_val": 2155,
+      "n_test": 2052,
+      "total": 11354,
+      "n_patients": 485,
+      "mortality_rate_pct": 1.42,
+      "class_distribution": {
+        "0": 11193,
+        "1": 161
+      }
+    },
+    "109": {
+      "edge_id": 1,
+      "n_train": 3869,
+      "n_val": 1125,
+      "n_test": 1004,
+      "total": 5998,
+      "n_patients": 246,
+      "mortality_rate_pct": 1.2,
+      "class_distribution": {
+        "0": 5926,
+        "1": 72
+      }
+    },
+    "110": {
+      "edge_id": 0,
+      "n_train": 3123,
+      "n_val": 905,
+      "n_test": 948,
+      "total": 4976,
+      "n_patients": 208,
+      "mortality_rate_pct": 3.38,
+      "class_distribution": {
+        "0": 4808,
+        "1": 168
+      }
+    },
+    "111": {
+      "edge_id": 1,
+      "n_train": 804,
+      "n_val": 174,
+      "n_test": 173,
+      "total": 1151,
+      "n_patients": 46,
+      "mortality_rate_pct": 2.09,
+      "class_distribution": {
+        "0": 1127,
+        "1": 24
+      }
+    },
+    "112": {
+      "edge_id": 0,
+      "n_train": 3882,
+      "n_val": 862,
+      "n_test": 1010,
+      "total": 5754,
+      "n_patients": 243,
+      "mortality_rate_pct": 1.22,
+      "class_distribution": {
+        "0": 5684,
+        "1": 70
+      }
+    },
+    "113": {
+      "edge_id": 1,
+      "n_train": 18222,
+      "n_val": 5110,
+      "n_test": 4997,
+      "total": 28329,
+      "n_patients": 1063,
+      "mortality_rate_pct": 3.33,
+      "class_distribution": {
+        "0": 27385,
+        "1": 944
+      }
+    },
+    "114": {
+      "edge_id": 0,
+      "n_train": 2301,
+      "n_val": 590,
+      "n_test": 587,
+      "total": 3478,
+      "n_patients": 141,
+      "mortality_rate_pct": 2.76,
+      "class_distribution": {
+        "0": 3382,
+        "1": 96
+      }
+    },
+    "115": {
+      "edge_id": 1,
+      "n_train": 16615,
+      "n_val": 4179,
+      "n_test": 4390,
+      "total": 25184,
+      "n_patients": 809,
+      "mortality_rate_pct": 2.89,
+      "class_distribution": {
+        "0": 24455,
+        "1": 729
+      }
+    },
+    "116": {
+      "edge_id": 0,
+      "n_train": 5869,
+      "n_val": 1320,
+      "n_test": 1422,
+      "total": 8611,
+      "n_patients": 364,
+      "mortality_rate_pct": 3.8,
+      "class_distribution": {
+        "0": 8284,
+        "1": 327
+      }
+    },
+    "117": {
+      "edge_id": 1,
+      "n_train": 11277,
+      "n_val": 2873,
+      "n_test": 2959,
+      "total": 17109,
+      "n_patients": 679,
+      "mortality_rate_pct": 4.29,
+      "class_distribution": {
+        "0": 16375,
+        "1": 734
+      }
+    },
+    "118": {
+      "edge_id": 0,
+      "n_train": 5614,
+      "n_val": 1432,
+      "n_test": 1348,
+      "total": 8394,
+      "n_patients": 344,
+      "mortality_rate_pct": 8.23,
+      "class_distribution": {
+        "0": 7703,
+        "1": 691
+      }
+    },
+    "119": {
+      "edge_id": 1,
+      "n_train": 6504,
+      "n_val": 1558,
+      "n_test": 1825,
+      "total": 9887,
+      "n_patients": 344,
+      "mortality_rate_pct": 3.57,
+      "class_distribution": {
+        "0": 9534,
+        "1": 353
+      }
+    },
+    "120": {
+      "edge_id": 0,
+      "n_train": 11410,
+      "n_val": 3500,
+      "n_test": 3228,
+      "total": 18138,
+      "n_patients": 677,
+      "mortality_rate_pct": 6.76,
+      "class_distribution": {
+        "0": 16911,
+        "1": 1227
+      }
+    },
+    "121": {
+      "edge_id": 1,
+      "n_train": 5116,
+      "n_val": 1318,
+      "n_test": 1308,
+      "total": 7742,
+      "n_patients": 300,
+      "mortality_rate_pct": 3.38,
+      "class_distribution": {
+        "0": 7480,
+        "1": 262
+      }
+    },
+    "122": {
+      "edge_id": 0,
+      "n_train": 15384,
+      "n_val": 3815,
+      "n_test": 3903,
+      "total": 23102,
+      "n_patients": 773,
+      "mortality_rate_pct": 6.94,
+      "class_distribution": {
+        "0": 21499,
+        "1": 1603
+      }
+    },
+    "123": {
+      "edge_id": 1,
+      "n_train": 11760,
+      "n_val": 2832,
+      "n_test": 2980,
+      "total": 17572,
+      "n_patients": 612,
+      "mortality_rate_pct": 6.91,
+      "class_distribution": {
+        "0": 16358,
+        "1": 1214
+      }
+    },
+    "124": {
+      "edge_id": 0,
+      "n_train": 8032,
+      "n_val": 2034,
+      "n_test": 2110,
+      "total": 12176,
+      "n_patients": 441,
+      "mortality_rate_pct": 7.78,
+      "class_distribution": {
+        "0": 11229,
+        "1": 947
+      }
+    },
+    "125": {
+      "edge_id": 1,
+      "n_train": 22686,
+      "n_val": 6025,
+      "n_test": 6320,
+      "total": 35031,
+      "n_patients": 1337,
+      "mortality_rate_pct": 3.31,
+      "class_distribution": {
+        "0": 33872,
+        "1": 1159
+      }
+    },
+    "126": {
+      "edge_id": 0,
+      "n_train": 6988,
+      "n_val": 1882,
+      "n_test": 1921,
+      "total": 10791,
+      "n_patients": 370,
+      "mortality_rate_pct": 4.84,
+      "class_distribution": {
+        "0": 10269,
+        "1": 522
+      }
+    },
+    "127": {
+      "edge_id": 1,
+      "n_train": 4896,
+      "n_val": 1340,
+      "n_test": 1382,
+      "total": 7618,
+      "n_patients": 312,
+      "mortality_rate_pct": 5.3,
+      "class_distribution": {
+        "0": 7214,
+        "1": 404
+      }
+    },
+    "128": {
+      "edge_id": 0,
+      "n_train": 3320,
+      "n_val": 1039,
+      "n_test": 1321,
+      "total": 5680,
+      "n_patients": 190,
+      "mortality_rate_pct": 3.35,
+      "class_distribution": {
+        "0": 5490,
+        "1": 190
+      }
+    },
+    "129": {
+      "edge_id": 1,
+      "n_train": 2838,
+      "n_val": 787,
+      "n_test": 668,
+      "total": 4293,
+      "n_patients": 164,
+      "mortality_rate_pct": 4.47,
+      "class_distribution": {
+        "0": 4101,
+        "1": 192
+      }
+    },
+    "130": {
+      "edge_id": 0,
+      "n_train": 18455,
+      "n_val": 4775,
+      "n_test": 4615,
+      "total": 27845,
+      "n_patients": 996,
+      "mortality_rate_pct": 7.44,
+      "class_distribution": {
+        "0": 25774,
+        "1": 2071
+      }
+    },
+    "131": {
+      "edge_id": 1,
+      "n_train": 387,
+      "n_val": 91,
+      "n_test": 115,
+      "total": 593,
+      "n_patients": 27,
+      "mortality_rate_pct": 12.65,
+      "class_distribution": {
+        "0": 518,
+        "1": 75
+      }
+    },
+    "132": {
+      "edge_id": 0,
+      "n_train": 4218,
+      "n_val": 1123,
+      "n_test": 1479,
+      "total": 6820,
+      "n_patients": 231,
+      "mortality_rate_pct": 3.09,
+      "class_distribution": {
+        "0": 6609,
+        "1": 211
+      }
+    },
+    "133": {
+      "edge_id": 1,
+      "n_train": 12803,
+      "n_val": 3505,
+      "n_test": 3754,
+      "total": 20062,
+      "n_patients": 788,
+      "mortality_rate_pct": 2.83,
+      "class_distribution": {
+        "0": 19495,
+        "1": 567
+      }
+    },
+    "134": {
+      "edge_id": 0,
+      "n_train": 4471,
+      "n_val": 1293,
+      "n_test": 1655,
+      "total": 7419,
+      "n_patients": 245,
+      "mortality_rate_pct": 3.54,
+      "class_distribution": {
+        "0": 7156,
+        "1": 263
+      }
+    },
+    "135": {
+      "edge_id": 1,
+      "n_train": 4196,
+      "n_val": 1145,
+      "n_test": 1025,
+      "total": 6366,
+      "n_patients": 228,
+      "mortality_rate_pct": 4.13,
+      "class_distribution": {
+        "0": 6103,
+        "1": 263
+      }
+    },
+    "136": {
+      "edge_id": 0,
+      "n_train": 7609,
+      "n_val": 1794,
+      "n_test": 1900,
+      "total": 11303,
+      "n_patients": 437,
+      "mortality_rate_pct": 4.8,
+      "class_distribution": {
+        "0": 10760,
+        "1": 543
+      }
+    },
+    "137": {
+      "edge_id": 1,
+      "n_train": 2617,
+      "n_val": 529,
+      "n_test": 600,
+      "total": 3746,
+      "n_patients": 147,
+      "mortality_rate_pct": 2.54,
+      "class_distribution": {
+        "0": 3651,
+        "1": 95
+      }
+    },
+    "138": {
+      "edge_id": 0,
+      "n_train": 32335,
+      "n_val": 7669,
+      "n_test": 8557,
+      "total": 48561,
+      "n_patients": 1493,
+      "mortality_rate_pct": 3.45,
+      "class_distribution": {
+        "0": 46886,
+        "1": 1675
+      }
+    },
+    "139": {
+      "edge_id": 1,
+      "n_train": 2259,
+      "n_val": 771,
+      "n_test": 495,
+      "total": 3525,
+      "n_patients": 175,
+      "mortality_rate_pct": 4.62,
+      "class_distribution": {
+        "0": 3362,
+        "1": 163
+      }
+    },
+    "140": {
+      "edge_id": 0,
+      "n_train": 25243,
+      "n_val": 6573,
+      "n_test": 7215,
+      "total": 39031,
+      "n_patients": 1507,
+      "mortality_rate_pct": 2.44,
+      "class_distribution": {
+        "0": 38077,
+        "1": 954
+      }
+    },
+    "141": {
+      "edge_id": 1,
+      "n_train": 463,
+      "n_val": 53,
+      "n_test": 172,
+      "total": 688,
+      "n_patients": 18,
+      "mortality_rate_pct": 13.95,
+      "class_distribution": {
+        "0": 592,
+        "1": 96
+      }
+    },
+    "142": {
+      "edge_id": 0,
+      "n_train": 22421,
+      "n_val": 5912,
+      "n_test": 6143,
+      "total": 34476,
+      "n_patients": 1209,
+      "mortality_rate_pct": 4.39,
+      "class_distribution": {
+        "0": 32963,
+        "1": 1513
+      }
+    },
+    "143": {
+      "edge_id": 1,
+      "n_train": 21483,
+      "n_val": 5875,
+      "n_test": 5409,
+      "total": 32767,
+      "n_patients": 1080,
+      "mortality_rate_pct": 4.29,
+      "class_distribution": {
+        "0": 31361,
+        "1": 1406
+      }
+    },
+    "144": {
+      "edge_id": 0,
+      "n_train": 5157,
+      "n_val": 1531,
+      "n_test": 1492,
+      "total": 8180,
+      "n_patients": 348,
+      "mortality_rate_pct": 3.4,
+      "class_distribution": {
+        "0": 7902,
+        "1": 278
+      }
+    },
+    "145": {
+      "edge_id": 1,
+      "n_train": 55018,
+      "n_val": 14620,
+      "n_test": 15377,
+      "total": 85015,
+      "n_patients": 2631,
+      "mortality_rate_pct": 7.83,
+      "class_distribution": {
+        "0": 78362,
+        "1": 6653
+      }
+    },
+    "146": {
+      "edge_id": 0,
+      "n_train": 6723,
+      "n_val": 1680,
+      "n_test": 1692,
+      "total": 10095,
+      "n_patients": 357,
+      "mortality_rate_pct": 7.26,
+      "class_distribution": {
+        "0": 9362,
+        "1": 733
+      }
+    },
+    "147": {
+      "edge_id": 1,
+      "n_train": 3856,
+      "n_val": 935,
+      "n_test": 916,
+      "total": 5707,
+      "n_patients": 208,
+      "mortality_rate_pct": 2.94,
+      "class_distribution": {
+        "0": 5539,
+        "1": 168
+      }
+    },
+    "148": {
+      "edge_id": 0,
+      "n_train": 2243,
+      "n_val": 724,
+      "n_test": 711,
+      "total": 3678,
+      "n_patients": 143,
+      "mortality_rate_pct": 5.71,
+      "class_distribution": {
+        "0": 3468,
+        "1": 210
+      }
+    },
+    "149": {
+      "edge_id": 1,
+      "n_train": 4487,
+      "n_val": 1338,
+      "n_test": 966,
+      "total": 6791,
+      "n_patients": 257,
+      "mortality_rate_pct": 1.38,
+      "class_distribution": {
+        "0": 6697,
+        "1": 94
+      }
+    },
+    "150": {
+      "edge_id": 0,
+      "n_train": 3178,
+      "n_val": 736,
+      "n_test": 889,
+      "total": 4803,
+      "n_patients": 172,
+      "mortality_rate_pct": 3.46,
+      "class_distribution": {
+        "0": 4637,
+        "1": 166
+      }
+    },
+    "151": {
+      "edge_id": 1,
+      "n_train": 3210,
+      "n_val": 769,
+      "n_test": 740,
+      "total": 4719,
+      "n_patients": 185,
+      "mortality_rate_pct": 5.3,
+      "class_distribution": {
+        "0": 4469,
+        "1": 250
+      }
+    },
+    "152": {
+      "edge_id": 0,
+      "n_train": 3279,
+      "n_val": 833,
+      "n_test": 909,
+      "total": 5021,
+      "n_patients": 183,
+      "mortality_rate_pct": 4.26,
+      "class_distribution": {
+        "0": 4807,
+        "1": 214
+      }
+    },
+    "153": {
+      "edge_id": 1,
+      "n_train": 1553,
+      "n_val": 458,
+      "n_test": 392,
+      "total": 2403,
+      "n_patients": 102,
+      "mortality_rate_pct": 5.95,
+      "class_distribution": {
+        "0": 2260,
+        "1": 143
+      }
+    },
+    "154": {
+      "edge_id": 0,
+      "n_train": 4162,
+      "n_val": 1081,
+      "n_test": 1274,
+      "total": 6517,
+      "n_patients": 226,
+      "mortality_rate_pct": 7.29,
+      "class_distribution": {
+        "0": 6042,
+        "1": 475
+      }
+    },
+    "155": {
+      "edge_id": 1,
+      "n_train": 16382,
+      "n_val": 4797,
+      "n_test": 4443,
+      "total": 25622,
+      "n_patients": 989,
+      "mortality_rate_pct": 4.73,
+      "class_distribution": {
+        "0": 24410,
+        "1": 1212
+      }
+    },
+    "156": {
+      "edge_id": 0,
+      "n_train": 3536,
+      "n_val": 911,
+      "n_test": 898,
+      "total": 5345,
+      "n_patients": 221,
+      "mortality_rate_pct": 3.09,
+      "class_distribution": {
+        "0": 5180,
+        "1": 165
+      }
+    },
+    "157": {
+      "edge_id": 1,
+      "n_train": 617,
+      "n_val": 130,
+      "n_test": 446,
+      "total": 1193,
+      "n_patients": 41,
+      "mortality_rate_pct": 7.96,
+      "class_distribution": {
+        "0": 1098,
+        "1": 95
+      }
+    },
+    "158": {
+      "edge_id": 0,
+      "n_train": 2046,
+      "n_val": 676,
+      "n_test": 489,
+      "total": 3211,
+      "n_patients": 127,
+      "mortality_rate_pct": 2.24,
+      "class_distribution": {
+        "0": 3139,
+        "1": 72
+      }
+    },
+    "159": {
+      "edge_id": 1,
+      "n_train": 3515,
+      "n_val": 1093,
+      "n_test": 1053,
+      "total": 5661,
+      "n_patients": 231,
+      "mortality_rate_pct": 7.03,
+      "class_distribution": {
+        "0": 5263,
+        "1": 398
+      }
+    },
+    "160": {
+      "edge_id": 0,
+      "n_train": 20572,
+      "n_val": 5280,
+      "n_test": 5350,
+      "total": 31202,
+      "n_patients": 925,
+      "mortality_rate_pct": 3.03,
+      "class_distribution": {
+        "0": 30256,
+        "1": 946
+      }
+    },
+    "161": {
+      "edge_id": 1,
+      "n_train": 31941,
+      "n_val": 8696,
+      "n_test": 8444,
+      "total": 49081,
+      "n_patients": 1921,
+      "mortality_rate_pct": 6.09,
+      "class_distribution": {
+        "0": 46091,
+        "1": 2990
+      }
+    },
+    "162": {
+      "edge_id": 0,
+      "n_train": 15714,
+      "n_val": 4032,
+      "n_test": 4047,
+      "total": 23793,
+      "n_patients": 887,
+      "mortality_rate_pct": 3.37,
+      "class_distribution": {
+        "0": 22992,
+        "1": 801
+      }
+    },
+    "163": {
+      "edge_id": 1,
+      "n_train": 3993,
+      "n_val": 956,
+      "n_test": 981,
+      "total": 5930,
+      "n_patients": 203,
+      "mortality_rate_pct": 2.83,
+      "class_distribution": {
+        "0": 5762,
+        "1": 168
+      }
+    },
+    "164": {
+      "edge_id": 0,
+      "n_train": 405,
+      "n_val": 156,
+      "n_test": 111,
+      "total": 672,
+      "n_patients": 28,
+      "mortality_rate_pct": 0.0,
+      "class_distribution": {
+        "0": 672
+      }
+    },
+    "165": {
+      "edge_id": 1,
+      "n_train": 23963,
+      "n_val": 6420,
+      "n_test": 6522,
+      "total": 36905,
+      "n_patients": 1450,
+      "mortality_rate_pct": 5.81,
+      "class_distribution": {
+        "0": 34759,
+        "1": 2146
+      }
+    },
+    "166": {
+      "edge_id": 0,
+      "n_train": 9913,
+      "n_val": 2494,
+      "n_test": 2562,
+      "total": 14969,
+      "n_patients": 565,
+      "mortality_rate_pct": 4.7,
+      "class_distribution": {
+        "0": 14266,
+        "1": 703
+      }
+    },
+    "167": {
+      "edge_id": 1,
+      "n_train": 43445,
+      "n_val": 12168,
+      "n_test": 11508,
+      "total": 67121,
+      "n_patients": 2487,
+      "mortality_rate_pct": 7.01,
+      "class_distribution": {
+        "0": 62418,
+        "1": 4703
+      }
+    },
+    "168": {
+      "edge_id": 0,
+      "n_train": 6159,
+      "n_val": 1614,
+      "n_test": 1607,
+      "total": 9380,
+      "n_patients": 382,
+      "mortality_rate_pct": 4.08,
+      "class_distribution": {
+        "0": 8997,
+        "1": 383
+      }
+    },
+    "169": {
+      "edge_id": 1,
+      "n_train": 2727,
+      "n_val": 889,
+      "n_test": 931,
+      "total": 4547,
+      "n_patients": 133,
+      "mortality_rate_pct": 1.58,
+      "class_distribution": {
+        "0": 4475,
+        "1": 72
+      }
+    },
+    "170": {
+      "edge_id": 0,
+      "n_train": 7267,
+      "n_val": 1698,
+      "n_test": 1871,
+      "total": 10836,
+      "n_patients": 335,
+      "mortality_rate_pct": 0.66,
+      "class_distribution": {
+        "0": 10765,
+        "1": 71
+      }
+    },
+    "171": {
+      "edge_id": 1,
+      "n_train": 3568,
+      "n_val": 925,
+      "n_test": 1192,
+      "total": 5685,
+      "n_patients": 175,
+      "mortality_rate_pct": 0.42,
+      "class_distribution": {
+        "0": 5661,
+        "1": 24
+      }
+    },
+    "172": {
+      "edge_id": 0,
+      "n_train": 16483,
+      "n_val": 4541,
+      "n_test": 4455,
+      "total": 25479,
+      "n_patients": 809,
+      "mortality_rate_pct": 1.75,
+      "class_distribution": {
+        "0": 25032,
+        "1": 447
+      }
+    },
+    "173": {
+      "edge_id": 1,
+      "n_train": 10070,
+      "n_val": 2585,
+      "n_test": 2782,
+      "total": 15437,
+      "n_patients": 506,
+      "mortality_rate_pct": 0.78,
+      "class_distribution": {
+        "0": 15317,
+        "1": 120
+      }
+    },
+    "174": {
+      "edge_id": 0,
+      "n_train": 3947,
+      "n_val": 1032,
+      "n_test": 1000,
+      "total": 5979,
+      "n_patients": 194,
+      "mortality_rate_pct": 2.79,
+      "class_distribution": {
+        "0": 5812,
+        "1": 167
+      }
+    },
+    "175": {
+      "edge_id": 1,
+      "n_train": 5746,
+      "n_val": 1420,
+      "n_test": 1552,
+      "total": 8718,
+      "n_patients": 322,
+      "mortality_rate_pct": 1.36,
+      "class_distribution": {
+        "0": 8599,
+        "1": 119
+      }
+    },
+    "176": {
+      "edge_id": 0,
+      "n_train": 5388,
+      "n_val": 1600,
+      "n_test": 1413,
+      "total": 8401,
+      "n_patients": 308,
+      "mortality_rate_pct": 0.29,
+      "class_distribution": {
+        "0": 8377,
+        "1": 24
+      }
+    },
+    "177": {
+      "edge_id": 1,
+      "n_train": 10511,
+      "n_val": 2653,
+      "n_test": 2474,
+      "total": 15638,
+      "n_patients": 544,
+      "mortality_rate_pct": 1.21,
+      "class_distribution": {
+        "0": 15449,
+        "1": 189
+      }
+    },
+    "178": {
+      "edge_id": 0,
+      "n_train": 79753,
+      "n_val": 21059,
+      "n_test": 20631,
+      "total": 121443,
+      "n_patients": 3619,
+      "mortality_rate_pct": 1.17,
+      "class_distribution": {
+        "0": 120027,
+        "1": 1416
+      }
+    },
+    "179": {
+      "edge_id": 1,
+      "n_train": 15887,
+      "n_val": 3919,
+      "n_test": 4182,
+      "total": 23988,
+      "n_patients": 912,
+      "mortality_rate_pct": 5.27,
+      "class_distribution": {
+        "0": 22723,
+        "1": 1265
+      }
+    },
+    "180": {
+      "edge_id": 0,
+      "n_train": 421,
+      "n_val": 158,
+      "n_test": 101,
+      "total": 680,
+      "n_patients": 26,
+      "mortality_rate_pct": 2.65,
+      "class_distribution": {
+        "0": 662,
+        "1": 18
+      }
+    },
+    "181": {
+      "edge_id": 1,
+      "n_train": 398,
+      "n_val": 133,
+      "n_test": 108,
+      "total": 639,
+      "n_patients": 27,
+      "mortality_rate_pct": 3.76,
+      "class_distribution": {
+        "0": 615,
+        "1": 24
+      }
+    },
+    "182": {
+      "edge_id": 0,
+      "n_train": 578,
+      "n_val": 183,
+      "n_test": 140,
+      "total": 901,
+      "n_patients": 39,
+      "mortality_rate_pct": 5.22,
+      "class_distribution": {
+        "0": 854,
+        "1": 47
+      }
+    },
+    "183": {
+      "edge_id": 1,
+      "n_train": 6309,
+      "n_val": 1664,
+      "n_test": 1690,
+      "total": 9663,
+      "n_patients": 368,
+      "mortality_rate_pct": 1.68,
+      "class_distribution": {
+        "0": 9501,
+        "1": 162
+      }
+    },
+    "184": {
+      "edge_id": 0,
+      "n_train": 561,
+      "n_val": 185,
+      "n_test": 173,
+      "total": 919,
+      "n_patients": 41,
+      "mortality_rate_pct": 5.22,
+      "class_distribution": {
+        "0": 871,
+        "1": 48
+      }
+    },
+    "185": {
+      "edge_id": 1,
+      "n_train": 2880,
+      "n_val": 730,
+      "n_test": 698,
+      "total": 4308,
+      "n_patients": 171,
+      "mortality_rate_pct": 1.11,
+      "class_distribution": {
+        "0": 4260,
+        "1": 48
+      }
+    },
+    "186": {
+      "edge_id": 0,
+      "n_train": 9515,
+      "n_val": 2472,
+      "n_test": 2277,
+      "total": 14264,
+      "n_patients": 670,
+      "mortality_rate_pct": 0.0,
+      "class_distribution": {
+        "0": 14264
+      }
+    }
+  },
+  "client_key": "hospitalid (real hospitals, taken as given; hospitals under 200 windows OR with zero positive cases are merged into one pooled client)",
+  "individual_key": "uniquepid",
+  "split": "by INDIVIDUAL (uniquepid), stratified by outcome within each hospital; no individual spans splits",
+  "n_individuals": 132736,
+  "client_construction": {
+    "hospitals_seen": 206,
+    "min_samples": 200,
+    "pooled_for_size": 6,
+    "pooled_for_zero_positives": 14,
+    "standalone_clients": 186,
+    "pooled_client_index": 186,
+    "n_clients": 187,
+    "prepool_hospitals": 206,
+    "prepool_prevalence_min": 0.0,
+    "prepool_prevalence_max": 0.1826,
+    "prepool_zero_mortality_hospitals": 20
+  },
+  "window_min": 60,
+  "slot_min": 5.0,
+  "signal_shape": [
+    3782805,
+    12,
+    12
+  ],
+  "clinical_shape": [
+    3782805,
+    5
+  ],
+  "max_windows_per_stay": 24,
+  "public_split": {
+    "applied": true,
+    "public_frac": 0.2,
+    "seed": 42,
+    "n_public_windows": 526867,
+    "note": "client train splits reduced; val/test untouched"
+  },
+  "a1_reassignment": {
+    "rule": "each individual moved with all records to the client holding most of their stays (ties: most windows, then lowest index); splits, records, public pool, client count and edge map unchanged; nothing excluded",
+    "source_partition": "data/processed/partitions/eicu",
+    "source_partition_meta_md5": "0b3caebf9dd63f079df809e35c3c8cbc",
+    "moved": {
+      "train": {
+        "individuals": 2177,
+        "records": 49939,
+        "by_original_client_count": {
+          "2": 2097,
+          "3": 75,
+          "4": 5
+        }
+      },
+      "val": {
+        "individuals": 509,
+        "records": 11227,
+        "by_original_client_count": {
+          "2": 496,
+          "3": 13
+        }
+      },
+      "test": {
+        "individuals": 589,
+        "records": 13182,
+        "by_original_client_count": {
+          "2": 577,
+          "3": 11,
+          "4": 1
+        }
+      }
+    },
+    "clients_with_changed_train_size": 161,
+    "train_records_change_min_max": [
+      -525,
+      1201
+    ],
+    "train_individuals_per_client_before_min_median_max": [
+      12,
+      253.0,
+      2465
+    ],
+    "train_individuals_per_client_after_min_median_max": [
+      12,
+      242.0,
+      2365
+    ],
+    "individuals_on_more_than_one_client_after": 0
+  }
+}

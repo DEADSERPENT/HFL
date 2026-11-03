@@ -28,7 +28,7 @@ Figures are copies of `../paper/figures/*.pdf`; regenerate there with the
 
 - **Values:** all values are final; no `\pend{}` markers remain (`\pend` is defined as a pass-through in `main.tex`).
 - **Results:** the person-level VitalDB results, the prior-system comparison and the membership-inference audit are written in. Objective verdicts follow the prespecified interval rule: eICU utility is inconclusive with training-fitted constants and missed end to end; eICU update delivery fails at two edges.
-- **Build:** 18 pages; no errors, undefined references or overfull boxes.
+- **Build:** 19 pages; no errors, undefined references or overfull boxes.
 - **Consistency:** this version and `../paper/` are updated together and report the same results; their abstracts are identical.
 
 ## Scope (2026-10-27)

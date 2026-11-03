@@ -1,6 +1,6 @@
 # PP-HFM: full-length manuscript
 
-Full-length working version (31 pages, IEEEtran journal class) of *Patient-Level
+Full-length working version (32 pages, IEEEtran journal class) of *Patient-Level
 Differential Privacy in Hierarchical Federated Learning for Multimodal Medical
 IoT*. The condensed submission version is `../PLDP/`. The two are kept
 consistent: identical abstracts and the same results, with `PLDP/` carrying

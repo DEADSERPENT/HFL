@@ -1,6 +1,21 @@
 \documentclass[11pt,a4paper]{article}
+% Times New Roman for text, Times-style math. Under XeTeX/LuaTeX the font is
+% requested by name and falls back to TeX Gyre Termes (the same Times design)
+% where Times New Roman is not installed; under pdfLaTeX newtx gives Times.
+\usepackage{iftex}
+\usepackage{amsmath}            % before newtxmath, which supplies the AMS symbols
+\ifTUTeX
+  \usepackage{newtxmath}
+  \usepackage[no-math]{fontspec}
+  \IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%
+    \setmainfont{texgyretermes}[Extension=.otf, UprightFont=*-regular,
+      BoldFont=*-bold, ItalicFont=*-italic, BoldItalicFont=*-bolditalic]}
+\else
+  \usepackage[T1]{fontenc}
+  \usepackage{newtxtext,newtxmath}
+\fi
 \usepackage[margin=2.2cm]{geometry}
-\usepackage{graphicx,booktabs,amsmath,amssymb,enumitem,array}
+\usepackage{graphicx,booktabs,enumitem,array}
 \usepackage[hidelinks]{hyperref}
 \graphicspath{{../paper/figures/}}
 \setlist{itemsep=0pt,topsep=2pt,parsep=0pt}
@@ -20,9 +35,9 @@
 {\Large\bfseries PP-HFM: Patient-Private Hierarchical Federated Multimodal Learning}\\[2pt]
 Project report: the idea, the system, every experiment and what each one showed\\[2pt]
 Samartha H V (Regd.\ No.\ 251580130019) \quad Guide: Dr.\ Shreyas J \quad Industry mentor: Mr.\ Tejas J (Capgemini)\\
-MIT Bengaluru (MAHE) \quad Status as of 28 October 2026
+MIT Bengaluru (MAHE) \quad Status as of 1 November 2026
 \end{center}
-This is an internal report, not the paper. Every number is taken from the result files under \texttt{SIMULATORS/results/}; results still being re-run are marked pending.
+This is an internal report, not the paper. Every number is taken from the result files under \texttt{SIMULATORS/results/} (index: \texttt{RESULTS\_FINAL.md}). All planned experiments are complete.
 
 
 %======================================================================
@@ -54,12 +69,15 @@ edges, cloud) is accounted for, and a theorem proves the guarantee.
 
 \paragraph{What we found, in brief.}
 \begin{enumerate}
-\item \textbf{The system works.} Uplink traffic falls 90.8--96.1\,\%, energy per
-round falls 72.3--79.6\,\%, and inference takes at most 2.3\,ms (target was
-100\,ms), on all three datasets.
-\item \textbf{Patient-level privacy at $\varepsilon = 0.9$ costs no measurable
-accuracy on VitalDB} but costs 3.1 AUROC points on eICU, because of the
-smallest hospitals.
+\item \textbf{The system works.} Uplink traffic falls 90.8--96.1\,\% (measured
+payload), energy per round falls 72.3--79.6\,\% (CloudSim Plus model), and
+inference takes at most 2.3\,ms on a workstation CPU (target was 100\,ms), on
+all three datasets.
+\item \textbf{Patient-level privacy at $\varepsilon = 0.9$ costs no accuracy on
+VitalDB}, split so that each person is in one split and on one client (AUROC
+0.832 private vs 0.820 non-private). On eICU it costs 3.1 AUROC points, which is
+inconclusive against the 2-point target, and 3.9 points end to end, which misses
+it. The cost comes from the smallest hospitals.
 \item \textbf{The thing that makes strict privacy survivable is pretrained
 initialization}, not the trick of privatizing only the model head. A randomly
 initialized private model loses 0.19 AUROC; a pretrained one loses 0.004.
@@ -68,10 +86,16 @@ per patient, $k$, and then flattens.} This follows the curve $A(1-1/k)$,
 and vanishes at $k = 1$, where a patient \emph{is} a record. It was
 forecast in advance and tested on a second hospital corpus: the
 \emph{shape} transferred, the \emph{size} did not.
-\item Several things we expected did \emph{not} hold, and we report them:
-the membership-inference attack did not find the big leakage difference we
-predicted; private conformal prediction gave useless prediction sets;
-fusion did not help on eICU.
+\item \textbf{The privacy audit separates the two units.} On VitalDB, an attack
+with a working positive control finds record-level training above its
+difficulty floor (LiRA AUC 0.576) and patient-level training at it (0.503).
+\item \textbf{Against two re-implemented prior systems} (HED-FL, FL2DP),
+PP-HFM uploads 2.2--4.0 times less and shows lower measured leakage in the
+VitalDB audit. On eICU, non-private HED-FL is more accurate (0.825 vs 0.794).
+\item Several things we expected did \emph{not} hold, and we report them: the
+attack difference is smaller than predicted (0.58, not 0.7); private conformal
+prediction gave useless prediction sets; fusion did not help on eICU's natural
+streams.
 \end{enumerate}
 
 %======================================================================
@@ -96,9 +120,14 @@ Four silent bugs found and fixed. \\
 resolved at 6 seeds; pretrained-initialization finding. \\
 7 & External validation on eICU (187 hospitals), the $k$-scaling law,
 pre-registered tests, paper writing. \\
-Fix (22 Oct--) & A flaw in the patient-DP mechanism was found while writing the
-proof. Fixed, and every patient-level experiment is being re-run in stages
+Fix (22--29 Oct) & A flaw in the patient-DP mechanism was found while writing the
+proof. Fixed, and every patient-level experiment was re-run in stages
 (Section~\ref{sec:fix}). \\
+Baselines (29--30 Oct) & HED-FL and FL2DP re-implemented and run under the
+same data, encoders and seeds. \\
+Person-level (30 Oct--1 Nov) & VitalDB had been split by surgical case, so a
+person could be in two splits. Rebuilt the split by person and re-ran the
+privacy cost, the cost of the unit, the baselines and the audit. \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -120,12 +149,12 @@ deployments must protect people.
 \toprule
 Objective & Target & Measured by \\
 \midrule
-O1 Uplink traffic reduction & $\ge 50\,\%$ & NS-3 packet-level simulation \\
+O1 Uplink traffic reduction & $\ge 50\,\%$ & measured payload of the update encoding \\
 O2a Privacy budget & $\varepsilon \le 1$ & privacy accountant \\
 O2b Utility loss from privacy & $\le 2$ points & paired training runs \\
-O3a Inference latency (P95) & $< 100$\,ms & ONNX Runtime, CPU \\
-O3b Update delivery & $> 99\,\%$ & NS-3 \\
-O4 Energy saving per round & $\ge 20\,\%$ & CloudSim Plus \\
+O3a Inference latency (P95) & $< 100$\,ms & ONNX Runtime, workstation CPU \\
+O3b Update delivery & $> 99\,\%$ & ns-3 simulation \\
+O4 Energy saving per round & $\ge 20\,\%$ & CloudSim Plus model \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -189,11 +218,12 @@ For declared public cohort sizes and fixed preprocessing, the full training
 transcript of every tier is $(\varepsilon,\delta)$-DP with respect to adding or
 removing one patient. It covers the \emph{training} process. It is end-to-end
 only if the encoders and the standardization constants are also fitted on
-public data (Section~\ref{exp:std}).
+public data; among our runs, that is the eICU re-run with pool-fitted constants
+(Section~\ref{exp:std}).
 \end{keybox}
 
 %======================================================================
-\section{The data}
+\section{The data}\label{sec:data}
 
 \begin{center}
 \small
@@ -203,15 +233,23 @@ public data (Section~\ref{exp:std}).
 \midrule
 Domain & surgery & wearable activity & intensive care \\
 Clients & 9 surgical specialties & 22 participants & 187 hospitals \\
-Individuals & 6{,}257 cases & 22 & 132{,}736 \\
-Records per individual ($\bar k$) & 7.8 & $\approx 1{,}750$ & 28.5 \\
+Individuals & 5{,}974 persons & 22 & 132{,}736 \\
+Records per individual ($\bar k$) & 7.9 & $\approx 1{,}750$ & 28.5 \\
 Modality A & 9 vital trends + masks & inertial sensors & 6 vitals + masks \\
 Modality B & 34 pre-op variables & 2048-d video features & 5 admission values \\
 Task & ICU admission & 18 activities & mortality \\
-Positive rate & 19.65\,\% & -- & 4.22\,\% \\
+Positive rate & 18.84\,\% & -- & 4.22\,\% \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\textbf{Two VitalDB splits.} The \emph{person-level} split puts each person in
+one split and on one client: 4{,}221 training, 868 validation and 885 test
+persons, after dropping 200 cases that would have put a person in two places.
+The earlier \emph{case-level} split was by surgical case (6{,}257 cases,
+19.65\,\% positive), so 55 of 940 test persons also had a training case. The
+privacy cost, the cost of the unit, the baselines and the audit use the
+person-level split; the other VitalDB analyses are case-level and say so.
 
 Three choices protect the results from silent inflation: splits are by
 individual (never by window); only pre-operative variables are used (the
@@ -235,9 +273,11 @@ the result, and what it means. ``Points'' means percentage points of AUROC
 %----------------------------------------------------------------------
 \begin{experiment}{System objectives on three corpora}{exp:obj}
 \Q Does the full system meet the four objectives?
-\D Ran the complete system on VitalDB, WEAR and eICU; network measured in NS-3
-at packet level on every round, energy in CloudSim Plus, latency with ONNX
-Runtime on CPU (1{,}000 runs after 100 warm-up).
+\D Ran the complete system on VitalDB, WEAR and eICU; uplink measured from the
+encoded payload, network simulated in ns-3 at packet level on every round,
+energy modeled in CloudSim Plus, latency timed with ONNX Runtime on a
+workstation CPU (1{,}000 runs after 100 warm-up). Verdicts follow the rule fixed
+in advance: the confidence interval decides, not the point estimate.
 \R
 \begin{center}\small
 \begin{tabular}{lrrrl}
@@ -246,18 +286,25 @@ Runtime on CPU (1{,}000 runs after 100 warm-up).
 \midrule
 O1 Uplink reduction & 90.8\,\% & 96.1\,\% & 92.3\,\% & $\ge 50\,\%$ \\
 O1b Round-latency cut & 16.9\,\% & 21.7\,\% & 33.4\,\% & $>0$ \\
-O2a Budget $\varepsilon$ & 0.900 & 0.766 (record) & 0.900 & $\le 1$ \\
-O2b Utility loss [pts] & $-0.90$ & 1.97 (inconcl.) & 3.09 (\textbf{not met}) & $\le 2$ \\
+O2a Training $\varepsilon$ (total) & 0.900 (1.0) & 0.766 (0.966) & 0.900 (1.0) & $\le 1$ \\
+O2b Utility loss & $-1.18$ AUROC & 1.97\,pp acc.\ (inconcl.) & 3.09 AUROC (inconcl.) & $\le 2$ \\
 O3a P95 latency & 2.30\,ms & 0.75\,ms & 0.24\,ms & $<100$\,ms \\
-O3b Update delivery & 100.00\,\% & 99.94\,\% & 97.83\,\% (\textbf{not met}) & $>99\,\%$ \\
+O3b Update delivery & 100.00\,\% & 99.94\,\% & 97.83\,\% (\textbf{fails}) & $>99\,\%$ \\
+\midrule
+Passed & 7 of 7 & 6 of 7 & 5 of 7 & \\
 O4 Energy saving & 72.3\,\% & 76.8\,\% & 79.6\,\% & $\ge 20\,\%$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 \M Communication, latency and energy targets are met everywhere by a wide
-margin. The two misses are both on eICU and both have a known cause: utility
-(small hospitals, next experiments) and delivery (187 clients sharing two edges,
-Section~\ref{exp:edges}).
+margin. VitalDB (person-level) passes everything. WEAR's utility interval spans
+the threshold (and is a record-level accuracy loss, not an AUROC cost). On eICU
+the utility interval also spans the threshold, with a point estimate above it,
+and delivery fails at two edges (187 clients sharing two edges,
+Section~\ref{exp:edges}). ``Total'' adds the conformal release, which was
+evaluated but is not part of the deployed system. The scores are in
+\texttt{objectives\_*.json}; an earlier scoring is kept as
+\texttt{*\_superseded.json}.
 \end{experiment}
 
 \begin{figure}[!htb]
@@ -269,7 +316,8 @@ Section~\ref{exp:edges}).
 %----------------------------------------------------------------------
 \begin{experiment}{Inference latency}{exp:lat}
 \Q Can the model answer within 100\,ms at the edge?
-\D Exported to ONNX, timed on a CPU; also tried 8-bit quantization.
+\D Exported to ONNX, timed on a workstation CPU (Intel Core i7-14700), not on
+edge hardware; also tried 8-bit quantization.
 \R P95 latency 2.30 / 0.75 / 0.24\,ms. On VitalDB 94\,\% of it is the forward
 pass. 8-bit quantization made it \emph{slower} (P95 17.3\,ms) and broke the
 WEAR GRU, so it was rejected.
@@ -297,13 +345,20 @@ model predicts the majority class on every seed (accuracy = base rate), so
 accuracy measures the threshold, not the model.
 \R
 \begin{itemize}
-\item \textbf{VitalDB:} AUROC 0.8395 private vs 0.8304 non-private, change
-$-0.90$ points $[-1.82, +0.02]$. No measurable cost. (Not read as ``privacy
-helps'': the interval covers zero.)
+\item \textbf{VitalDB (person-level):} AUROC 0.8318 private vs 0.8200
+non-private, a change of $-1.18$ points $[-1.63, -0.73]$ ($p = 0.002$); AUPRC
+$-3.47$ $[-6.33, -0.61]$; balanced accuracy $-0.31$ $[-1.23, +0.62]$. Objective
+met. The private model is slightly \emph{better}; this is consistent with
+clipping and noise regularizing the small head, but this experiment does not
+isolate why, so it is not read as ``privacy helps''. On the old case-level split
+the change was $-0.90$ $[-1.82, +0.02]$.
 \item \textbf{eICU:} 0.8245 $\rightarrow$ 0.7936, a cost of 3.09 points
-$[1.37, 4.81]$. Objective not met. AUPRC cost 1.72, balanced-accuracy cost
-0.50 (met). End to end (pool-fitted constants): 3.91 $[2.40, 5.42]$; all three
-measures miss.
+$[1.37, 4.81]$. The interval contains 2, so by the rule fixed in advance the
+objective is \emph{inconclusive}, although the point estimate is above the
+target. AUPRC cost 1.72 (interval spans 2), balanced-accuracy cost 0.50 (met).
+End to end (pool-fitted constants): 3.91 $[2.40, 5.42]$, a clear miss in AUROC;
+the AUPRC and balanced-accuracy intervals span the target
+(Section~\ref{exp:std}).
 \item \textbf{WEAR} (record-level): accuracy loss 1.97\,pp $[1.76, 2.17]$; the
 2-point threshold lies inside the interval, so it is inconclusive. Seeds were
 fixed in advance at 15 and not extended.
@@ -316,14 +371,16 @@ multipliers (up to 29.3).
 %----------------------------------------------------------------------
 \begin{experiment}{Cost of the privacy unit: patient vs.\ record}{exp:unit}
 \Q At the same budget, what does it cost to protect patients instead of records?
-\D VitalDB, $\varepsilon = 1$, 5 paired seeds, record-level DP vs patient-level DP.
-\R AUROC 0.8520 $\rightarrow$ 0.8373, a cost of 0.0147 $[0.0042, 0.0253]$;
-AUPRC cost 0.0783 $[0.0532, 0.1035]$. For comparison, converting a record-level
+\D VitalDB (person-level), $\varepsilon = 1$, 5 paired seeds, record-level DP vs
+patient-level DP.
+\R AUROC 0.8423 $\rightarrow$ 0.8254, a change of $-0.0170$ $[-0.0269, -0.0071]$;
+AUPRC $-0.0582$ $[-0.0701, -0.0462]$. (Case-level split: $-0.0147$ and
+$-0.0783$.) For comparison, converting a record-level
 guarantee to patients by group privacy would turn $\varepsilon = 1$ into
 $\varepsilon \approx 8$; direct patient-level calibration instead needs only
 1.77$\times$ more noise.
 \M Protecting the right unit has a real but moderate cost. Two causes: fewer
-units per step (4{,}372 patients vs 34{,}044 records), and clipping hurts
+units per step (4{,}221 patients vs 33{,}491 records), and clipping hurts
 patients with many records most. The $k$-law experiments isolate the second.
 \end{experiment}
 
@@ -341,7 +398,7 @@ the benefit from ``head-only'' DP or from pretraining?
 $\varepsilon = \infty$ to 0.5: \textbf{B4} full model, random initialization
 (the usual prior art); \textbf{B7} full model, pretrained initialization;
 \textbf{B6} head only, pretrained (ours).
-\R (VitalDB, patient-level, 3 seeds, after the fix.)
+\R (VitalDB case-level split and WEAR, patient-level mechanism on VitalDB, 3 seeds, after the fix.)
 \begin{itemize}
 \item B4 $\rightarrow$ B7 (pretraining): $+0.013$ at $\varepsilon = \infty$ rising
 to $+0.199$ at $\varepsilon = 0.5$; it grows at every one of the 5 steps.
@@ -405,7 +462,7 @@ dominates (eICU's APACHE score), it adds nothing. An early 2-seed figure
 \Q Does the cost of patient-level privacy grow with records per patient, $k$?
 \D Built training sets in which every patient has exactly $k \in \{1,2,4,8\}$
 records, and trained a record-level arm and a patient-level arm with the
-same units per step. 3 seeds, AUPRC primary.
+same units per step. VitalDB case-level split, 3 seeds, AUPRC primary.
 \R
 \begin{center}\small
 \begin{tabular}{cccc}
@@ -510,18 +567,71 @@ most one eighth of it. The cost belongs mainly to the patient unit itself.
 \begin{experiment}{Privacy audit: membership inference (LiRA)}{exp:mia}
 \Q Can an attacker tell whether a \emph{patient} was in training, and does
 patient-level DP leak less than record-level DP?
-\D LiRA attack with 16 shadow models per arm, 5 target seeds, 4 attacks. A
-positive control (a no-DP model known to memorize) had to pass first.
-\R (after the fix, stage E2) Positive control AUC 0.623, 0.060 above its
-difficulty floor: the attack works. Record-level DP 0.548, patient-level DP
-0.524 (only 0.008 above its floor). Record minus patient, paired over 5 seeds:
-loss $+0.012$ $[-0.006, +0.030]$, offline LiRA $+0.029$ $[-0.038, +0.095]$,
-online LiRA $-0.003$ $[-0.015, +0.009]$; online LiRA with global variance
-$-0.029$ $[-0.048, -0.010]$ ($p = 0.014$), i.e.\ the record arm leaks
-\emph{less}, which does not survive correction for four attacks.
-\M The large predicted difference (0.7 vs 0.5) is refuted. A small difference
-is not excluded at this sample size. The attack works (control passes), so
-the null is meaningful.
+\D VitalDB person-level split. LiRA with 16 shadow models per arm, 600 member
+and 600 non-member patients, four attacks (loss threshold, offline LiRA, online
+LiRA, online LiRA with a global variance), 5 target seeds (3 for the control).
+A positive control, non-private training of the same head, must show that the
+attack can detect leakage. Each attack is compared with a ``difficulty floor'':
+the AUC from per-patient difficulty alone, without the target model.
+\R
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+Configuration & Loss AUC & Offline LiRA AUC & Floor \\
+\midrule
+Control (no DP) & 0.556 & 0.605 $[0.528, 0.681]$ & 0.553 \\
+Record-level DP & 0.522 & 0.576 $[0.557, 0.594]$ & 0.511 \\
+Patient-level DP & 0.506 & 0.503 $[0.475, 0.531]$ & 0.508 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The control is detected (online LiRA with global variance 0.597 $[0.586,
+0.609]$, entirely above its floor; at three seeds the offline interval spans
+it). Paired over five seeds, record minus patient: offline LiRA $+0.073$
+$[0.054, 0.092]$ ($p < 0.001$), loss $+0.016$ $[0.010, 0.023]$ ($p = 0.002$),
+both surviving correction for four attacks; the two online attacks resolve no
+difference. True-positive rate at 1\,\% false positives: 0.024 control, 0.017
+both private arms.
+\M Under offline LiRA, record-level training remains detectably above its
+floor and patient-level training does not. This is the direction predicted,
+with a smaller size (0.58, not the predicted 0.7). It is not equivalence with
+the control (the record arm is below it on two attacks), it rests on two of
+four attacks, and it is limited to VitalDB. An attack audit bounds what these
+attacks achieve; it does not prove there is no leakage. On the old case-level
+split, where members were operations, no difference was resolved.
+\end{experiment}
+
+%----------------------------------------------------------------------
+\begin{experiment}{Comparison with prior systems (HED-FL, FL2DP)}{exp:prior}
+\Q How does PP-HFM compare with published systems on the same data?
+\D Re-implemented HED-FL (hierarchical, no privacy, dense updates, 60\,\% of
+clients per round) and FL2DP (exponential-mechanism perturbation and shuffling,
+no hierarchy) inside the same trainer, splits, frozen encoders, rounds and five
+seeds. FL2DP ran on VitalDB only (about two GPU days per seed on eICU).
+\R
+\begin{center}\small
+\begin{tabular}{llccc}
+\toprule
+& System & AUROC & Uplink [MB] & Offline LiRA (margin) \\
+\midrule
+VitalDB & PP-HFM ($\varepsilon = 0.9$) & 0.8318 & 252 & 0.503 ($-0.005$) \\
+ & HED-FL (no DP) & 0.8262 & 560 & 0.581 ($+0.026$) \\
+ & FL2DP & 0.8195 & 1008 & 0.608 ($+0.049$) \\
+eICU & PP-HFM ($\varepsilon = 0.9$) & 0.7936 & 5235 & -- \\
+ & HED-FL (no DP) & 0.8252 & 12541 & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+On VitalDB PP-HFM exceeds FL2DP by 0.0123 AUROC $[0.0064, 0.0181]$; against
+HED-FL the AUROC difference (0.0056) is not resolved, AUPRC is $+0.030$
+$[0.005, 0.055]$. In the audit, both baselines have higher attack AUC than
+PP-HFM under all four attacks. On eICU, HED-FL is 3.17 AUROC points above the
+private model and level with the non-private reference.
+\M PP-HFM uploads 2.2--4.0 times less and shows lower measured leakage on
+VitalDB. On eICU the non-private HED-FL is more accurate; that gap is the price
+of the patient-level guarantee. FL2DP's candidate set is built from the private
+gradient, so it satisfies no finite $\varepsilon$, and it also leaks more than
+HED-FL.
 \end{experiment}
 
 %----------------------------------------------------------------------
@@ -532,8 +642,10 @@ system outputs prediction sets with 90\,\% coverage?
 aggregated by edges and cloud; coverage measured on the test split.
 \R Thresholds land mid-range (0.42--0.61). The private model's probabilities sit
 near zero, so every set is just the majority class: coverage equals the base
-rate (80.1\,\% on VitalDB, fails; 95.7\,\% on eICU), and \emph{no positive
-patient is covered}.
+rate (80.1\,\% on VitalDB, case-level split; 95.7\,\% on eICU), missing
+the 90\,\% target. The non-private threshold does not collapse to the
+majority class (it covers 36--43\,\% of positive patients), but its coverage,
+80.4--81.8\,\%, also misses the target.
 \M With about 100 calibration patients per client at $\varepsilon = 0.1$, the
 mechanism cannot separate thresholds. Conformal prediction was therefore
 removed from the system and the contributions, and the full budget
@@ -554,13 +666,16 @@ patients any SD by at most 0.02\,\%; but one outlier moves one channel's SD by
 \M Small, but it is a release outside the guarantee. Fix: re-standardize
 eICU with pool-fitted constants (verified exact: the stored data reproduce the
 original constants to $4\times10^{-8}$), re-pretrain the encoders and re-run.
-That run is the only configuration that is private end to end.
+That run is the only configuration that is private end to end, for the
+97.1\,\% of training persons at one hospital; the 2.9\,\% treated at two to
+four hospitals compose those hospitals' mechanisms ($\varepsilon \le 1.32$--$1.92$).
 \R AUROC 0.8209 $\rightarrow$ 0.7819, a cost of 3.91 points $[2.40, 5.42]$
 ($p = 0.002$, 5 seeds); AUPRC 2.66 $[1.82, 3.49]$; balanced accuracy 2.69
 $[1.57, 3.82]$.
 \M Public constants make the guarantee end to end and cost about 0.8 AUROC
-points more than training-fitted ones (3.09); now all three measures miss the
-2-point target.
+points more than training-fitted ones (3.09). The AUROC interval now lies
+entirely above the 2-point target (a clear miss); the AUPRC and
+balanced-accuracy intervals span it.
 \status{done 29 Oct.}
 \end{experiment}
 
@@ -568,8 +683,9 @@ points more than training-fitted ones (3.09); now all three measures miss the
 \begin{experiment}{Cost of disjoint encoders on VitalDB (F2)}{exp:f2}
 \Q How much does it cost to pretrain VitalDB's encoders on a disjoint pool
 instead of on client data?
-\D Stage F2: the headline patient-level run on VitalDB repeated with encoders
-pretrained only on the disjoint pool, five seeds, private and non-private arms.
+\D Stage F2: the patient-level system run on VitalDB (case-level split)
+repeated with encoders pretrained only on the disjoint pool, five seeds,
+private and non-private arms.
 \R Against the oracle encoders the private model loses 0.0157 $\pm$ 0.0046
 AUROC (0.8395 $\to$ 0.8237, $p < 0.001$) and 0.0122 $\pm$ 0.0262 AUPRC (not
 resolved). With disjoint encoders the cost of privacy itself is $+0.0014$
@@ -608,6 +724,12 @@ batch. All patient-level results re-run in stages A--G. \\
 Headline runs were record-level & The system runs used record-level DP
 while claiming patient-level. Re-run at patient level. \\
 Aggregation weights leaked sizes & Now static declared sizes. \\
+VitalDB split by surgical case (30 Oct) & 55 of 940 test persons also had a
+training case, and 68 training persons were on two clients. Rebuilt the split by
+person; privacy cost, unit cost, baselines and audit re-run (Section~\ref{sec:data}). \\
+Objective scores out of date (1 Nov) & The scoring files used an old latency
+benchmark and scored utility on accuracy. Re-scored from the final runs; the old
+files are kept. \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -623,20 +745,22 @@ results are archived, not overwritten.
 
 \begin{center}
 \small
-\begin{tabular}{p{0.5\textwidth} l}
+\begin{tabular}{p{0.5\textwidth} p{0.42\textwidth}}
 \toprule
 Claim & Status \\
 \midrule
-Patient-level guarantee for hierarchical multimodal FL, all tiers accounted & proven (Theorem 1) \\
-Communication, latency, energy objectives & met on all three corpora \\
-No measurable utility cost on VitalDB at $\varepsilon = 0.9$ & supported \\
-Utility cost $\le 2$ points on eICU & \textbf{not met} (3.09; 3.91 end to end) \\
-Pretrained initialization makes strict privacy survivable & strongly supported \\
+Patient-level guarantee for hierarchical multimodal FL, all tiers accounted & proven for the training transcript (Theorem 1); end to end only for eICU with pool-fitted constants, for persons at one hospital (2.9\,\% at several: $\varepsilon \le 1.32$--$1.92$) \\
+Communication, latency, energy objectives & met on all three corpora (latency: workstation CPU; energy: modeled; network: simulated) \\
+No utility cost on VitalDB at $\varepsilon = 0.9$ & supported, person-level split ($-1.18$ $[-1.63, -0.73]$) \\
+Utility cost $\le 2$ points on eICU & inconclusive (3.09 $[1.37, 4.81]$); \textbf{not met} end to end (3.91 $[2.40, 5.42]$) \\
+eICU update delivery $> 99\,\%$ & \textbf{fails} at 2 edges (97.83\,\%); met from 8 edges \\
+Pretrained initialization makes strict privacy survivable & strongly supported (VitalDB case-level, WEAR) \\
 Head-only DP improves accuracy & \textbf{refuted} (it helps communication) \\
-$k$-law shape on VitalDB & supported, with positive control \\
+$k$-law shape on VitalDB & supported, with positive control (case-level split) \\
 $k$-law transfers to eICU & shape yes, magnitude no, unresolved \\
 Cost is not a clipping artefact & eICU yes; VitalDB inconclusive ($\le 1/8$ of cost) \\
-Patient DP leaks much less than record DP (MIA) & large effect refuted \\
+Patient DP leaks less than record DP (MIA) & supported on VitalDB under offline LiRA and loss (2 of 4 attacks); smaller than predicted \\
+Less traffic and lower measured leakage than HED-FL, FL2DP & supported on VitalDB; on eICU non-private HED-FL is more accurate \\
 Private conformal prediction & \textbf{failed}, removed \\
 Fusion helps & VitalDB yes; eICU only when balanced \\
 Hierarchy costs accuracy & no (removing it costs 0.005) \\
@@ -651,19 +775,22 @@ with a proof, and careful \emph{measurement} of what it costs.
 %======================================================================
 \section{Still to do}
 
+No experiments are pending. What remains is approvals and submission work.
+
 \begin{center}
-\begin{tabular}{lll}
+\small
+\begin{tabular}{p{0.38\textwidth} p{0.55\textwidth}}
 \toprule
-Item & What it gives & Expected \\
+Item & Status \\
 \midrule
-HED-FL, FL2DP baselines & empirical comparison & needs the two PDFs \\
-Final consistency pass & paper ready to submit & after numbers freeze \\
+Author block & college grid now; IEEE IoT Journal needs the journal layout (one switch in \texttt{main.tex}); author order and ORCID iDs for all authors \\
+Page length & 19 pages; IoT Journal charges for pages beyond eight \\
+AI-use disclosure & to be written in the acknowledgment \\
+Code and results release & staging copy built and validated; waits for the WEAR licence check, Apache-2.0 approval by all authors and MAHE, and IEEE rights \\
+Optional & eICU membership-inference audit (about 160 GPU hours); more seeds only as a separately declared replication \\
 \bottomrule
 \end{tabular}
 \end{center}
-
-Your decisions: the journal (IEEE IoT Journal or TII), authors, bios,
-acknowledgment, and a final reference check.
 
 %======================================================================
 \section{Glossary}
@@ -688,7 +815,11 @@ two arms on identical splits.
 before running the experiment, so the result cannot be reinterpreted later.
 \item[LiRA] Likelihood-ratio membership-inference attack using shadow models.
 \item[Oracle vs disjoint encoders] Pretrained on client data (upper bound, not
-private) vs on a separate public pool (private end to end).
+private) vs on a separate public pool. Disjoint encoders are needed for the
+guarantee to hold end to end, together with public standardization constants.
+\item[Inconclusive] The confidence interval contains the target, so the data
+cannot decide pass or fail at the fixed number of seeds. It is neither a pass
+nor a failure.
 \end{description}
 
 \end{document}

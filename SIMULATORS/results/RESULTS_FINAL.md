@@ -30,7 +30,7 @@ private* and paired by seed unless stated; intervals are 95 % Student-t.
 | O1 uplink reduction | 90.8 % | 96.1 % | 92.3 % | ≥ 50 % | `phase5/uplink_measured_*.json`, `ns3/` |
 | O1b round-latency cut | 16.9 % | 21.7 % | 33.4 % | > 0 % | `ns3/ns3_results_*.csv` |
 | O2a training budget ε | 0.900 (+0.1 conformal = 1.000) | 0.766 (record; +0.2 conformal = 0.966) | 0.900 (+0.1 conformal = 1.000) | ≤ 1 | `phase5/privacy_total_*.json`; VitalDB person-level `o2b_system/vitaldb_person/dp_s*/privacy_total_vitaldb_person.json` |
-| O2b utility loss | −1.18 AUROC pts (person-level; case-level −0.90) | 1.97 pp acc. | 3.09 [1.37, 4.81] AUROC pts (**inconclusive**: interval spans 2, point estimate above; end to end 3.91 [2.40, 5.42] **not met**) | ≤ 2 | `phase5/o2b_system/{vitaldb_person,eicu}/o2b_paired.json` (case-level: `vitaldb/`) |
+| O2b utility loss | −1.18 AUROC pts (person-level; case-level −0.90) | 1.97 pp acc. [1.76, 2.17] (**inconclusive**: interval spans 2; record-level) | 3.09 [1.37, 4.81] AUROC pts (**inconclusive**: interval spans 2, point estimate above; end to end 3.91 [2.40, 5.42] **not met**) | ≤ 2 | `phase5/o2b_system/{vitaldb_person,eicu}/o2b_paired.json` (case-level: `vitaldb/`) |
 | O3a P95 inference latency | 2.30 ms | 0.75 ms | 0.24 ms | < 100 ms | `phase5/latency_bench/` |
 | O3b update delivery | 100.00 % | 99.94 % | 97.83 % (**not met** at 2 edges; met from 8) | > 99 % | `ns3/edge_scaling/` |
 | O4 energy saving per round | 72.3 % | 76.8 % | 79.6 % | ≥ 20 % | `cloudsim/cloudsim_results_*.csv` |
@@ -227,6 +227,43 @@ both unresolved. HED-FL − PP-HFM offline LiRA +0.078 [0.050, 0.106]; FL2DP −
 PP-HFM +0.105 [0.079, 0.130]. Case-level (section 7) resolved no record −
 patient difference. Figure: `paper/figures/fig10_ablation_mia.py` (panel b now
 reads `vitaldb_person`).
+
+## 8b. Privacy-accounting audit (2026-11-02)
+
+Independent re-derivation of the patient-level accounting for the 20 headline
+runs (`o2b_system/{eicu,eicu_poolnorm,vitaldb_person,vitaldb_disjoint}/dp_s42–46`).
+Full report: `../../pp-hfm-release-review/FINAL_AUDIT_2026-11-02.md`.
+
+| Check | Result |
+|---|---|
+| Per-client σ_k re-derived from partition + config | identical to `train.log` on every run (eICU 4.785–29.338; VitalDB person 6.343–15.556) |
+| Per-client ε, Opacus PRV (the headline accountant) | 0.8998–0.9000; reported training ε 0.9000 |
+| Same mechanism, independent PLD (own code, exact-mass lattice) | bracket [0.880, 0.900] |
+| Same mechanism, RDP (Opacus and own code agree) | 0.974 — a looser bound on the *same* mechanism, not a discrepancy |
+| Train / validation / test person overlap | 0 in every configuration |
+| (A1) one client per training person | holds on VitalDB person-level; **fails on eICU** for 2,177 of 74,327 training persons (2.9 %) |
+
+eICU persons held by several hospitals (clients = `hospitalid`, unit = `uniquepid`)
+compose the mechanisms of every hospital holding them. Composed training ε at
+δ = 10⁻⁵, Opacus PRV (independent PLD brackets the worst set at every m):
+
+| Hospitals | Training persons | Composed ε (PRV) | RDP bound | Basic m·ε |
+|---|---|---|---|---|
+| 1 | 72,150 | ≤ 0.900 | 0.974 | 0.9 |
+| 2 | 2,097 | ≤ 1.32 | 1.42 | 1.8 |
+| 3 | 75 | ≤ 1.64 | 1.77 | 2.7 |
+| 4 | 5 | ≤ 1.92 | 2.08 | 3.6 |
+
+The evaluated conformal release (ε_conf = 0.1 per hospital, pure DP) composes to
+at most 0.2 / 0.3 for the 509 of 19,916 eICU validation persons (2.6 %) at two or
+three hospitals. Disclosed in both manuscripts; utility results unchanged.
+
+**k = 1 diagnostic** (`phase5/diagnostics/k1_record_rerun_eps080/`, not part
+of the prespecified analysis): the ε = 0.8 VitalDB grid reuses a record arm run
+on 2026-09-21/22 code. Retrained on the current code with the identical partition
+and seeds, it reproduces to within 0.002 AUPRC on all three seeds (0.5169/0.5171,
+0.5058/0.5038, 0.5665/0.5662), so the grid's +0.0398 k = 1 offset is not a
+code-version artefact.
 
 ## 9. Reproducing
 

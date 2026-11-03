@@ -105,15 +105,17 @@ fivefold.
 
 \subsection{Privacy Budget and Utility}
 \label{sec:results:privacy}
-On both clinical corpora, every training patient's contribution to the
-training transcript is protected at $\varepsilon = 0.900$,
-$\delta = 10^{-5}$, across all tiers. This is not an end-to-end guarantee for
+On both clinical corpora, the contribution to the training transcript of
+every training patient held by one client is protected at
+$\varepsilon = 0.900$, $\delta = 10^{-5}$, across all tiers; on eICU this
+excludes the $2.9\,\%$ of training persons at several hospitals
+(Section~\ref{sec:method:privacy}). This is not an end-to-end guarantee for
 the headline runs: their standardization constants are fitted on the
 training cohort, and on VitalDB and WEAR the oracle encoders also violate
 (A2) (Table~\ref{tab:ledger}). The VitalDB and WEAR results are therefore
 comparisons of the private head, not end-to-end private deployments; the
-only configuration that satisfies the guarantee end to end is the eICU rerun
-with disjoint encoders and pool-fitted constants, reported separately below. The per-client
+only configuration that satisfies the guarantee end to end, for individuals at
+one hospital, is the eICU rerun with disjoint encoders and pool-fitted constants, reported separately below. The per-client
 multipliers range from $6.34$ to $15.56$ on VitalDB and from $4.79$ to
 $29.34$ on eICU (median $13.39$); a single worst-case multiplier would have
 imposed $29.34$ on every hospital.
@@ -542,7 +544,7 @@ and $0.608$ against FL2DP, $0.078$ $[0.050, 0.106]$ and $0.105$
 $[0.079, 0.130]$ above PP-HFM; the loss threshold gives $+0.047$ and
 $+0.055$. Both baselines also have higher difficulty floors ($0.555$ and
 $0.559$ against $0.508$), and their margins above them are $+0.026$ and
-$+0.049$, against $-0.005$ for PP-HFM. FL2DP leaks more than HED-FL, which adds no noise at all.
+$+0.049$, against $-0.005$ for PP-HFM. The PP-HFM is the patient-level audit target, trained at $\varepsilon = 1.0$ with $\varepsilon_{\mathrm{conf}} = 0.5$ and one worst-client multiplier under the R\'enyi accountant, not the $\varepsilon = 0.9$ model whose AUROC and uplink are listed, so its leakage is measured at a slightly weaker budget than the headline. The comparison bounds what these attacks achieve and does not by itself establish the guarantee. FL2DP leaks more than HED-FL, which adds no noise at all.
 Its candidate set is built from the private gradient value
 (Eqs.~11--12 of \cite{ref9}), so the mechanism satisfies no finite
 $\varepsilon$, and the audit finds that it does not reduce leakage either.
@@ -569,6 +571,10 @@ $\varepsilon$, and the audit finds that it does not reduce leakage either.
 \end{tabular}
 \tabnote{$\varepsilon$: patient-level training budget ($\delta = 10^{-5}$);
 ---: no finite bound. MB: total uplink. LiRA: offline attack AUC,
-margin above the difficulty floor in parentheses; not run on eICU. All AUROC
+margin above the difficulty floor in parentheses; not run on eICU. The
+PP-HFM LiRA entry is the patient-level audit target (Section~\ref{sec:method:mia}:
+$\varepsilon = 1.0$, $\varepsilon_{\mathrm{conf}} = 0.5$, one worst-client
+multiplier, R\'enyi accountant), not the $\varepsilon = 0.9$ model whose AUROC
+and uplink are listed. All AUROC
 differences from PP-HFM are resolved except HED-FL on VitalDB.}
 \end{table}

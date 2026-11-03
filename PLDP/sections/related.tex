@@ -74,8 +74,8 @@ small cohorts, as Section~\ref{sec:results:privacy} shows. Inference latency
 at the edge is studied mainly outside federated learning \cite{ref25, ref26}.
 
 \subsection{Summary}
-Table~\ref{tab:related} compares representative systems along six
-properties. Hierarchical systems lack a formal guarantee, private federated
+Table~\ref{tab:related} compares representative systems, including the unit
+each guarantee protects and the scope of its accounting. Hierarchical systems lack a formal guarantee, private federated
 systems
 protect records or clients rather than individuals, user-level DP has not
 been applied across a hierarchy, and no system audits its
@@ -89,26 +89,30 @@ individual level.
 \centering
 \caption{Comparison with representative prior systems}
 \label{tab:related}
-\setlength{\tabcolsep}{4.2pt}
-\begin{tabular}{lcccccc}
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{lccccccc}
 \toprule
-Work & H & DP & Ind. & MM & Aud. & Lat. \\
+Work & H & DP & Unit & Scope & MM & Aud. & Lat. \\
 \midrule
-HED-FL \cite{ref3}         & \checkmark & -- & -- & -- & -- & -- \\
-HCEF \cite{ref4}           & \checkmark & -- & -- & -- & -- & -- \\
-Mhaisen \emph{et al.} \cite{ref5} & \checkmark & -- & -- & -- & -- & -- \\
-FL2DP \cite{ref9}          & -- & \checkmark & -- & -- & -- & -- \\
-RoPPFL \cite{ref10}        & $\circ$ & \checkmark & -- & -- & -- & -- \\
-PCRHFeL \cite{ref34}      & \checkmark & $\ast$ & -- & -- & -- & -- \\
-Fulcrum \cite{ref37}      & \checkmark & \checkmark & -- & -- & -- & -- \\
-Hasan \emph{et al.} \cite{ref35} & -- & \checkmark & -- & \checkmark & -- & -- \\
-MM-PFL-ADP \cite{ref36}   & -- & \checkmark & -- & \checkmark & -- & -- \\
-User-level DP \cite{ref11} & -- & \checkmark & \checkmark & -- & -- & -- \\
-PP-HFM (this work)         & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+HED-FL \cite{ref3}         & \checkmark & -- & -- & -- & -- & -- & -- \\
+HCEF \cite{ref4}           & \checkmark & -- & -- & -- & -- & -- & -- \\
+Mhaisen \emph{et al.} \cite{ref5} & \checkmark & -- & -- & -- & -- & -- & -- \\
+FL2DP \cite{ref9}          & -- & \checkmark & n.s. & F & -- & -- & -- \\
+RoPPFL \cite{ref10}        & \checkmark & \checkmark & U & X & -- & -- & -- \\
+PCRHFeL \cite{ref34}      & \checkmark & $\ast$ & n.s. & n.s. & -- & -- & -- \\
+Fulcrum \cite{ref37}      & \checkmark & \checkmark & C & n.s. & -- & -- & -- \\
+Hasan \emph{et al.} \cite{ref35} & -- & \checkmark & U & F & \checkmark & -- & -- \\
+MM-PFL-ADP \cite{ref36}   & -- & \checkmark & C & F & \checkmark & -- & -- \\
+User-level DP \cite{ref11} & -- & \checkmark & I & F & -- & -- & -- \\
+PP-HFM (this work)         & \checkmark & \checkmark & I & A & \checkmark & \checkmark & \checkmark \\
 \bottomrule
 \end{tabular}
-\tabnote{H: hierarchical aggregation; DP: formal guarantee; Ind.: the unit is
-the individual; MM: multimodal records; Aud.: individual-level audit; Lat.:
-inference latency reported; $\circ$: edge tier outside the privacy accounting;
-$\ast$: Wasserstein differential privacy; --: not reported.}
+\tabnote{H: hierarchical aggregation; DP: formal guarantee ($\ast$: Wasserstein
+differential privacy). Unit: what two neighboring datasets differ by: U, one
+client update (local DP); C, one client; I, all records of one individual
+(user or patient). Scope of the privacy accounting: A, every tier, edge
+included; X, edge tier outside the accounting; F, flat training (no edge tier).
+MM: multimodal records; Aud.: individual-level audit; Lat.: inference latency
+reported; n.s.: not specified in the cited work; --: not applicable or not
+reported.}
 \end{table}
