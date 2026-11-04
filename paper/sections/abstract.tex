@@ -50,26 +50,27 @@
 \begin{abstract}
 Hierarchical federated learning keeps Internet-of-Things data local, but its
 differential-privacy guarantee protects single records, whereas clinical
-deployments must protect patients with many records. This paper proposes
-a client--edge--cloud framework whose privacy unit is the patient. Each client
-clips a patient's summed gradient, calibrates noise to its population and
-accounts for every hierarchical release. The guarantee is proved for the training
-transcript and, with public encoders and standardization constants, end to
-end (eICU). It is evaluated on VitalDB, $187$
-eICU hospitals and, at record level, a wearable corpus. At a
-training budget of at most $\varepsilon = 0.9$ ($1.0$ including the
-conformal release; $0.766$ at record level on WEAR), it reduces uplink traffic
-by $90.8$--$96.1\,\%$ and modeled energy per round by $72.3$--$79.6\,\%$;
-$95$th-percentile workstation-CPU inference latency is at most $2.3$~ms.
-On person-partitioned VitalDB the guarantee costs no utility (area under the
-receiver operating characteristic curve, AUC, $0.832$ vs.\ $0.820$
-non-private). On eICU it costs $3.1$ points (inconclusive against the
-two-point target) and $3.9$ end to end, missing it; a non-private
-hierarchical baseline is more accurate ($0.825$ vs.\ $0.794$). It uploads $2.2$--$4.0$ times less than re-implemented hierarchical and private
-baselines and leaks less in the VitalDB audit. On VitalDB and WEAR,
+deployments must protect patients, who contribute many records.
+This paper proposes a client--edge--cloud framework whose privacy unit is the
+patient: each client sums a patient's gradients before clipping, calibrates
+noise to its population and accounts for every hierarchical release. The
+guarantee is proved for the training transcript and, with public encoders and
+standardization constants, holds end to end (eICU). Evaluated on VitalDB,
+$187$ eICU hospitals and wearable data at a training budget
+$\varepsilon \le 0.9$ ($1.0$ including the conformal release; $0.766$ at record
+level on WEAR), the framework reduces uplink traffic by $90.8$--$96.1\,\%$ and
+modeled energy per round by $72.3$--$79.6\,\%$, with $95$th-percentile
+workstation-CPU inference latency of at most $2.3$~ms. On person-partitioned
+VitalDB the guarantee costs no utility (area under the receiver operating
+characteristic curve, AUC, $0.832$ vs.\ $0.820$ non-private); on eICU it costs
+$3.1$ AUC points, and $3.9$ end to end. Against re-implemented hierarchical
+and private baselines it uploads $2.2$--$4.0$ times less and leaks less in the
+VitalDB audit, trading accuracy against the non-private hierarchical
+baseline ($0.794$ vs.\ $0.825$) for a formal guarantee. Further, on VitalDB
+and WEAR,
 pretrained initialization, not head-only noise, makes a strict budget
-survivable; the patient-unit cost follows $A(1 - 1/k)$ in records per patient
-$k$. A membership-inference audit with a positive control finds record-level
-training above its difficulty floor (attack AUC $0.576$) and patient-level
-training at it ($0.503$).
+survivable, and on VitalDB the patient-unit cost follows $A(1 - 1/k)$ in records per
+patient $k$. A membership-inference audit with a positive control finds
+record-level training above its difficulty floor (attack AUC $0.576$) and
+patient-level training at it ($0.503$).
 \end{abstract}

@@ -58,7 +58,8 @@ non-deployed conformal release adds $\varepsilon_{\mathrm{conf}} = 0.1$ on
 the clinical deployments (total $1.0$) and $0.2$ on the wearable deployment
 (total $0.966$). O2b is a paired comparison
 against a non-private reference trained under the identical recipe, five seeds,
-in points of area under the ROC curve on the two clinical deployments (the
+with cost = non-private minus private (a negative cost means the private model
+scores higher), in points of area under the ROC curve on the two clinical deployments (the
 private model predicts the majority class at the default threshold, so accuracy
 cannot measure the loss); $^{\S}$on the wearable deployment, whose guarantee is
 record-level, it is the loss in accuracy over fifteen seeds. $^{\dagger}$An
