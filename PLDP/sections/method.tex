@@ -173,10 +173,9 @@ where $\varepsilon_k$ is computed by the privacy loss distribution accountant
 \cite{ref33}, a tight upper bound for the subsampled Gaussian mechanism, and
 $T_k$ must equal the number of steps the client actually executes. Since
 $\sigma_k$ depends only on the declared, public $|\mathcal{P}_k|$ and $T_k$,
-using a different multiplier per client releases nothing further. Arm-versus-arm
-comparisons in Section~\ref{sec:results} use the single conservative
+using a different multiplier per client releases nothing further. Comparisons between configurations in Section~\ref{sec:results} use the single conservative
 multiplier $\sigma^{\star} = \max_k \sigma_k$ with R\'enyi accounting
-\cite{ref7, ref29}, which holds every arm to the same noise.
+\cite{ref7, ref29}, which holds every configuration to the same noise.
 
 \subsection{Hierarchical Aggregation and Update Encoding}
 \label{sec:method:agg}
@@ -304,8 +303,7 @@ and are outside the guarantee, as is conventional \cite{ref6}.
 
 \begin{table}[!t]
 \centering
-\caption{Privacy ledger of the headline configuration: every release and the
-population it touches. Table~\ref{tab:scope} gives the other configurations.}
+\caption{Privacy ledger of the headline configuration}
 \label{tab:ledger}
 \setlength{\tabcolsep}{2.4pt}
 \footnotesize
@@ -323,13 +321,14 @@ Encoders (disjoint pool)          & external & not required \\
 Encoders (oracle)                 & training & violates (A2) \\
 \bottomrule
 \end{tabular}
+\tabnote{Every release and the population it touches; other configurations in Table~\ref{tab:scope}.}
 \end{table}
 
 % Table IV (scope) is defined here, beside Table III, so the full-width float
 % reaches the top of the page that explains it (it lands one page after definition).
 \begin{table*}[!t]
 \centering
-\caption{Scope of the guarantee in each evaluated configuration}
+\caption{Scope of the guarantee by configuration}
 \label{tab:scope}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -347,7 +346,7 @@ eICU, prior systems (source partition) & patient & disjoint / training cohort & 
 WEAR & record (= participant) & oracle / training cohort & record-level; $0.766 + 0.2$ & transcript, per record \\
 \bottomrule
 \end{tabular}
-\tabnote{Unit: neighboring datasets differ by all records of one patient, person or case, or by one record; ``vs'' marks a comparison of two arms. Accounting: $\varepsilon_{\mathrm{train}} + \varepsilon_{\mathrm{conf}}$ at $\delta = 10^{-5}$; $\sigma_k$, per-client multipliers; $\sigma_{\max}$, one worst-client multiplier; PLD, privacy-loss-distribution accountant; RDP, R\'enyi accountant. The conformal release was evaluated and is not part of the deployed system. Arms compared with each other share one configuration. Other analyses (recipe, ablation, fusion, attribution) are labeled with their partition and mechanism in Section~\ref{sec:results}. $^{\ddagger}$eICU on the source partition: for the $97.1\,\%$ of training persons at one hospital; the $2.9\,\%$ at two to four hospitals compose the mechanisms of those hospitals ($\varepsilon_{\mathrm{train}} \le 1.32$--$1.92$ with $\sigma_k$ and PLD).}
+\tabnote{Unit: neighboring datasets differ by all records of one patient, person or case, or by one record; ``vs'' compares two arms. Accounting: $\varepsilon_{\mathrm{train}} + \varepsilon_{\mathrm{conf}}$ at $\delta = 10^{-5}$; $\sigma_k$, per-client multipliers; $\sigma_{\max}$, one worst-client multiplier; PLD, privacy-loss-distribution accountant; RDP, R\'enyi accountant. The conformal release was evaluated, not deployed. Other analyses are labeled with their partition in Section~\ref{sec:results}. $^{\ddagger}$eICU source partition: $97.1\,\%$ of training persons are at one hospital; the $2.9\,\%$ at two to four hospitals compose those hospitals' mechanisms ($\varepsilon_{\mathrm{train}} \le 1.32$--$1.92$).}
 \end{table*}
 
 \begin{corollary}[Coincidence of the units]
@@ -361,20 +360,20 @@ an implementation difference, not the privacy unit.
 
 The theorem bounds what the guarantee reveals; the next statement predicts
 what it costs. Suppose $P$ individuals each contribute exactly $k$ records.
-The record-level arm minimizes $\frac{1}{Pk}\sum_p\sum_{w\in W_p}\ell_w$, and
-the patient-level arm minimizes the same objective written as
+The record-level model minimizes $\frac{1}{Pk}\sum_p\sum_{w\in W_p}\ell_w$, and
+the patient-level model minimizes the same objective written as
 $\frac{1}{P}\sum_p \bar\ell_p$ with $\bar\ell_p = \frac{1}{k}\sum_{w\in
 W_p}\ell_w$.
 
 \begin{proposition}[Cost in records per individual]
 \label{prop:scaling}
 Let each $\ell_w$ be convex and $L$-Lipschitz on a domain of diameter $D$ in
-$\mathbb{R}^d$, and let both arms be trained by private gradient descent at
+$\mathbb{R}^d$, and let both models be trained by private gradient descent at
 the same $(\varepsilon,\delta)$, and let $\Lambda =
 LD\sqrt{d\log(1/\delta)}/\varepsilon$. (i) The excess empirical risk of the
-record-level arm is at most $c_{\mathrm{rec}}\Lambda/(Pk)$ and that of the
-patient-level arm at most $c_{\mathrm{ind}}\Lambda/P$, with constants
-independent of $k$; both rates are tight in the worst case up to logarithmic factors. (ii) If both arms
+record-level model is at most $c_{\mathrm{rec}}\Lambda/(Pk)$ and that of the
+patient-level model at most $c_{\mathrm{ind}}\Lambda/P$, with constants
+independent of $k$; both rates are tight in the worst case up to logarithmic factors. (ii) If both models
 attain their rate with a common constant $c$, the gap is $A(1 - 1/k)$ with
 $A = c\Lambda/P$.
 \end{proposition}
@@ -382,8 +381,8 @@ $A = c\Lambda/P$.
 \begin{IEEEproof}
 For $n$ units with convex $L$-Lipschitz losses, private gradient descent
 attains excess risk $O(LD\sqrt{d\log(1/\delta)}/(n\varepsilon))$, and the rate
-is tight up to logarithmic factors \cite{ref31}. The record-level arm has $n = Pk$ units. In the
-patient-level arm the unit is $\bar\ell_p$, which is $L$-Lipschitz as an
+is tight up to logarithmic factors \cite{ref31}. The record-level model has $n = Pk$ units. In the
+patient-level model the unit is $\bar\ell_p$, which is $L$-Lipschitz as an
 average of $L$-Lipschitz losses; clipping the summed gradient at $C$ equals
 clipping the gradient of $\bar\ell_p$ at $C/k$, a rescaling that leaves the
 guarantee unchanged, so the mechanism is private gradient descent over $n = P$
@@ -396,7 +395,7 @@ $A(1-1/k)$ is therefore a \emph{scaling hypothesis} that the proposition
 motivates, not a theorem, and it is tested empirically, including out of
 sample. Since the head is not convex and the reported metric is not excess
 risk, the hypothesis concerns the \emph{shape} of the cost, not its
-magnitude: one free parameter, zero at $k = 1$, and a patient-level arm whose
+magnitude: one free parameter, zero at $k = 1$, and a patient-level model whose
 utility does not depend on $k$. It also indicates what would recover
 the cost: mechanisms that clip around an estimate of each individual's mean
 gradient attain user-level rates that improve with $k$ \cite{ref32}, whereas

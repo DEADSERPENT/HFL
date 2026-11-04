@@ -14,7 +14,7 @@ standardization constants are fitted on public data, which on the evaluated
 corpora is the eICU configuration, run on a partition in which every
 individual is held by one hospital.
 
-The evaluation on three corpora supports four conclusions. First, the system
+The evaluation on three corpora answers the four research questions. First (RQ4), the system
 objectives are met on every corpus with two exceptions on eICU and one on
 WEAR, where the record-level utility loss of $1.97$~pp is inconclusive
 against the two-point target: the training
@@ -24,16 +24,16 @@ round by $72.3$--$79.6\,\%$, and the $95$th-percentile inference latency on
 a workstation CPU is at most $2.3$~ms, but on eICU the utility loss exceeds
 the two-point target end to end and is inconclusive against it with
 training-fitted constants, and update delivery reaches
-$99\,\%$ only from eight edges. Second, the patient-level guarantee is affordable: it costs no utility on
+$99\,\%$ only from eight edges. Second (RQ1), the patient-level guarantee is affordable: it costs no utility on
 VitalDB, partitioned by person, and on eICU it costs $3.1$ AUROC points $[1.6, 4.7]$ ($3.9$ $[2.6, 5.2]$ end to
-end), a cost set by the smallest hospitals. Third, on VitalDB and WEAR, robustness to a strict
+end), a cost set by the smallest hospitals. Third (RQ3), on VitalDB and WEAR, robustness to a strict
 budget is determined by the initialization, not by the size of the privatized
 subset: pretrained initialization is worth $0.199$ AUROC at
 $\varepsilon = 0.5$, whereas restricting noise to the head changes accuracy by
-at most $0.006$ under privacy and is justified by communication alone. Fourth, the price of
+at most $0.006$ under privacy and is justified by communication alone. Fourth (RQ2), the price of
 an individual-level guarantee follows $A(1 - 1/k)$ in records per individual
 and vanishes where the two units coincide, a scaling that holds out of sample
-on the first corpus and in shape on the second. On VitalDB, a patient-level
+on the first corpus and in shape on the second. On VitalDB (RQ4), a patient-level
 audit with a positive control is consistent with the distinction: record-level
 training remains detectably above its difficulty floor under offline LiRA,
 whereas patient-level training does not; the audit bounds these attacks

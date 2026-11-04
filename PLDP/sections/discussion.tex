@@ -2,13 +2,13 @@
 \label{sec:discussion}
 
 \subsection{What the Price of the Unit Depends On}
-The central finding is not that an individual-level guarantee has a cost,
+The central finding (RQ1, RQ2) is not that an individual-level guarantee has a cost,
 which was expected, but that the cost has a predictable shape. At one operating
 point on person-level VitalDB it is $0.0170$ AUROC. Holding the per-step budget and the units per step
 fixed, so that only the clipping geometry differs, it is indistinguishable
 from zero at one record per individual and grows as $A(1-1/k)$, with a single
-parameter that a fit on $k \le 4$ already determines. The patient-level arm
-stays flat while the record-level arm improves, so a patient-level guarantee
+parameter that a fit on $k \le 4$ already determines. The patient-level model
+stays flat while the record-level model improves, so a patient-level guarantee
 becomes relatively more expensive, not cheaper, as more records are collected
 per patient. Normalizing the clipping bound by the record count does not
 recover the cost on eICU and could explain at most one eighth of it on VitalDB,
@@ -28,14 +28,14 @@ cost. Hierarchical systems
 systems \cite{ref9, ref10} leave the edge tier out of the accounting; PP-HFM
 measures both on the same configuration and shows that the savings cost no
 utility. The re-implemented baselines make this concrete
-(Section~\ref{sec:results:prior}). On eICU, HED-FL matches the non-private
+(RQ4; Section~\ref{sec:results:prior}). On eICU, HED-FL matches the non-private
 reference, so its $3.2$-point lead over PP-HFM is the price of the
 patient-level guarantee; on VitalDB, PP-HFM matches HED-FL in AUROC, exceeds
 it in AUPRC, and leaks less under offline LiRA (margin $-0.005$ against $+0.026$). FL2DP adds noise yet leaks more than HED-FL, which adds none:
 a perturbation without a finite $\varepsilon$ is not a weaker guarantee but
 no guarantee, and only an audit can show what it protects. The parameter-efficient literature attributes
 robustness at small $\varepsilon$ to the reduced privatized dimension; the
-three-arm decomposition attributes it to the initialization instead, which
+three-way decomposition attributes it to the initialization instead (RQ3), which
 changes what a practitioner should optimize first. Several results are
 negative and are reported with the control or the power that makes them
 interpretable: the privatized subset contributes nothing to accuracy once the
@@ -62,7 +62,7 @@ $3.88$ $[2.60, 5.17]$ end to end, above the target; on WEAR the
 accuracy interval spans the target. \emph{Encoders.} VitalDB and WEAR results
 use the oracle encoders unless stated, so their absolute utilities are upper
 bounds; on the case-level VitalDB partition the disjoint encoders cost $1.57$
-AUROC points and the privacy cost with them is $+0.14$ points; differences between arms are
+AUROC points and the privacy cost with them is $+0.14$ points; differences between configurations are
 unaffected, and on eICU every encoder is disjoint. \emph{Scope of the unit.} VitalDB results other than the privacy cost, the
 cost of the unit, the baseline comparison and the audit are case-level; for the $3.9\,\%$ of persons with several operations, their
 guarantee extends to the person only by group privacy. On WEAR the mechanism
@@ -83,5 +83,5 @@ system.
 \emph{Fusion.} A fusion gain is shown on VitalDB only: WEAR leaves no
 headroom, and the eICU second stream is admission data, so its balancing test
 identifies a mechanism rather than the benefit of a second sensor.
-\emph{Theory.} The $A(1-1/k)$ form assumes both arms attain their rate with a
+\emph{Theory.} The $A(1-1/k)$ form assumes both models attain their rate with a
 common constant; it is supported empirically, not proved.

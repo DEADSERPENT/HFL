@@ -13,7 +13,7 @@ outside medicine, and its privacy results are record-level.
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{fig00_workflow.pdf}
-\caption{Study workflow: individual-level partitioning, per-corpus encoder configuration (end to end on eICU only), private hierarchical training and paired evaluation with an attack audit.}
+\caption{Study workflow: individual-level partitioning, encoder configuration, private hierarchical training, and evaluation with an attack audit.}
 \label{fig:workflow}
 \end{figure*}
 
@@ -44,7 +44,7 @@ individuals.
 
 \begin{table}[!t]
 \centering
-\caption{The three corpora}
+\caption{Corpora}
 \label{tab:data}
 \setlength{\tabcolsep}{2.6pt}
 \small
@@ -91,13 +91,13 @@ windows from individuals disjoint from every client is reserved before
 federated training to pretrain the disjoint encoders.
 
 \subsection{Implementation}
-Table~\ref{tab:params} lists the training and evaluation parameters. All arms
+Table~\ref{tab:params} lists the training and evaluation parameters. All configurations
 share one configuration, so that differences can be attributed to the factor
 under test. The headline system uses per-client multipliers and the privacy
 loss distribution accountant (Section~\ref{sec:method:calib}). On eICU every
 pretrained encoder is disjoint. On VitalDB and WEAR, results use the oracle
 encoders unless stated, so absolute utilities there are upper bounds, whereas
-differences between arms, which share the encoders, are unaffected. The
+differences between configurations, which share the encoders, are unaffected. The
 trained model is exported to ONNX and timed with ONNX Runtime on the CPU
 provider of a workstation (Intel Core i7-14700), not on edge hardware; the network is simulated in ns-3 and energy is modeled in
 CloudSim~Plus.
@@ -139,7 +139,7 @@ Accuracy at the default threshold is uninformative under this imbalance: a
 constant negative prediction attains the base rate. Balanced accuracy is
 therefore reported at a threshold chosen on the validation cohort by Youden's
 index. Case-level metrics average the predictions of a case's windows.
-Comparisons between arms are paired by seed, and intervals are
+Comparisons between configurations are paired by seed, and intervals are
 \begin{equation}
 \bar d \pm t_{S-1,\,0.975}\; s_d / \sqrt{S}
 \label{eq:ci}
@@ -158,17 +158,19 @@ evaluated once on the test split.
 hierarchy alone. \emph{Privacy cost} (O2b) compares the private system with
 an identical non-private system over five paired seeds; the primary measure
 (AUROC) and the secondary measures (AUPRC, balanced accuracy) were declared
-before the runs. \emph{Recipe decomposition} uses three arms at
-$\varepsilon \in \{0.5, 1, 2, 4, 8, \infty\}$: B4, full-model private training
-from random initialization (prior art); B7, full-model private training from
-the pretrained initialization; and B6, head-only private training from the
-pretrained initialization (PP-HFM). B4$\rightarrow$B7 changes only the
-initialization and B7$\rightarrow$B6 only the privatized subset.
+before the runs. \emph{Recipe decomposition} compares three models at
+$\varepsilon \in \{0.5, 1, 2, 4, 8, \infty\}$: full-model private training
+from random initialization (prior art; B4 in the released records), full-model
+private training from the pretrained initialization (B7), and head-only
+private training from the pretrained initialization (PP-HFM, B6). The
+\emph{initialization effect} (B4$\rightarrow$B7) changes only the
+initialization, and the \emph{subset effect} (B7$\rightarrow$B6) only the
+privatized subset.
 \emph{Records per individual}: the number of training records retained per
 individual, $k$, is varied with the number of units per step held equal in
-both arms, which removes the sampling-rate effect and leaves only the
+both units, which removes the sampling-rate effect and leaves only the
 clipping geometry; validation and test sets are unchanged, and $k = 1$ is the
 control of Corollary~\ref{cor:k1}. \emph{Ablations} remove one component at a
-time. \emph{Fusion} is measured outside the federated system, each arm
+time. \emph{Fusion} is measured outside the federated system, each model
 retrained on its own inputs, because zeroing a stream of a jointly trained
 model measures robustness rather than information.

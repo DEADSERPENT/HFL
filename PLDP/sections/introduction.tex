@@ -78,7 +78,7 @@ the utility gap between record- and patient-level training grows as
 $A(1 - 1/k)$ with the number of records per individual $k$ and vanishes at
 $k = 1$ (Corollary~\ref{cor:k1}), tested out of sample and on an external
 corpus.
-\item \emph{What makes a strict budget affordable (gap 3).} A three-arm design
+\item \emph{What makes a strict budget affordable (gap 3).} A controlled three-way comparison
 showing that pretrained initialization, not the smaller privatized subset,
 accounts for robustness at small $\varepsilon$.
 \item \emph{System validation and an individual-level audit (gaps 1--4).} An
@@ -89,6 +89,18 @@ CloudSim~Plus and inference latency timed on a workstation CPU; a patient-level 
 and a comparison with re-implemented HED-FL and FL2DP under identical data,
 encoders and seeds.
 \end{itemize}
+These contributions answer four research questions, one each:
+\begin{IEEEdescription}[\IEEEsetlabelwidth{RQ4:}]
+\item[RQ1:] Can a patient-level guarantee be enforced and accounted across
+every tier of a client--edge--cloud hierarchy, and what utility does it cost?
+\item[RQ2:] How does the cost of protecting patients rather than records
+scale with the number of records each patient contributes?
+\item[RQ3:] Is robustness under a strict budget due to pretrained
+initialization or to privatizing fewer parameters?
+\item[RQ4:] Does the private hierarchy meet the system targets of a medical
+IoT deployment, and how does it compare with prior systems and under a
+patient-level membership-inference audit?
+\end{IEEEdescription}
 PP-HFM builds on user-level differential privacy \cite{ref11} and
 parameter-efficient private fine-tuning \cite{ref12, ref13}; the
 contributions are the system that composes them across all tiers, its proof,

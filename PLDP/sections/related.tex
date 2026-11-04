@@ -107,12 +107,5 @@ User-level DP \cite{ref11} & -- & \checkmark & I & F & -- & -- & -- \\
 PP-HFM (this work)         & \checkmark & \checkmark & I & A & \checkmark & \checkmark & \checkmark \\
 \bottomrule
 \end{tabular}
-\tabnote{H: hierarchical aggregation; DP: formal guarantee ($\ast$: Wasserstein
-differential privacy). Unit: what two neighboring datasets differ by: U, one
-client update (local DP); C, one client; I, all records of one individual
-(user or patient). Scope of the privacy accounting: A, every tier, edge
-included; X, edge tier outside the accounting; F, flat training (no edge tier).
-MM: multimodal records; Aud.: individual-level audit; Lat.: inference latency
-reported; n.s.: not specified in the cited work; --: not applicable or not
-reported.}
+\tabnote{H: hierarchical aggregation. DP: formal guarantee ($\ast$: Wasserstein DP). Unit, what neighboring datasets differ by: U, one client update (local DP); C, one client; I, all records of one individual. Scope of the accounting: A, every tier including the edge; X, edge tier outside; F, flat training. MM: multimodal; Aud.: individual-level audit; Lat.: inference latency reported; n.s.: not specified; --: not applicable or not reported.}
 \end{table}
