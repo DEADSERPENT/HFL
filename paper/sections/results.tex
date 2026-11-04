@@ -87,44 +87,7 @@ O4  & Energy saving      & $72.3\%$   & $76.8\%$   & $79.6\%$   & $\ge 20\%$ \\
 \end{tabular}
 \end{table}
 
-\begin{table}[!t]
-\centering
-% Source: SIMULATORS/results/phase5/latency_bench/latency_vitaldb_{fp32,int8}.csv
-% (run_latency_bench.sh, 2026-10-21). FP32 is the shipped graph.
-\caption{Inference latency decomposition on the clinical deployment, timed on a
-workstation CPU (Intel Core i7-14700, not edge hardware), 1000 timed executions after 100 discarded warm-up executions. The
-last row reports the eight-bit quantized graph, which was evaluated and not
-deployed.}
-\label{tab:latency}
-\begin{tabular}{lrr}
-\toprule
-Stage & Mean (ms) & P95 (ms) \\
-\midrule
-Preprocessing              & 0.106 & 0.110 \\
-Forward pass               & 2.130 & 2.165 \\
-Conformal set (not deployed) & 0.019 & 0.021 \\
-Post-processing            & 0.007 & 0.008 \\
-\midrule
-Total                      & 2.263 & 2.299 \\
-Total, eight-bit graph     & 3.515 & 17.337 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=\textwidth]{fig09_system_cost.pdf}
-\caption{System cost per deployment. (a)~Uplink per cloud round, measured
-from the deployed compressor, for centralized training, the hierarchy with the
-full model, and the proposed configuration. (b)~End-to-end round latency from
-packet-level simulation, split into communication (solid) and computation
-(light); the hierarchy shortens link time while computation is unchanged.
-(c)~Energy per round by tier (device, edge, cloud) as a share of centralized
-training, with absolute values in joules. The hierarchy alone adds edge energy
-without reducing device energy; only the proposed configuration reduces the
-energy of the constrained tier.}
-\label{fig:energy}
-\end{figure*}
 
 All network quantities are measured on every simulated round. An earlier
 simulator configuration evaluated one round in ten at packet level and composed
@@ -266,6 +229,30 @@ total as a conservative upper bound. The differentially private mechanism adds
 no inference cost, because its noise is applied to gradients during training
 and changes only the parameter values.
 
+\begin{table}[!t]
+\centering
+% Source: SIMULATORS/results/phase5/latency_bench/latency_vitaldb_{fp32,int8}.csv
+% (run_latency_bench.sh, 2026-10-21). FP32 is the shipped graph.
+\caption{Inference latency decomposition on the clinical deployment, timed on a
+workstation CPU (Intel Core i7-14700, not edge hardware), 1000 timed executions after 100 discarded warm-up executions. The
+last row reports the eight-bit quantized graph, which was evaluated and not
+deployed.}
+\label{tab:latency}
+\begin{tabular}{lrr}
+\toprule
+Stage & Mean (ms) & P95 (ms) \\
+\midrule
+Preprocessing              & 0.106 & 0.110 \\
+Forward pass               & 2.130 & 2.165 \\
+Conformal set (not deployed) & 0.019 & 0.021 \\
+Post-processing            & 0.007 & 0.008 \\
+\midrule
+Total                      & 2.263 & 2.299 \\
+Total, eight-bit graph     & 3.515 & 17.337 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 Timed on a workstation CPU rather than edge hardware, the 95th-percentile
 latency is $2.30$ ms in the clinical deployment,
 $0.75$ ms in the wearable deployment and $0.24$ ms in the external deployment,
@@ -317,6 +304,21 @@ increases from $1266$ J to $1344$ J. The saving occurs only in the configuration
 that also reduces device-side computation and transmission, which lowers the
 device term fivefold.
 
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{fig09_system_cost.pdf}
+\caption{System cost per deployment. (a)~Uplink per cloud round, measured
+from the deployed compressor, for centralized training, the hierarchy with the
+full model, and the proposed configuration. (b)~End-to-end round latency from
+packet-level simulation, split into communication (solid) and computation
+(light); the hierarchy shortens link time while computation is unchanged.
+(c)~Energy per round by tier (device, edge, cloud) as a share of centralized
+training, with absolute values in joules. The hierarchy alone adds edge energy
+without reducing device energy; only the proposed configuration reduces the
+energy of the constrained tier.}
+\label{fig:energy}
+\end{figure*}
+
 \subsection{The Privacy Unit and the Budget}
 \label{sec:results:unit}
 
@@ -352,6 +354,19 @@ head-only private training from the pretrained initialization, which changes
 only the privatized subset. Fig.~\ref{fig:epsilon} shows both steps at every
 budget on both deployments, and Table~\ref{tab:recipe} reports them over
 three seeds.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{fig05_init_vs_subset.pdf}
+\caption{Decomposition of the recipe's advantage across the privacy budget
+(area under the ROC curve, $n = 3$ seeds, Student-$t$ $95\,\%$ interval;
+VitalDB case-level).
+Solid: changing only the initialization of the full model, from random to
+pretrained. Hatched: changing only the privatized subset, from the full
+pretrained model to the head. The subset step is indistinguishable from zero at
+every budget, although it privatizes $3.3$ times fewer parameters.}
+\label{fig:epsilon}
+\end{figure*}
 
 \begin{table}[!t]
 \centering
@@ -421,18 +436,6 @@ mechanism, and a two-arm comparison of head-only training from a pretrained
 initialization against full-model training from a random initialization does
 not support such a claim, because the two arms differ in both respects.
 
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=\textwidth]{fig05_init_vs_subset.pdf}
-\caption{Decomposition of the recipe's advantage across the privacy budget
-(area under the ROC curve, $n = 3$ seeds, Student-$t$ $95\,\%$ interval;
-VitalDB case-level).
-Solid: changing only the initialization of the full model, from random to
-pretrained. Hatched: changing only the privatized subset, from the full
-pretrained model to the head. The subset step is indistinguishable from zero at
-every budget, although it privatizes $3.3$ times fewer parameters.}
-\label{fig:epsilon}
-\end{figure*}
 
 \subsubsection{Records per individual}
 \label{sec:results:kscaling}

@@ -26,6 +26,14 @@ much of its budget it spends. The remainder of this section formalizes the
 setting; Section~\ref{sec:method} addresses each difficulty in turn.
 
 \subsection{System Model}
+% Fig. 1 is defined here, one section early, so that it floats to the top of
+% the page where Section IV cites it rather than a page later.
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{fig01_overview_core.pdf}
+\caption{Architecture of PP-HFM. Clients train only the fusion head under patient-level DP; edges and the cloud average the noisy, compressed updates.}
+\label{fig:overview}
+\end{figure*}
 A deployment has $K$ clients, such as hospitals, specialties or wearable
 installations, assigned by a fixed public map $e(\cdot)$ to $E$ edge
 aggregators, which report to one cloud aggregator. Client $k$ holds a dataset

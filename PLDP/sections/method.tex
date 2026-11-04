@@ -29,12 +29,6 @@ architecture and the averaging rule are adopted from established work; the
 contribution lies in the unit at which privacy is enforced and in the
 accounting of the reported budget.
 
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=\textwidth]{fig01_overview_core.pdf}
-\caption{Architecture of PP-HFM. Clients train only the fusion head under patient-level DP; edges and the cloud average the noisy, compressed updates.}
-\label{fig:overview}
-\end{figure*}
 
 \emph{Frozen multimodal backbone.} As shown in Fig.~\ref{fig:backbone}, the
 temporal encoder applies three parallel
@@ -331,6 +325,31 @@ Encoders (oracle)                 & training & violates (A2) \\
 \end{tabular}
 \end{table}
 
+% Table IV (scope) is defined here, beside Table III, so the full-width float
+% reaches the top of the page that explains it (it lands one page after definition).
+\begin{table*}[!t]
+\centering
+\caption{Scope of the guarantee in each evaluated configuration}
+\label{tab:scope}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{2.7cm}}
+\toprule
+Configuration & Unit & Encoders / standardization & Accounting & Guarantee covers \\
+\midrule
+eICU, headline (one hospital per person) & patient & disjoint / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & training transcript \\
+eICU, pool-fitted constants (one hospital per person) & patient & disjoint / public pool & $\sigma_k$, PLD; $0.9 + 0.1$ & end to end \\
+VitalDB, person-level headline & person & oracle / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & transcript; (A2) violated \\
+VitalDB, disjoint encoders (case-level) & surgical case & disjoint / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & transcript, per case \\
+VitalDB, cost of the unit and audit (person-level) & person vs record & oracle / training cohort & $\sigma_{\max}$, RDP; $1.0 + 0.5$ & training transcript \\
+Scaling grids, clipping rule (VitalDB case-level; eICU) & individual vs record & oracle (VitalDB), disjoint (eICU) / training & $\sigma_{\max}$, RDP; $0.8$--$1.0 + 0.2$--$0.5$ & training transcript$^{\ddagger}$ \\
+eICU, prior systems (source partition) & patient & disjoint / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & training transcript$^{\ddagger}$ \\
+WEAR & record (= participant) & oracle / training cohort & record-level; $0.766 + 0.2$ & transcript, per record \\
+\bottomrule
+\end{tabular}
+\tabnote{Unit: neighboring datasets differ by all records of one patient, person or case, or by one record; ``vs'' marks a comparison of two arms. Accounting: $\varepsilon_{\mathrm{train}} + \varepsilon_{\mathrm{conf}}$ at $\delta = 10^{-5}$; $\sigma_k$, per-client multipliers; $\sigma_{\max}$, one worst-client multiplier; PLD, privacy-loss-distribution accountant; RDP, R\'enyi accountant. The conformal release was evaluated and is not part of the deployed system. Arms compared with each other share one configuration. Other analyses (recipe, ablation, fusion, attribution) are labeled with their partition and mechanism in Section~\ref{sec:results}. $^{\ddagger}$eICU on the source partition: for the $97.1\,\%$ of training persons at one hospital; the $2.9\,\%$ at two to four hospitals compose the mechanisms of those hospitals ($\varepsilon_{\mathrm{train}} \le 1.32$--$1.92$ with $\sigma_k$ and PLD).}
+\end{table*}
+
 \begin{corollary}[Coincidence of the units]
 \label{cor:k1}
 If every patient contributes one record, Algorithm~\ref{alg:patientdp} is
@@ -402,28 +421,6 @@ patient, and per-client multipliers within the budget. These are
 implementation-level checks of the accounting configuration; they do not by
 themselves establish the guarantee.
 
-\begin{table*}[!t]
-\centering
-\caption{Scope of the guarantee in each evaluated configuration}
-\label{tab:scope}
-\footnotesize
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{2.7cm}}
-\toprule
-Configuration & Unit & Encoders / standardization & Accounting & Guarantee covers \\
-\midrule
-eICU, headline (one hospital per person) & patient & disjoint / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & training transcript \\
-eICU, pool-fitted constants (one hospital per person) & patient & disjoint / public pool & $\sigma_k$, PLD; $0.9 + 0.1$ & end to end \\
-VitalDB, person-level headline & person & oracle / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & transcript; (A2) violated \\
-VitalDB, disjoint encoders (case-level) & surgical case & disjoint / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & transcript, per case \\
-VitalDB, cost of the unit and audit (person-level) & person vs record & oracle / training cohort & $\sigma_{\max}$, RDP; $1.0 + 0.5$ & training transcript \\
-Scaling grids, clipping rule (VitalDB case-level; eICU) & individual vs record & oracle (VitalDB), disjoint (eICU) / training & $\sigma_{\max}$, RDP; $0.8$--$1.0 + 0.2$--$0.5$ & training transcript$^{\ddagger}$ \\
-eICU, prior systems (source partition) & patient & disjoint / training cohort & $\sigma_k$, PLD; $0.9 + 0.1$ & training transcript$^{\ddagger}$ \\
-WEAR & record (= participant) & oracle / training cohort & record-level; $0.766 + 0.2$ & transcript, per record \\
-\bottomrule
-\end{tabular}
-\tabnote{Unit: neighboring datasets differ by all records of one patient, person or case, or by one record; ``vs'' marks a comparison of two arms. Accounting: $\varepsilon_{\mathrm{train}} + \varepsilon_{\mathrm{conf}}$ at $\delta = 10^{-5}$; $\sigma_k$, per-client multipliers; $\sigma_{\max}$, one worst-client multiplier; PLD, privacy-loss-distribution accountant; RDP, R\'enyi accountant. The conformal release was evaluated and is not part of the deployed system. Arms compared with each other share one configuration. Other analyses (recipe, ablation, fusion, attribution) are labeled with their partition and mechanism in Section~\ref{sec:results}. $^{\ddagger}$eICU on the source partition: for the $97.1\,\%$ of training persons at one hospital; the $2.9\,\%$ at two to four hospitals compose the mechanisms of those hospitals ($\varepsilon_{\mathrm{train}} \le 1.32$--$1.92$ with $\sigma_k$ and PLD).}
-\end{table*}
 
 \subsection{Empirical Audit}
 \label{sec:method:mia}
