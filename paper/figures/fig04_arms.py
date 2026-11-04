@@ -40,7 +40,7 @@ def main():
         ax.set_title(title, fontsize=8)
         ygrid(ax)
         panel(ax, letter, x=-0.32)
-    axs[0].set_ylabel("Average precision")
+    axs[0].set_ylabel("AUPRC")
     h, l = axs[0].get_legend_handles_labels()
     fig.legend(h, [f"{x} arm" for x in l], loc="upper center", ncol=2,
                handlelength=1.8, bbox_to_anchor=(0.5, 1.0))

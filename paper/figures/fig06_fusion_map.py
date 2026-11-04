@@ -38,7 +38,7 @@ def main():
                    alpha=0.75 if gain > 0 else 1, lw=0.9, zorder=3)
         xy[lab] = (imb, head)
         ax.annotate(f"{lab}\n({gain:+.4f})" if lab.startswith("eICU n") or lab.startswith("eICU m") else f"{lab} ({gain:+.4f})", (imb, head), xytext=off,
-                    textcoords="offset points", fontsize=6.0, va="center",
+                    textcoords="offset points", fontsize=7, va="center",
                     linespacing=1.1,
                     arrowprops=dict(arrowstyle="-", color="#999999", lw=0.4,
                                     shrinkA=1, shrinkB=5))
@@ -49,7 +49,7 @@ def main():
                     arrowprops=dict(arrowstyle="-|>", color="#555555", lw=0.8,
                                     mutation_scale=7, shrinkA=7, shrinkB=9))
         mx = np.sqrt(xy[a][0] * xy[b][0]); my = (xy[a][1] + xy[b][1]) / 2
-        ax.text(mx, my, str(i), fontsize=6, ha="center", va="center", zorder=5,
+        ax.text(mx, my, str(i), fontsize=7, ha="center", va="center", zorder=5,
                 bbox=dict(boxstyle="circle,pad=0.15", fc="white", ec="#555555", lw=0.5))
     ax.set_xscale("log")
     ax.set_xlim(0.001, 0.4)
@@ -62,14 +62,14 @@ def main():
     for c, (mk, t) in COND.items():
         ax.scatter([], [], s=22, marker=mk, facecolor="none", edgecolor="#444444",
                    lw=0.8, label=t)
-    leg = ax.legend(loc="lower left", bbox_to_anchor=(0.0, 0.13), fontsize=5.8, ncol=1, handletextpad=0.3,
+    leg = ax.legend(loc="lower left", bbox_to_anchor=(0.0, 0.13), fontsize=7, ncol=1, handletextpad=0.3,
                     labelspacing=0.35, title="color: corpus; shape: condition",
-                    title_fontsize=5.8, alignment="left")
+                    title_fontsize=7, alignment="left")
     ax.add_artist(leg)
     hs = [ax.scatter([], [], s=g * SCALE, color="#BBBBBB", ec="#777777", lw=0.5)
           for g in (0.01, 0.03)]
-    ax.legend(hs, ["0.01", "0.03"], loc="lower right", fontsize=5.8, ncol=2,
-              title="area: |gain|; hollow: gain < 0", title_fontsize=5.8,
+    ax.legend(hs, ["0.01", "0.03"], loc="lower right", fontsize=7, ncol=2,
+              title="area: |gain|; hollow: gain < 0", title_fontsize=7,
               borderpad=0.5, handletextpad=0.6, columnspacing=1.0, alignment="left")
     ygrid(ax)
     save(fig, "fig06_fusion_map")

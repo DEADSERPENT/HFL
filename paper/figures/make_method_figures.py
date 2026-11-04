@@ -203,65 +203,108 @@ def fig_architecture(f):
 
 # ── Fig 2 — backbone, frozen vs privatised ──────────────────────────────
 def fig_backbone(f):
-    fig, ax = plt.subplots(figsize=(COL2, 2.15))
-    ax.set_xlim(0, 100); ax.set_ylim(0, 34); ax.axis("off")
+    """Encoder-fusion backbone as a 2.5-D illustration: layers drawn as shaded
+    slabs, inputs and zones illustrated (_illus.py), same theme as Figs. 1 and 5.
+    Every number is read from the model (load_facts)."""
+    import _illus as IL
+    from matplotlib.patches import FancyBboxPatch, Polygon as Poly
+    INK_, SLATE_, HAIR_ = "#1E293B", "#64748B", "#CBD5E1"
+    PANEL_, PRIVL_ = "#F4F6F9", "#FCE9DD"
+    SL3 = ("#A9B8C9", "#556B85", "#435771")                 # top, front, right
+    PV3 = ("#F49A5C", "#D55E00", "#A84A00")
+    Wf, Hf = COL2, 2.05
+    fig = plt.figure(figsize=(Wf, Hf))
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0, Wf); ax.set_ylim(0, Hf); ax.axis("off")
 
-    ax.add_patch(Rectangle((3.0, 3.0), 57.5, 28, fc="#eef4f8", ec="none", zorder=0))
-    ax.text(4.0, 30.2, "frozen — pretrained centrally, never updated under DP",
-            fontsize=6.0, color=BLUE, va="top", style="italic")
-    ax.add_patch(Rectangle((62.5, 3.0), 34.5, 28, fc="#fdf0e8", ec="none", zorder=0))
-    ax.text(63.5, 30.2, f"DP-trained ($\\varepsilon\\leq{f['eps']:.0f}$)",
-            fontsize=6.0, color=VERM, va="top", style="italic")
+    def rbox(x, y, w, h, fc, ec, lw=0.5, r=0.05, zo=1):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, fc=fc, ec=ec, lw=lw, zorder=zo,
+                                    boxstyle=f"round,pad=0,rounding_size={r}"))
+
+    def slab(x, y, w, h, label, faces=SL3, d=(0.07, 0.05), tc="white", bold=False):
+        """Layer as a shaded slab; (x, y) is the front face's lower-left corner."""
+        top, front, right = faces
+        dx, dy = d
+        ax.add_patch(Poly([(x + w, y), (x + w + dx, y + dy), (x + w + dx, y + h + dy),
+                           (x + w, y + h)], fc=right, ec="#334155", lw=0.35, zorder=3))
+        ax.add_patch(Poly([(x, y + h), (x + w, y + h), (x + w + dx, y + h + dy),
+                           (x + dx, y + h + dy)], fc=top, ec="#334155", lw=0.35, zorder=3))
+        ax.add_patch(Poly([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], fc=front,
+                          ec="#334155", lw=0.35, zorder=3.1))
+        ax.text(x + w / 2, y + h / 2, label, fontsize=7, color=tc, ha="center",
+                va="center", zorder=4, linespacing=1.15,
+                weight="bold" if bold else "normal")
+        return (x, y + h / 2), (x + w + dx / 2, y + h / 2)
+
+    def card(x, y, w, h, label, zo=3):
+        rbox(x + 0.012, y - 0.014, w, h, "#E6EAF0", "none", zo=zo - 0.2)
+        rbox(x, y, w, h, "white", HAIR_, lw=0.55, zo=zo)
+        ax.text(x + w / 2, y + h / 2, label, fontsize=7, color=INK_, ha="center",
+                va="center", zorder=zo + 1, linespacing=1.15)
+
+    def arr(p, q, color=SLATE_, lw=0.8):
+        ax.add_patch(FancyArrowPatch(p, q, arrowstyle="-|>", mutation_scale=6, lw=lw,
+                                     color=color, shrinkA=1, shrinkB=1, zorder=2))
+
+    # zones
+    fx1, dx0 = 4.52, 4.62
+    rbox(0.05, 0.08, fx1 - 0.05, Hf - 0.16, PANEL_, HAIR_, zo=0)
+    rbox(dx0, 0.08, Wf - 0.05 - dx0, Hf - 0.16, PRIVL_, "#EBB48C", zo=0)
+    IL.padlock(ax, 0.20, Hf - 0.23, 0.17, zo=5)
+    ax.text(0.33, Hf - 0.23, "frozen: pretrained centrally, never updated under DP",
+            fontsize=7, color=SLATE_, style="italic", va="center")
+    IL.shield(ax, dx0 + 0.16, Hf - 0.23, 0.17, zo=5)
+    ax.text(dx0 + 0.30, Hf - 0.23, f"DP-trained ($\\varepsilon\\leq{f['eps']:.0f}$)",
+            fontsize=7, color=VERM, style="italic", va="center")
 
     # modality A: stages as built in fedmamba_hc.FedMambaHC
-    box(ax, 4.5, 19.0, 8.5, 6.2,
-        f"$x_A$\n{f['n_ch_a']}$\\times$T", fc="white", fs=6.0)
-    ks = ",".join(str(k) for k in f["ks"])
-    stages = [f"multi-scale\n$k{{=}}{ks}$",
-              f"strided conv\n$s{{=}}{f['stride']}$, GN",
-              f"conv + GN\nmax-pool {f['pool']}",
-              f"BiGRU\n{f['gru_layers']} layers",
+    yA, yB, sh = 1.08, 0.36, 0.40
+    rbox(0.14, yA - 0.06, 0.86, 0.52, "white", HAIR_, lw=0.55, zo=2)
+    IL.monitor(ax, 0.37, yA + 0.22, 0.34, zo=4)
+    ax.text(0.80, yA + 0.20, f"$x_A$\n{f['n_ch_a']}$\\times$T", fontsize=7,
+            ha="center", va="center", color=INK_, linespacing=1.2)
+    ks = ", ".join(str(k) for k in f["ks"])
+    stages = [f"multi-scale\n$k={ks}$", f"strided conv\n$s={f['stride']}$, GN",
+              f"conv + GN\nmax-pool {f['pool']}", f"BiGRU\n{f['gru_layers']} layers",
               "attention\npool + proj."]
-    w, g, x = 8.0, 1.25, 14.5
-    xs = [x + i * (w + g) for i in range(len(stages))]
+    w, g, x0 = 0.60, 0.09, 1.10
+    xs = [x0 + i * (w + g) for i in range(len(stages))]
+    prev = (1.00, yA + sh / 2)
     for xi, t in zip(xs, stages):
-        box(ax, xi, 19.0, w, 6.2, t, fc=BLUE, ec="none", fs=5.2, tc="white")
-    for a, b in zip([13.0] + [xi + w for xi in xs[:-1]], xs):
-        arrow(ax, (a, 22.1), (b, 22.1), color=MUTED, lw=0.7)
+        l, r = slab(xi, yA, w, sh, t)
+        arr(prev, l); prev = r
     for xi, t in zip(xs[1:3], (f"T/{f['stride']}", f"T/{f['stride'] * f['pool']}")):
-        ax.text(xi + w / 2, 18.2, t, fontsize=5.0, color=BLUE, ha="center", va="top")
+        ax.text(xi + w / 2, yA - 0.05, t, fontsize=7, color=SLATE_, ha="center", va="top")
+    ax.text(xs[-1] + w / 2, yA + sh + 0.12, f"$\\phi_A \\rightarrow {f['d_a']}$-d",
+            fontsize=7, color=SLATE_, ha="center", va="bottom")
+    endA = prev
 
     # modality B: two-layer perceptron
-    box(ax, 4.5, 7.0, 8.5, 6.2, f"$x_B$\n{f['n_feat_b']}-d", fc="white", fs=6.0)
-    box(ax, 14.5, 7.0, 2 * w + g, 6.2, f"linear $\\rightarrow$ {f['hid_b']}\nGN + GELU",
-        fc=BLUE, ec="none", fs=5.6, tc="white")
-    box(ax, xs[2], 7.0, 2 * w + g, 6.2, f"linear $\\rightarrow$ {f['d_b']}\nGN + GELU",
-        fc=BLUE, ec="none", fs=5.6, tc="white")
-    arrow(ax, (13.0, 10.1), (14.5, 10.1), color=MUTED, lw=0.7)
-    arrow(ax, (14.5 + 2 * w + g, 10.1), (xs[2], 10.1), color=MUTED, lw=0.7)
-    xend = xs[-1] + w
+    rbox(0.14, yB - 0.06, 0.86, 0.52, "white", HAIR_, lw=0.55, zo=2)
+    IL.records(ax, 0.37, yB + 0.22, 0.32, zo=4)
+    ax.text(0.80, yB + 0.20, f"$x_B$\n{f['n_feat_b']}-d", fontsize=7, ha="center",
+            va="center", color=INK_, linespacing=1.2)
+    wb = 2 * w + g
+    l1, r1 = slab(xs[0], yB, wb, sh, f"linear $\\rightarrow$ {f['hid_b']}\nGN + GELU")
+    l2, r2 = slab(xs[2], yB, wb, sh, f"linear $\\rightarrow$ {f['d_b']}\nGN + GELU")
+    arr((1.00, yB + sh / 2), l1); arr(r1, l2)
+    ax.text(xs[2] + wb / 2, yB - 0.05, f"$\\phi_B \\rightarrow {f['d_b']}$-d",
+            fontsize=7, color=SLATE_, ha="center", va="top")
 
-    ax.text(xs[-1] + w / 2, 26.4, f"$\\phi_A \\rightarrow {f['d_a']}$-d",
-            fontsize=6.0, color=BLUE, ha="center")
-    ax.text(xs[2] + w + g / 2, 4.6, f"$\\phi_B \\rightarrow {f['d_b']}$-d",
-            fontsize=6.0, color=BLUE, ha="center")
-
-    # fusion
-    box(ax, 64.0, 12.0, 8.5, 10.2, "concat\n$832$-d", fc="white", fs=5.8)
-    arrow(ax, (xend, 22.1), (64.0, 19.5), color=MUTED, lw=0.8)
-    arrow(ax, (xs[2] + 2 * w + g, 10.1), (64.0, 14.5), color=MUTED, lw=0.8)
-    box(ax, 75.0, 12.0, 11, 10.2, "fusion\nhead", fc=VERM, ec="none",
-        fs=6.4, tc="white", weight="bold")
-    arrow(ax, (72.5, 17.1), (75.0, 17.1), color=MUTED, lw=0.8)
-    box(ax, 88.5, 12.0, 8.0, 10.2, f"logits\n{f['n_classes']}", fc="white", fs=5.8)
-    arrow(ax, (86.0, 17.1), (88.5, 17.1), color=MUTED, lw=0.8)
-
+    # fusion (the only part that receives noise)
+    yc = (yA + yB + sh) / 2
+    card(dx0 + 0.14, yc - 0.26, 0.58, 0.52, f"concat\n{f['d_a'] + f['d_b']}-d")
+    arr(endA, (dx0 + 0.14, yc + 0.10), color=INK_)
+    arr(r2, (dx0 + 0.14, yc - 0.10), color=INK_)
+    hl, hr = slab(dx0 + 0.90, yc - 0.30, 0.74, 0.60, "fusion\nhead", faces=PV3,
+                  d=(0.09, 0.065), bold=True)
+    arr((dx0 + 0.72, yc), hl, color=INK_)
+    card(dx0 + 1.86, yc - 0.26, 0.56, 0.52, f"logits\n{f['n_classes']}")
+    arr(hr, (dx0 + 1.86, yc), color=INK_)
     pct = 100.0 * f["n_head"] / f["n_total"]
-    # Plain string, not mathtext: a backslash-escaped percent would print the
-    # backslash literally.
-    ax.text(80.5, 8.4, f"{f['n_head']:,} of {f['n_total']:,} parameters\n"
-                       f"({pct:.1f}%, VitalDB) receive noise",
-            fontsize=5.8, color=VERM, ha="center", va="top", linespacing=1.4)
+    ax.text(dx0 + (Wf - 0.05 - dx0) / 2, 0.30, f"{f['n_head']:,} of {f['n_total']:,} "
+            f"parameters\n({pct:.1f}%, VitalDB) receive noise", fontsize=7, color=VERM,
+            ha="center", va="center", linespacing=1.3)
     finish(fig, "fig2_backbone")
 
 
@@ -350,6 +393,11 @@ def fig_lira(f):
     axes[0].text(-3.2, peak * 1.06, "OUT", fontsize=6.0, color=BLUE,
                  ha="center", weight="bold")
     axes[0].text(1.6, peak * 0.55, "IN", fontsize=6.0, color=VERM,
+                 ha="left", weight="bold")
+    # label both curves in both panels, so the panels read without colour
+    axes[1].text(3.0, peak * 1.06, "OUT", fontsize=6.0, color=BLUE,
+                 ha="center", weight="bold")
+    axes[1].text(6.6, peak * 0.55, "IN", fontsize=6.0, color=VERM,
                  ha="left", weight="bold")
     # Two lines, anchored well left of the threshold: the single-line form
     # overran the dashed rule it was labelling.

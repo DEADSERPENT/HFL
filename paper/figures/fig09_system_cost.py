@@ -19,7 +19,8 @@ DS = ("vitaldb", "wear", "eicu")
 SHORT = dict(vitaldb="VitalDB", wear="WEAR", eicu="eICU")
 ARM = dict(CentralizedFL="Centralized", HierarchicalFL_NoDP="Hierarchy only",
            HFL_Proposed="PP-HFM")
-ARM_C = dict(CentralizedFL=C["ctrl"], HierarchicalFL_NoDP=C["record"],
+ARM_C = dict(CentralizedFL="#BDBDBD",   # light grey: distinct from vermilion in greyscale
+            HierarchicalFL_NoDP=C["record"],
              HFL_Proposed=C["indiv"])
 
 
@@ -47,7 +48,7 @@ def uplink(ax):
             ax.bar(i + (j - 1) * w, v[j], w, color=ARM_C[arm],
                    label=ARM[arm] if i == 0 else None)
         ax.text(i + w, v[2] * 1.15, f"$-${red:.1f} %", ha="center", va="bottom",
-                fontsize=6.3, color=C["indiv"], rotation=90)
+                fontsize=7, color=C["indiv"], rotation=90)
     ax.set_yscale("log")
     ax.set_xticks(range(len(rows)), [SHORT[d] for d, *_ in rows])
     ax.set_ylabel("Uplink per cloud round [MB]")
@@ -68,7 +69,7 @@ def latency(ax):
             comm, tot = m[arm]["L_comm_ms"], m[arm]["L_total_ms"]
             ax.barh(y, comm, 0.7, color=ARM_C[arm])
             ax.barh(y, tot - comm, 0.7, left=comm, color=ARM_C[arm], alpha=0.35)
-            ax.text(tot + 1.5, y, f"{tot:.1f}", va="center", fontsize=6.3)
+            ax.text(tot + 1.5, y, f"{tot:.1f}", va="center", fontsize=7)
             labels.append(f"{SHORT[ds]}, {ARM[arm]}")
             y += 1
         y += 0.5
@@ -79,14 +80,14 @@ def latency(ax):
     from matplotlib.patches import Patch
     ax.legend(handles=[Patch(fc="#555555", label="communication"),
                        Patch(fc="#555555", alpha=0.35, label="computation")],
-              loc="upper right", fontsize=6.3, handlelength=1.2)
+              loc="upper right", fontsize=7, handlelength=1.2)
     ax.xaxis.grid(True, lw=0.3, color="#DDDDDD"); ax.set_axisbelow(True)
     if rows:
         ax.set_xlim(0, max(m[a]["L_total_ms"] for _, m in rows for a in m) * 1.18)
     if len(rows) < len(DS):
         miss = ", ".join(SHORT[d] for d in DS if d not in dict(rows))
         ax.text(0.98, 0.02, f"{miss}: pending", transform=ax.transAxes, ha="right",
-                fontsize=6, style="italic", color=C["ctrl"])
+                fontsize=7, style="italic", color=C["ctrl"])
 
 
 def energy(ax):
@@ -108,7 +109,7 @@ def energy(ax):
                        hatch=hat, edgecolor="white")
                 bot += h
             ax.text(x, bot + 2, f"{m[arm]['total_energy_J']:.0f}", ha="center",
-                    va="bottom", fontsize=5.4, rotation=90)
+                    va="bottom", fontsize=7, rotation=90)
     ax.axhline(100, color="#444444", lw=0.4, ls=":")
     ax.set_xticks(range(len(rows)), [SHORT[d] for d, _ in rows])
     ax.set_ylim(0, 165)
@@ -120,9 +121,9 @@ def energy(ax):
     from matplotlib.patches import Patch
     ax.legend(handles=[Patch(fc="#555555", alpha=a, hatch=hat, ec="white",
                              label=f"{tier}") for _, tier, a, hat in tiers],
-              loc="upper center", ncol=3, fontsize=6.3, handlelength=1.2,
+              loc="upper center", ncol=3, fontsize=7, handlelength=1.2,
               columnspacing=0.8, title="stacked by tier; label = total J",
-              title_fontsize=6.0)
+              title_fontsize=7)
 
 
 def main():

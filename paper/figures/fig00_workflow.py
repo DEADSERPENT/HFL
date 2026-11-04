@@ -1,16 +1,27 @@
-"""fig00_workflow.py — study workflow: data -> private hierarchical training ->
-evaluation and audit, drawn as three shaded stage bands with a round loop.
+"""fig00_workflow.py — study workflow as a data-flow map.
 
-Every number on the drawing is read from a file: client and edge counts from
-each corpus' partition_meta.json, tau_e from config/hfl_config.json, the
-sparsification ratio from the same config.
+The individual-level split is a gate; three streams leave it and end where
+they are used: the public pool feeds the encoders, the training clients feed
+the private training loop (one cloud round drawn as a ring), and the held-out
+validation and test cohorts pass beneath the ring, bypassing training, to model
+selection and evaluation.
+
+Drawn as a vector illustration: shaded 2.5-D objects from _illus.py (the same
+oblique style as Fig. 1), hairline cards, curved streams. Theme as Fig. 1: slate ink for structure, vermilion
+only for the privacy mechanism, corpus colours only where a corpus is named.
+
+Every number on the drawing is read from a file: client counts from each
+corpus' partition_meta.json, tau_e and the sparsification ratio from
+config/hfl_config.json.
 
     python fig00_workflow.py        -> fig00_workflow.{pdf,png}
 """
 import json
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Polygon
+import numpy as np
+from matplotlib.path import Path
+from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, PathPatch, Circle, Ellipse
 from _figstyle import plt, RES, DOUBLE, C, CORPUS, save
-from _icons import Icons
+import _illus as I
 
 SIM = RES.parent
 CFG = json.load(open(SIM / "config" / "hfl_config.json"))
@@ -21,181 +32,186 @@ META = {d: json.load(open(SIM / "data" / "processed" / "partitions" / d /
                           "partition_meta.json")) for d in DS}
 LABEL = dict(vitaldb="VitalDB", wear="WEAR", eicu="eICU")
 
-BAND = dict(data="#E3EEF9", train="#FCEBDD", eval="#E2F2EA")
-BAND_EDGE = dict(data="#9DBFE3", train="#EBB48C", eval="#93CDB0")
-INK = "#2B2B2B"
+# ── palette ────────────────────────────────────────────────────────────
+INK, SLATE, HAIR = "#1E293B", "#64748B", "#CBD5E1"
+TINT, SHADOW = "#EEF2F7", "#E6EAF0"
+PRIV, PRIV_TINT, PRIV_DEEP = C["indiv"], "#FCE9DD", "#A84A00"
+HELD = "#334155"
+W, H = DOUBLE, 2.78
 
 
-IC = None          # Icons instance, set once the axes exist
-ICON_W = 0.034     # width of the icon column inside a box (axes units)
-
-
-def box(ax, xy, w, h, text, fc="white", ec=INK, fs=6.2, color=INK, weight="normal",
-        r=0.012, lw=0.6, icon=None, isz=0.22):
-    """Rounded box; with icon=(name, kwargs) a flat icon sits in a left column
-    and the text centres in the remaining width."""
-    x, y = xy
-    ax.add_patch(FancyBboxPatch((x - w / 2, y - h / 2), w, h, lw=lw, fc=fc, ec=ec,
+def card(ax, x, y, w, h, fc="white", ec=HAIR, lw=0.55, r=0.045, shadow=True, zo=2):
+    if shadow:
+        ax.add_patch(FancyBboxPatch((x + 0.014, y - 0.016), w, h, fc=SHADOW, ec="none",
+                                    boxstyle=f"round,pad=0,rounding_size={r}",
+                                    zorder=zo - 0.2))
+    ax.add_patch(FancyBboxPatch((x, y), w, h, fc=fc, ec=ec, lw=lw, zorder=zo,
                                 boxstyle=f"round,pad=0,rounding_size={r}"))
-    tx = x
-    if icon:
-        name, kw = icon if isinstance(icon, tuple) else (icon, {})
-        getattr(IC, name)(x - w / 2 + 0.006 + ICON_W / 2, y, isz, **kw)
-        tx = x + ICON_W / 2 + 0.003
-    ax.text(tx, y, text, ha="center", va="center", fontsize=fs, color=color,
-            weight=weight, linespacing=1.15, zorder=5)
-    return dict(l=(x - w / 2, y), r=(x + w / 2, y), t=(x, y + h / 2),
-                b=(x, y - h / 2), c=(x, y))
 
 
-def pill(ax, xy, text, fc):
-    return box(ax, xy, 0.075, 0.075, text, fc=fc, ec="#5C8F3A", fs=6.8,
-               weight="bold", r=0.035)
+def pic(ax, name, x, y, s, zo=4, **kw):
+    """Place one illustrated object from _illus.py."""
+    getattr(I, name)(ax, x, y, s, zo=zo + 1, **kw)
 
 
-def diamond(ax, xy, w, h, text, fc="#F6C8DC", ec="#B0477A"):
-    x, y = xy
-    ax.add_patch(Polygon([(x - w / 2, y), (x, y + h / 2), (x + w / 2, y),
-                          (x, y - h / 2)], closed=True, fc=fc, ec=ec, lw=0.6))
-    ax.text(x, y, text, ha="center", va="center", fontsize=6, color=INK)
-    return dict(l=(x - w / 2, y), r=(x + w / 2, y), t=(x, y + h / 2),
-                b=(x, y - h / 2))
+def txt(ax, x, y, s, fs=7, **kw):
+    kw.setdefault("ha", "left"); kw.setdefault("va", "center")
+    kw.setdefault("color", INK); kw.setdefault("linespacing", 1.18)
+    ax.text(x, y, s, fontsize=fs, zorder=kw.pop("zorder", 7), **kw)
 
 
-def arrow(ax, p, q, color=INK, lw=0.7, conn="arc3,rad=0", ls="-"):
-    ax.add_patch(FancyArrowPatch(p, q, arrowstyle="-|>", mutation_scale=6,
-                                 lw=lw, color=color, ls=ls, connectionstyle=conn,
-                                 shrinkA=0, shrinkB=0))
+def curve(ax, p0, p1, color, lw=1.1, ls="-", head=True, bend=0.5, zo=3):
+    """Horizontal-tangent cubic from p0 to p1 (an S-curve), arrowhead at p1."""
+    (x0, y0), (x1, y1) = p0, p1
+    dx = (x1 - x0) * bend
+    path = Path([(x0, y0), (x0 + dx, y0), (x1 - dx, y1), (x1, y1)],
+                [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
+    ax.add_patch(PathPatch(path, fill=False, ec=color, lw=lw, ls=ls, zorder=zo,
+                           capstyle="round"))
+    if head:
+        ax.add_patch(FancyArrowPatch((x1 - 0.06, y1), (x1, y1), arrowstyle="-|>",
+                                     mutation_scale=6.5, lw=lw, color=color,
+                                     shrinkA=0, shrinkB=0, zorder=zo))
 
 
-def path(ax, pts, color=INK, lw=0.7):
-    """Right-angle connector through waypoints, arrowhead on the last leg."""
-    xs, ys = zip(*pts)
-    ax.plot(xs[:-1], ys[:-1], color=color, lw=lw, solid_capstyle="butt")
-    arrow(ax, pts[-2], pts[-1], color=color, lw=lw)
+def arrow(ax, p, q, color=INK, lw=0.8, ms=6, ls="-", zo=4, rad=0.0):
+    ax.add_patch(FancyArrowPatch(p, q, arrowstyle="-|>", mutation_scale=ms, lw=lw,
+                                 color=color, ls=ls, shrinkA=0, shrinkB=0, zorder=zo,
+                                 connectionstyle=f"arc3,rad={rad}"))
 
 
-def band(ax, y0, y1, key, title):
-    ax.add_patch(FancyBboxPatch((0.006, y0), 0.988, y1 - y0, fc=BAND[key],
-                                ec=BAND_EDGE[key], lw=0.6,
-                                boxstyle="round,pad=0,rounding_size=0.012"))
-    ax.text(0.970, y1 - 0.018, title, ha="right", va="top", fontsize=7.4,
-            weight="bold", style="italic", color=INK)
+def chip(ax, x, y, s, color):
+    """Stream label: a small pill outlined in the stream's colour."""
+    w = 0.075 * len(max(s.split("\n"), key=len)) * 0.62 + 0.14
+    h = 0.15 if "\n" not in s else 0.26
+    ax.add_patch(FancyBboxPatch((x - w / 2, y - h / 2), w, h, fc="white", ec=color,
+                                lw=0.7, boxstyle=f"round,pad=0,rounding_size={h / 2}",
+                                zorder=5))
+    txt(ax, x, y, s, color=color, ha="center", zorder=6)
+
+
+def header(ax, x0, x1, s):
+    txt(ax, x0, H - 0.11, s.upper(), fs=6.6, color=SLATE, weight="bold")
+    ax.plot([x0, x1], [H - 0.20, H - 0.20], color=HAIR, lw=0.6, zorder=1)
 
 
 def main():
-    fig = plt.figure(figsize=(DOUBLE, 3.05))
+    fig = plt.figure(figsize=(W, H))
     ax = fig.add_axes((0, 0, 1, 1))
-    ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
-    global IC
-    IC = Icons(ax)
+    ax.set_xlim(0, W); ax.set_ylim(0, H); ax.axis("off")
 
-    band(ax, 0.685, 0.995, "data", "Data and partitioning")
-    band(ax, 0.355, 0.675, "train", "Private hierarchical training")
-    band(ax, 0.005, 0.345, "eval", "Evaluation and audit")
+    header(ax, 0.06, 1.50, "Data")
+    header(ax, 1.62, 5.00, "Private hierarchical training")
+    header(ax, 5.14, 7.10, "Evaluation")
 
-    # ── data ────────────────────────────────────────────────────────────
-    yd = 0.83
-    s = pill(ax, (0.05, yd), "START", "#CDE8B5")
-    corp = box(ax, (0.203, yd), 0.18, 0.16,
-               "three corpora\n" + " · ".join(LABEL[d] for d in DS),
-               fc="white", icon="database", isz=0.26)
-    tx = 0.203 + ICON_W / 2 + 0.003
-    for d, off in zip(DS, (-0.039, 0.008, 0.048)):   # colour key under each name
-        ax.plot(tx + off, yd - 0.05, marker=CORPUS[d][1], ms=3.4,
-                color=CORPUS[d][0], ls="none", zorder=5)
-    split = box(ax, (0.39, yd), 0.15, 0.13,
-                "split by individual:\nno person spans\ntwo splits", icon="person",
-                isz=0.24)
-    pool = box(ax, (0.60, 0.735), 0.17, 0.068, "public pool (disjoint)",
-               icon="database", isz=0.15)
-    cli = box(ax, (0.60, 0.905), 0.17, 0.068,
-              "clients: " + " · ".join(str(META[d]["n_devices"]) for d in DS),
-              icon="hospital", isz=0.135)
-    vt = box(ax, (0.60, 0.82), 0.17, 0.068, "validation and test cohorts",
-             fc="#F4F4F4", ec="#888888")
-    arrow(ax, s["r"], corp["l"])
-    arrow(ax, corp["r"], split["l"])
-    xj = 0.488
-    ax.plot([split["r"][0], xj], [yd, yd], color=INK, lw=0.7)
-    ys = [t["l"][1] for t in (pool, cli, vt)]
-    ax.plot([xj, xj], [min(ys), max(ys)], color=INK, lw=0.7)
-    for tgt in (pool, cli, vt):
-        arrow(ax, (xj, tgt["l"][1]), tgt["l"])
+    # ── corpora ─────────────────────────────────────────────────────────
+    for i, d in enumerate(("vitaldb", "wear", "eicu")):
+        y = 1.86 - i * 0.62
+        col, mk = CORPUS[d]
+        card(ax, 0.06, y, 1.02, 0.46)
+        pic(ax, "database", 0.27, y + 0.23, 0.42, color=col)
+        ax.plot(0.49, y + 0.30, marker=mk, ms=3.4, color=col, ls="none", zorder=7)
+        txt(ax, 0.56, y + 0.30, LABEL[d], fs=7.5, weight="bold")
+        txt(ax, 0.49, y + 0.14, f"{META[d]['n_devices']} clients", color=SLATE)
+        arrow(ax, (1.08, y + 0.23), (1.20, y + 0.23), color=SLATE, lw=0.7, ms=5)
 
-    # ── training ────────────────────────────────────────────────────────
-    yt = 0.52
-    # encoder configuration differs by corpus; only eICU is end to end
-    cfgs = [("eicu", "eICU: disjoint encoders,\npool-fitted constants\n"
-                     "$\\rightarrow$ end to end"),
-            ("vitaldb", "VitalDB: oracle encoders\n(disjoint in F2)\n"
-                        "$\\rightarrow$ patient-level head"),
-            ("wear", "WEAR: oracle encoders,\none person per client\n"
-                     "$\\rightarrow$ record-level head")]
-    xc, wc, hc = 0.098, 0.168, 0.086
-    pres = []
-    for (d, t), y in zip(cfgs, (0.613, 0.515, 0.417)):
-        b = box(ax, (xc + 0.008, y), wc - 0.016, hc, t, fs=5.4,
-                fc="#FFFFFF" if d == "eicu" else "#EFEFEF",
-                ec=CORPUS[d][0], lw=0.9 if d == "eicu" else 0.6)
-        ax.plot(xc - wc / 2 + 0.003, y, marker=CORPUS[d][1], ms=3.6,
-                color=CORPUS[d][0], ls="none", zorder=5)
-        pres.append(b)
-    dp = box(ax, (0.29, yt), 0.15, 0.16,
-             "client $k$: sample\nindividuals at rate $q_k$,\nsum, clip to $C$,\n"
-             "add $\\mathcal{N}(0,\\sigma_k^2C^2)$",
-             fc=C["indiv"], ec=C["indiv"], color="white", fs=6.0,
-             icon=("shield", dict(fc="#FFFFFF")), isz=0.26)
-    comp = box(ax, (0.465, yt), 0.13, 0.12,
-               f"compress update\ntop-{SPARSITY:.0%} + 8-bit,\nerror feedback")
-    edge = box(ax, (0.635, yt), 0.12, 0.12,
-               f"edge FedAvg\n$\\tau_e = {TAU_E}$\nrounds", icon="server", isz=0.26)
-    cloud = box(ax, (0.79, yt), 0.11, 0.12, "cloud\nFedAvg,\nbroadcast",
-                icon="cloud", isz=0.2)
-    last = diamond(ax, (0.915, yt), 0.1, 0.17, "last\nround?")
-    path(ax, [pool["b"], (pool["b"][0], 0.666), (pres[0]["t"][0], 0.666),
-              pres[0]["t"]], color="#777777")
-    path(ax, [cli["r"], (0.715, cli["r"][1]), (0.715, 0.635), (dp["t"][0] + 0.03, 0.635),
-              (dp["t"][0] + 0.03, dp["t"][1])])
-    xb = 0.199                                   # bus from the three configs
-    for b in pres:
-        ax.plot([b["r"][0], xb], [b["r"][1]] * 2, color="#777777", lw=0.6)
-    ax.plot([xb, xb], [pres[-1]["r"][1], pres[0]["r"][1]], color="#777777", lw=0.6)
-    arrow(ax, (xb, yt), dp["l"], color="#777777")
-    arrow(ax, dp["r"], comp["l"])
-    arrow(ax, comp["r"], edge["l"])
-    arrow(ax, edge["r"], cloud["l"])
-    arrow(ax, cloud["r"], last["l"])
-    # loop back: no -> next round at the clients
-    yl = 0.395
-    path(ax, [last["b"], (last["b"][0], yl), (dp["b"][0], yl), dp["b"]],
-         color="#B0477A")
-    ax.text(0.60, yl + 0.016, "no: next cloud round", fontsize=5.8,
-            color="#B0477A", ha="center", va="bottom", style="italic")
+    # ── the split gate ──────────────────────────────────────────────────
+    gx, gw, gy0, gy1 = 1.20, 0.17, 0.10, 2.40
+    ax.add_patch(FancyBboxPatch((gx, gy0), gw, gy1 - gy0, fc=INK, ec="none",
+                                boxstyle="round,pad=0,rounding_size=0.085", zorder=3))
+    txt(ax, gx + gw / 2, (gy0 + gy1) / 2 - 0.12, "split by individual  ·  "
+        "no person spans two splits", color="white", ha="center", rotation=90)
+    gr = gx + gw
 
-    # ── evaluation ──────────────────────────────────────────────────────
-    ye = 0.15
-    sel = box(ax, (0.085, ye), 0.135, 0.12,
-              "select model\non validation\ncohort")
-    path(ax, [last["r"], (0.985, yt), (0.985, 0.272), (sel["t"][0], 0.272), sel["t"]])
-    ax.text(0.972, yt + 0.012, "yes", fontsize=5.8, ha="right", va="bottom",
-            style="italic")
-    evals = [
-        ("utility cost\nDP vs non-DP,\npaired seeds, 95% CI", "white", "chart"),
-        ("privacy-unit test\ncost vs records\nper individual $k$", "white", "patient"),
-        ("system cost\nNS-3 packets,\nCloudSim energy", "white", "server"),
-        ("privacy audit\nloss + LiRA,\npositive control", "#D8E9F5", "attacker"),
-    ]
-    xs = (0.27, 0.45, 0.63, 0.81)
-    outs = []
-    for x, (t, fc, icn) in zip(xs, evals):
-        b = box(ax, (x, ye), 0.155, 0.15, t, fc=fc, fs=5.9, icon=icn, isz=0.28)
-        outs.append(b)
-    arrow(ax, sel["r"], outs[0]["l"])
-    for a, b in zip(outs, outs[1:]):
-        arrow(ax, a["r"], b["l"], color="#777777", ls=(0, (2, 1.5)))
-    end = pill(ax, (0.945, ye), "END", "#CDE8B5")
-    arrow(ax, outs[-1]["r"], end["l"])
+    # ── encoder configuration (fed by the public pool) ──────────────────
+    ex, ey, ew, eh = 2.06, 1.97, 3.00, 0.52
+    card(ax, ex, ey, ew, eh)
+    txt(ax, ex + 0.10, ey + eh - 0.12, "Frozen encoders, configured by corpus",
+        weight="bold")
+    rows = (("eicu", "disjoint encoders, pool-fitted constants", "end to end"),
+            ("vitaldb", "oracle encoders (disjoint in F2)", "patient-level head"),
+            ("wear", "oracle encoders, one person per client", "record-level head"))
+    for i, (d, enc, head) in enumerate(rows):
+        y = ey + eh - 0.29 - i * 0.115
+        ax.plot(ex + 0.10, y, marker=CORPUS[d][1], ms=3.2, color=CORPUS[d][0],
+                ls="none", zorder=7)
+        txt(ax, ex + 0.17, y, LABEL[d], weight="bold")
+        txt(ax, ex + 0.58, y, enc, color=INK)
+        txt(ax, ex + ew - 0.07, y, head, ha="right", color=SLATE, style="italic")
+
+    # ── one cloud round as a 2x2 loop: client k -> compress -> edge -> cloud
+    def node(x, y, w, h, icon, title, sub, priv=False):
+        card(ax, x, y, w, h, fc=PRIV if priv else "white", ec=PRIV if priv else HAIR,
+             zo=3)
+        pic(ax, icon, x + w - 0.21, y + h - 0.17, 0.27,
+            **({"highlight": True} if icon == "hospital" else {}))
+        txt(ax, x + 0.10, y + h - 0.15, title, weight="bold",
+            color="white" if priv else INK)
+        txt(ax, x + 0.10, y + h - 0.37, sub, color="#FFE9DA" if priv else SLATE,
+            va="top", linespacing=1.12)
+        return dict(l=(x, y + h / 2), r=(x + w, y + h / 2), t=(x + w / 2, y + h),
+                    b=(x + w / 2, y))
+
+    lx, rxx, nw = 2.10, 3.62, 1.36
+    yt, ht, yb, hb = 1.08, 0.76, 0.30, 0.60
+    ck = node(lx, yt, nw, ht, "hospital", "client $k$",
+              "sample individuals at rate $q_k$;\nsum, clip to $C$;\n"
+              "add $\\mathcal{N}(0,\\sigma_k^2C^2)$", priv=True)
+    cp = node(lx, yb, nw, hb, "parcel", "compress",
+              f"top-{SPARSITY:.0%} + 8-bit,\nerror feedback")
+    ed = node(rxx, yb, nw, hb, "rack", "edge FedAvg",
+              f"$\\tau_e = {TAU_E}$ rounds")
+    cl = node(rxx, yt, nw, ht, "cloud", "cloud FedAvg", "global model,\nbroadcast")
+    arrow(ax, ck["b"], cp["t"], color=INK, lw=0.9)
+    arrow(ax, cp["r"], ed["l"], color=INK, lw=0.9)
+    arrow(ax, ed["t"], cl["b"], color=INK, lw=0.9)
+    arrow(ax, cl["l"], ck["r"], color=PRIV, lw=0.9)
+    txt(ax, (lx + nw + rxx) / 2, (yb + hb + yt) / 2, "one cloud round, until the last",
+        color=SLATE,
+        style="italic", ha="center")
+
+    # ── streams ─────────────────────────────────────────────────────────
+    y_pool, y_held = 2.20, 0.22
+    curve(ax, (gr, y_pool), (ex, y_pool), SLATE)
+    chip(ax, 1.74, y_pool, "public pool\n(disjoint)", SLATE)
+    curve(ax, (gr, 1.43), ck["l"], PRIV, lw=1.3)
+    chip(ax, 1.74, 1.43, "training\nclients", PRIV)
+    ax.plot([gr, 5.16], [y_held, y_held], color=HELD, lw=1.1, ls=(0, (4, 2)), zorder=3)
+    arrow(ax, (5.08, y_held), (5.16, y_held), color=HELD, lw=1.1, ms=6.5)
+    chip(ax, 1.74, y_held, "validation\n+ test", HELD)
+    pic(ax, "padlock", 2.24, y_held - 0.10, 0.17)
+    txt(ax, 2.36, y_held - 0.10, "held out: never enters training", color=HELD,
+        style="italic", va="center")
+    # frozen encoders configure the head of client k
+    xa = lx + 0.62
+    arrow(ax, (xa, ey), (xa, ck["t"][1]), color=SLATE, lw=0.7, ms=5)
+
+    # ── evaluation: select on validation, then four analyses ────────────
+    gx0, gw_ = 5.16, 1.94
+    card(ax, gx0, 0.10, gw_, 2.38, fc="#F8FAFC", ec=HAIR, shadow=False, zo=1.5)
+    sel_y = 1.98
+    card(ax, gx0 + 0.08, sel_y, gw_ - 0.16, 0.42)
+    pic(ax, "funnel", gx0 + 0.30, sel_y + 0.21, 0.36)
+    txt(ax, gx0 + 0.52, sel_y + 0.27, "Select model", weight="bold")
+    txt(ax, gx0 + 0.52, sel_y + 0.12, "on the validation cohort", color=SLATE)
+    # global model from the cloud node into selection
+    gy = sel_y + 0.21
+    xm = cl["r"][0] + 0.07
+    ax.plot([cl["r"][0], xm], [cl["r"][1]] * 2, color=INK, lw=0.9, zorder=3)
+    curve(ax, (xm, cl["r"][1]), (gx0 + 0.08, gy), INK, lw=0.9, bend=0.0)
+    tiles = (("bars", "Utility cost", "DP vs non-DP,\npaired seeds, 95% CI"),
+             ("records", "Privacy-unit test", "cost vs records\nper individual $k$"),
+             ("rack", "System cost", "NS-3 packets,\nCloudSim energy"),
+             ("magnifier", "Privacy audit", "loss + LiRA,\npositive control"))
+    tw, th = 0.89, 0.82
+    for i, (icn, t, s_) in enumerate(tiles):
+        tx = gx0 + 0.06 + (i % 2) * (tw + 0.04)
+        ty = 1.04 - (i // 2) * (th + 0.08)
+        card(ax, tx, ty, tw, th)
+        pic(ax, icn, tx + 0.22, ty + th - 0.19, 0.28)
+        txt(ax, tx + 0.07, ty + th - 0.41, t, weight="bold")
+        txt(ax, tx + 0.07, ty + th - 0.50, s_, color=SLATE, va="top", linespacing=1.12)
+    arrow(ax, (gx0 + gw_ / 2, sel_y), (gx0 + gw_ / 2, 1.04 + th), color=INK, lw=0.8)
 
     save(fig, "fig00_workflow")
 

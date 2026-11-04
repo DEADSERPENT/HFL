@@ -494,11 +494,12 @@ stricter unit rather than a degradation (Fig.~\ref{fig:arms}).
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\columnwidth]{fig04_arms.pdf}
-\caption{Average precision of each arm against $k$, mean $\pm$ Student-$t$
-$95\,\%$ interval ($n = 3$; VitalDB case-level). The shaded band is the range of the
-individual-level means. The individual-level arm is flat on both corpora; the
-widening gap of Fig.~\ref{fig:klaw} is the record-level arm improving. Both
-panels span $0.12$ so that slopes are comparable.}
+\caption{AUPRC of each arm against $k$, mean $\pm$ Student-$t$
+$95\,\%$ interval ($n = 3$; (a) VitalDB case-level, (b) eICU). The shaded band
+is the range of the patient-level means. On VitalDB the patient-level arm is
+flat and the widening gap of Fig.~\ref{fig:klaw} is the record-level arm
+improving; on eICU the two arms overlap at every $k$. Both panels span $0.12$
+so that slopes are comparable.}
 \label{fig:arms}
 \end{figure} Additional records per patient provide
 signal that the record-level arm exploits and the individual-level arm cannot,

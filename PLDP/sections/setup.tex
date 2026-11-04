@@ -1,13 +1,6 @@
 \section{Experimental Setup}
 \label{sec:setup}
 
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=\textwidth]{fig00_workflow.pdf}
-\caption{Study workflow: individual-level partitioning, per-corpus encoder configuration (end to end on eICU only), private hierarchical training and paired evaluation with an attack audit.}
-\label{fig:workflow}
-\end{figure*}
-
 \subsection{Datasets}
 Three public corpora are used (Table~\ref{tab:data}); Fig.~\ref{fig:workflow} outlines the study. In each, the two
 modalities come from the same individual and are paired at the source rather
@@ -17,6 +10,13 @@ individuals (VitalDB, eICU) and a client holding one (WEAR). WEAR is not
 clinical: it is a wearable IoT workload that tests the system objectives
 outside medicine, and its privacy results are record-level.
 
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{fig00_workflow.pdf}
+\caption{Study workflow: individual-level partitioning, per-corpus encoder configuration (end to end on eICU only), private hierarchical training and paired evaluation with an attack audit.}
+\label{fig:workflow}
+\end{figure*}
+
 \emph{VitalDB} \cite{ref20} contains non-cardiac surgical cases. Modality~A
 is ten minutes of nine intraoperative trends at $0.5$~Hz with nine binary
 indicators of whether each was recorded; modality~B is a $34$-dimensional
@@ -24,8 +24,7 @@ vector of preoperative clinical and laboratory variables. The target is
 postoperative intensive-care admission. Clients are the nine surgical
 specialties, which differ by a factor of almost eight in size and by more than
 fifteen in outcome prevalence ($3.0$--$50.4\,\%$ on the person-level
-partition; $3.2$--$50.7\,\%$ on the case-level partition of
-Fig.~\ref{fig:noniid}), a
+partition; $3.2$--$50.7\,\%$ on the case-level partition), a
 heterogeneity that arises from how care is organized rather than from an
 imposed skew. \emph{WEAR} \cite{ref21}
 combines body-worn inertial sensing with egocentric video features
@@ -68,13 +67,6 @@ training/validation/test, in thousands. VitalDB: person-level partition (the
 case-level partition has $6{,}257$ cases, $34.0/7.3/7.4$k windows and a
 prevalence of $19.65\,\%$).}
 \end{table}
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.78\textwidth]{fig6_noniid.pdf}
-\caption{Heterogeneity of the VitalDB clients (surgical specialties, case-level partition): size and intensive-care admission rate.}
-\label{fig:noniid}
-\end{figure*}
 
 On eICU and WEAR, splits are made by individual. VitalDB is evaluated on two
 partitions. The \emph{person-level} partition assigns each person to one
