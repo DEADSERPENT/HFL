@@ -55,33 +55,23 @@ compression and the edge tier, which cut traffic and energy at no measurable
 cost in accuracy, and establish fusion per task.
 
 \subsection{Limitations}
-\emph{Utility objective.} On eICU the guarantee costs $3.10$ AUROC points
-$[1.55, 4.65]$, inconclusive against the two-point target under the
-prespecified interval criterion although the point estimate exceeds it, and
-$3.88$ $[2.60, 5.17]$ end to end, above the target; on WEAR the
-accuracy interval spans the target. \emph{Encoders.} VitalDB and WEAR results
-use the oracle encoders unless stated, so their absolute utilities are upper
-bounds; on the case-level VitalDB partition the disjoint encoders cost $1.57$
-AUROC points and the privacy cost with them is $+0.14$ points; differences between configurations are
-unaffected, and on eICU every encoder is disjoint. \emph{Scope of the unit.} VitalDB results other than the privacy cost, the
-cost of the unit, the baseline comparison and the audit are case-level; for the $3.9\,\%$ of persons with several operations, their
-guarantee extends to the person only by group privacy. On WEAR the mechanism
-is record-level. The validation cohort is
-used without noise for checkpoint selection. \emph{Statistical power.} The
-scaling grids and the recipe sweep use three seeds; on eICU no gap of
-Table~\ref{tab:kscaling} is resolved, and resolving it would need about
-twenty-five.
-The audit (sixteen shadows, $600$ non-members, VitalDB only; about $160$ GPU
-hours on eICU) cannot resolve a $0.1\,\%$ false-positive rate, and at three
-seeds its positive control is resolved by online LiRA only, which does not
-separate the two units; the audit bounds these attacks and does not establish
-the absence of leakage. \emph{Baselines.} HED-FL and FL2DP are
-re-implemented from their papers, and FL2DP and both baseline audits are
-limited to VitalDB. \emph{Simulation.} Network terms are packet-level simulated and compute terms
-modeled, so round latencies compare topologies rather than measure a deployed
-system.
-\emph{Fusion.} A fusion gain is shown on VitalDB only: WEAR leaves no
-headroom, and the eICU second stream is admission data, so its balancing test
-identifies a mechanism rather than the benefit of a second sensor.
-\emph{Theory.} The $A(1-1/k)$ form assumes both models attain their rate with a
-common constant; it is supported empirically, not proved.
+\emph{Utility.} On eICU the cost of the guarantee is inconclusive against the
+two-point target and exceeds it end to end (Section~\ref{sec:results:privacy});
+on WEAR the record-level accuracy loss is inconclusive. \emph{Encoders and
+unit.} VitalDB and WEAR utilities use oracle encoders unless stated and are
+upper bounds; the disjoint encoders cost $1.57$ AUROC points and leave
+differences between configurations unaffected. VitalDB analyses other than the
+privacy cost, the cost of the unit, the baseline comparison and the audit are
+case-level, covering persons with several operations only by group privacy;
+WEAR is record-level; the eICU source partition is qualified in
+Section~\ref{sec:method:analysis}; and the validation cohort selects
+checkpoints without noise. \emph{Power.} The scaling grids and the recipe
+sweep use three seeds, and resolving the eICU gaps of
+Table~\ref{tab:kscaling} would need about twenty-five. The audit (sixteen
+shadows, VitalDB only) cannot resolve a $0.1\,\%$ false-positive rate; it
+bounds these attacks and does not establish the absence of leakage.
+\emph{Baselines and simulation.} HED-FL and FL2DP are re-implemented from their
+papers, with FL2DP and the baseline audits on VitalDB only, and round
+latencies compare simulated topologies rather than a deployed system.
+\emph{Fusion and theory.} A fusion gain is shown on VitalDB only, and the
+$A(1-1/k)$ form is supported empirically, not proved.

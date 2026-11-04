@@ -249,7 +249,7 @@ def main():
     ax.text(0.29, 0.13, "Privacy ledger ($\\delta=10^{-5}$):", fontsize=7, va="center",
             weight="bold", color=INK)
     ax.text(1.80, 0.13, f"$\\varepsilon={LEDGER['epsilon_training']:.3f}\\ \\leq 1$ "
-            "per client, all tiers included; one client per person; "
+            "per client, all tiers included; one client per person (A1 runs); "
             "validation cohort outside", fontsize=7, va="center", color=PRIV)
     save(fig, "fig01_overview_core")
 

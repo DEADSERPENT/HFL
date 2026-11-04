@@ -36,14 +36,17 @@ setting; Section~\ref{sec:method} addresses each difficulty in turn.
 \end{figure*}
 A deployment has $K$ clients, such as hospitals, specialties or wearable
 installations, assigned by a fixed public map $e(\cdot)$ to $E$ edge
-aggregators, which report to one cloud aggregator. Client $k$ holds a dataset
+aggregators, which report to one cloud aggregator (Fig.~\ref{fig:overview}). Client $k$ holds a dataset
 $\mathcal{D}_k$ of $n_k$ records. Each record pairs two modalities of the same
 individual over the same interval: modality~A is a multichannel time series
 and modality~B a static or summarized feature vector. The records of client
 $k$ are partitioned by individual into the patient set $\mathcal{P}_k$; patient
 $p$ contributes the records $W_p$, with $k_p = |W_p|$. A patient's records
-never span two clients or two evaluation splits; this holds by construction on
-eICU and on the person-level VitalDB partition (Section~\ref{sec:setup}). The model
+never span two clients or two evaluation splits; this holds by construction
+for the eICU privacy-cost and end-to-end configurations, run on a
+one-hospital-per-person partition, and for the person-level VitalDB partition
+(Section~\ref{sec:setup}); the remaining eICU analyses use the source partition
+and are qualified in Section~\ref{sec:method:analysis}. The model
 $f_\theta$, with $\theta = (\theta_{\mathrm{enc}}, \theta_{\mathrm{head}})$,
 comprises two modality encoders and a fusion head, and the learning objective
 is the weighted empirical risk

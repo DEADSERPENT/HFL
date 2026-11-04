@@ -636,8 +636,10 @@ edges by a fixed map $e(\cdot)$. The records of client $k$ are partitioned by
 individual into a set of patients $\mathcal{P}_k$, and $W_p$ denotes the
 records contributed by patient $p$, with $k_p = |W_p|$; the partition is
 constructed so that $W_p$ never spans two clients or two evaluation splits,
-which holds by construction on eICU and on the person-level VitalDB partition
-(Section~\ref{sec:experiments}).
+which holds by construction for the eICU privacy-cost and end-to-end
+configurations, run on a one-hospital-per-person partition, and for the
+person-level VitalDB partition (Section~\ref{sec:experiments}); the remaining
+eICU analyses use the source partition and are qualified at the end of this subsection.
 Model parameters are written $\theta = (\theta_{\mathrm{enc}},
 \theta_{\mathrm{head}})$, and $\ell$ is the cross-entropy; the loss is unweighted, because class
 weights computed from the training labels would be a further unprotected

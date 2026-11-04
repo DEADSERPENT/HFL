@@ -1,52 +1,25 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper addressed a mismatch between what private hierarchical federated
-learning guarantees and what clinical IoT requires: existing systems protect
-individual records, whereas a clinical deployment must protect patients, each
-of whom contributes many records. The proposed framework, PP-HFM, closes this
-gap by construction. Each client sums a patient's gradients before clipping,
-calibrates its noise to its own population, which parallel composition
-permits when every patient is held by one client, and accounts for every
-release of the hierarchy, edge tier included. The guarantee was proved for the
-training transcript; it holds end to end only when the encoders and
-standardization constants are fitted on public data, which on the evaluated
-corpora is the eICU configuration, run on a partition in which every
-individual is held by one hospital.
-
-The evaluation on three corpora answers the four research questions. First (RQ4), the system
-objectives are met on every corpus with two exceptions on eICU and one on
-WEAR, where the record-level utility loss of $1.97$~pp is inconclusive
-against the two-point target: the training
-budget is at most $\varepsilon = 0.9$ ($1.0$ with the evaluated conformal
-release), uplink traffic falls by $90.8$--$96.1\,\%$, modeled energy per
-round by $72.3$--$79.6\,\%$, and the $95$th-percentile inference latency on
-a workstation CPU is at most $2.3$~ms, but on eICU the utility loss exceeds
-the two-point target end to end and is inconclusive against it with
-training-fitted constants, and update delivery reaches
-$99\,\%$ only from eight edges. Second (RQ1), the patient-level guarantee is affordable: it costs no utility on
-VitalDB, partitioned by person, and on eICU it costs $3.1$ AUROC points $[1.6, 4.7]$ ($3.9$ $[2.6, 5.2]$ end to
-end), a cost set by the smallest hospitals. Third (RQ3), on VitalDB and WEAR, robustness to a strict
-budget is determined by the initialization, not by the size of the privatized
-subset: pretrained initialization is worth $0.199$ AUROC at
-$\varepsilon = 0.5$, whereas restricting noise to the head changes accuracy by
-at most $0.006$ under privacy and is justified by communication alone. Fourth (RQ2), the price of
-an individual-level guarantee follows $A(1 - 1/k)$ in records per individual
-and vanishes where the two units coincide, a scaling that holds out of sample
-on the first corpus and in shape on the second. On VitalDB (RQ4), a patient-level
-audit with a positive control is consistent with the distinction: record-level
-training remains detectably above its difficulty floor under offline LiRA,
-whereas patient-level training does not; the audit bounds these attacks
-without establishing the absence of leakage. The corpora carry different
-evidence: eICU tests the guarantee end to end, VitalDB tests it on the
-training transcript, and WEAR, where each client is one participant,
-evaluates the system at record level.
-
-Several directions remain open. First, a third corpus is needed to determine
-whether the ceiling of the cost curve is a constant of the guarantee or a
-fraction of the precision attainable on a task. Second, the noise imposed by
-the smallest clients could be reduced, for example by sampling patients across
-the clients of an edge. Third, clipping around an estimate of each
-individual's mean gradient, which the analysis indicates could recover the
-cost of the unit, should be tested. Finally, the audit should be extended to eICU
-and, with a larger shadow population, to low false-positive rates.
+This paper addressed the mismatch between the record-level protection of
+private hierarchical federated learning and the patient-level protection that
+clinical IoT requires. PP-HFM sums each patient's gradients before clipping,
+calibrates noise to each client's population under parallel composition, and
+accounts for every release of the hierarchy, edge tier included; the guarantee
+holds end to end on eICU, with pool-fitted encoders and constants on a
+partition in which every person is held by one hospital. Across three corpora,
+the patient-level guarantee proved affordable (RQ1): it costs no utility on
+VitalDB, partitioned by person, and $3.1$ AUROC points $[1.6, 4.7]$ on eICU
+($3.9$ $[2.6, 5.2]$ end to end), a cost set by the smallest hospitals. Its
+price follows $A(1-1/k)$ in records per individual and vanishes where the two
+units coincide (RQ2). Robustness to a strict budget comes from pretrained
+initialization, worth $0.199$ AUROC at $\varepsilon = 0.5$, not from restricting
+noise to the head (RQ3). The system objectives (RQ4) are met on every corpus except for the eICU
+utility target, update delivery below eight edges, and the inconclusive WEAR
+loss of $1.97$~pp, and a patient-level audit on VitalDB is consistent with the
+distinction between the units. Protecting patients rather than records is
+therefore feasible in a client--edge--cloud deployment, at a cost that depends
+mainly on the records per patient and on the size of the smallest clients.
+Future work should test a third corpus, sample patients across the clients of
+an edge, clip around each individual's mean gradient, and extend the audit to
+eICU.
