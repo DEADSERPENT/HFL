@@ -127,7 +127,7 @@ def main():
     yt = 0.52
     # encoder configuration differs by corpus; only eICU is end to end
     cfgs = [("eicu", "eICU: disjoint encoders,\npool-fitted constants\n"
-                     "$\\rightarrow$ end to end (one hospital)"),
+                     "$\\rightarrow$ end to end"),
             ("vitaldb", "VitalDB: oracle encoders\n(disjoint in F2)\n"
                         "$\\rightarrow$ patient-level head"),
             ("wear", "WEAR: oracle encoders,\none person per client\n"

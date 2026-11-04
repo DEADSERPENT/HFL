@@ -287,7 +287,7 @@ in advance: the confidence interval decides, not the point estimate.
 O1 Uplink reduction & 90.8\,\% & 96.1\,\% & 92.3\,\% & $\ge 50\,\%$ \\
 O1b Round-latency cut & 16.9\,\% & 21.7\,\% & 33.4\,\% & $>0$ \\
 O2a Training $\varepsilon$ (total) & 0.900 (1.0) & 0.766 (0.966) & 0.900 (1.0) & $\le 1$ \\
-O2b Utility loss & $-1.18$ AUROC & 1.97\,pp acc.\ (inconcl.) & 3.09 AUROC (inconcl.) & $\le 2$ \\
+O2b Utility loss & $-1.18$ AUROC & 1.97\,pp acc.\ (inconcl.) & 3.10 AUROC (inconcl.) & $\le 2$ \\
 O3a P95 latency & 2.30\,ms & 0.75\,ms & 0.24\,ms & $<100$\,ms \\
 O3b Update delivery & 100.00\,\% & 99.94\,\% & 97.83\,\% (\textbf{fails}) & $>99\,\%$ \\
 \midrule
@@ -352,12 +352,13 @@ met. The private model is slightly \emph{better}; this is consistent with
 clipping and noise regularizing the small head, but this experiment does not
 isolate why, so it is not read as ``privacy helps''. On the old case-level split
 the change was $-0.90$ $[-1.82, +0.02]$.
-\item \textbf{eICU:} 0.8245 $\rightarrow$ 0.7936, a cost of 3.09 points
-$[1.37, 4.81]$. The interval contains 2, so by the rule fixed in advance the
+\item \textbf{eICU} (one hospital per person): 0.8239 $\rightarrow$ 0.7929, a cost of 3.10 points
+$[1.55, 4.65]$. The interval contains 2, so by the rule fixed in advance the
 objective is \emph{inconclusive}, although the point estimate is above the
-target. AUPRC cost 1.72 (interval spans 2), balanced-accuracy cost 0.50 (met).
-End to end (pool-fitted constants): 3.91 $[2.40, 5.42]$, a clear miss in AUROC;
-the AUPRC and balanced-accuracy intervals span the target
+target. AUPRC cost 1.84 (interval spans 2), balanced-accuracy cost 0.33 (met).
+End to end (pool-fitted constants): 3.88 $[2.60, 5.17]$, a clear miss in AUROC
+and in balanced accuracy (2.80 $[2.52, 3.08]$);
+the AUPRC interval spans the target
 (Section~\ref{exp:std}).
 \item \textbf{WEAR} (record-level): accuracy loss 1.97\,pp $[1.76, 2.17]$; the
 2-point threshold lies inside the interval, so it is inconclusive. Seeds were
@@ -617,11 +618,13 @@ seeds. FL2DP ran on VitalDB only (about two GPU days per seed on eICU).
 VitalDB & PP-HFM ($\varepsilon = 0.9$) & 0.8318 & 252 & 0.503 ($-0.005$) \\
  & HED-FL (no DP) & 0.8262 & 560 & 0.581 ($+0.026$) \\
  & FL2DP & 0.8195 & 1008 & 0.608 ($+0.049$) \\
-eICU & PP-HFM ($\varepsilon = 0.9$) & 0.7936 & 5235 & -- \\
+eICU$^{s}$ & PP-HFM ($\varepsilon = 0.9$) & 0.7936 & 5235 & -- \\
  & HED-FL (no DP) & 0.8252 & 12541 & -- \\
 \bottomrule
 \end{tabular}
 \end{center}
+{\footnotesize $^{s}$Source partition, on which the baselines were run (2.9\,\% of training persons at several hospitals).}
+
 On VitalDB PP-HFM exceeds FL2DP by 0.0123 AUROC $[0.0064, 0.0181]$; against
 HED-FL the AUROC difference (0.0056) is not resolved, AUPRC is $+0.030$
 $[0.005, 0.055]$. In the audit, both baselines have higher attack AUC than
@@ -642,7 +645,7 @@ system outputs prediction sets with 90\,\% coverage?
 aggregated by edges and cloud; coverage measured on the test split.
 \R Thresholds land mid-range (0.42--0.61). The private model's probabilities sit
 near zero, so every set is just the majority class: coverage equals the base
-rate (80.1\,\% on VitalDB, case-level split; 95.7\,\% on eICU), missing
+rate (80.1\,\% on VitalDB, case-level split; 95.8\,\% on eICU), missing
 the 90\,\% target. The non-private threshold does not collapse to the
 majority class (it covers 36--43\,\% of positive patients), but its coverage,
 80.4--81.8\,\%, also misses the target.
@@ -666,16 +669,19 @@ patients any SD by at most 0.02\,\%; but one outlier moves one channel's SD by
 \M Small, but it is a release outside the guarantee. Fix: re-standardize
 eICU with pool-fitted constants (verified exact: the stored data reproduce the
 original constants to $4\times10^{-8}$), re-pretrain the encoders and re-run.
-That run is the only configuration that is private end to end, for the
-97.1\,\% of training persons at one hospital; the 2.9\,\% treated at two to
-four hospitals compose those hospitals' mechanisms ($\varepsilon \le 1.32$--$1.92$).
-\R AUROC 0.8209 $\rightarrow$ 0.7819, a cost of 3.91 points $[2.40, 5.42]$
-($p = 0.002$, 5 seeds); AUPRC 2.66 $[1.82, 3.49]$; balanced accuracy 2.69
-$[1.57, 3.82]$.
+That run is the only configuration that is private end to end. It uses a
+partition in which each of the 2.9\,\% of training persons treated at two to
+four hospitals is moved, with all records, to the hospital holding most of
+their stays, so every person is held by one client and $\varepsilon = 0.9$
+holds for all of them (on the source partition they composed to
+$\varepsilon \le 1.32$--$1.92$).
+\R AUROC 0.8208 $\rightarrow$ 0.7820, a cost of 3.88 points $[2.60, 5.17]$
+($p = 0.001$, 5 seeds); AUPRC 2.31 $[1.42, 3.21]$; balanced accuracy 2.80
+$[2.52, 3.08]$ (source partition: 3.91 $[2.40, 5.42]$, 2.66, 2.69).
 \M Public constants make the guarantee end to end and cost about 0.8 AUROC
-points more than training-fitted ones (3.09). The AUROC interval now lies
-entirely above the 2-point target (a clear miss); the AUPRC and
-balanced-accuracy intervals span it.
+points more than training-fitted ones (3.10). The AUROC and balanced-accuracy
+intervals lie entirely above the 2-point target (a clear miss); the AUPRC
+interval spans it.
 \status{done 29 Oct.}
 \end{experiment}
 
@@ -749,10 +755,10 @@ results are archived, not overwritten.
 \toprule
 Claim & Status \\
 \midrule
-Patient-level guarantee for hierarchical multimodal FL, all tiers accounted & proven for the training transcript (Theorem 1); end to end only for eICU with pool-fitted constants, for persons at one hospital (2.9\,\% at several: $\varepsilon \le 1.32$--$1.92$) \\
+Patient-level guarantee for hierarchical multimodal FL, all tiers accounted & proven for the training transcript (Theorem 1); end to end only for eICU with pool-fitted constants, on the partition with one hospital per person \\
 Communication, latency, energy objectives & met on all three corpora (latency: workstation CPU; energy: modeled; network: simulated) \\
 No utility cost on VitalDB at $\varepsilon = 0.9$ & supported, person-level split ($-1.18$ $[-1.63, -0.73]$) \\
-Utility cost $\le 2$ points on eICU & inconclusive (3.09 $[1.37, 4.81]$); \textbf{not met} end to end (3.91 $[2.40, 5.42]$) \\
+Utility cost $\le 2$ points on eICU & inconclusive (3.10 $[1.55, 4.65]$); \textbf{not met} end to end (3.88 $[2.60, 5.17]$) \\
 eICU update delivery $> 99\,\%$ & \textbf{fails} at 2 edges (97.83\,\%); met from 8 edges \\
 Pretrained initialization makes strict privacy survivable & strongly supported (VitalDB case-level, WEAR) \\
 Head-only DP improves accuracy & \textbf{refuted} (it helps communication) \\

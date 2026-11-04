@@ -1,0 +1,15 @@
+{
+  "dataset": "eicu",
+  "split": "test",
+  "pooled_over_devices": true,
+  "accuracy": 0.9578014184397163,
+  "macro_auc": 0.7869419476239635,
+  "auprc": 0.22652290531370764,
+  "val_threshold": 2.5922106942743994e-05,
+  "accuracy_valthr": 0.7854258830138333,
+  "balanced_accuracy_valthr": 0.7207419549430544,
+  "sensitivity_valthr": 0.6500956818370913,
+  "specificity_valthr": 0.7913882280490174,
+  "selected_on": "auc",
+  "best_val_auc": 0.7806043578229116
+}

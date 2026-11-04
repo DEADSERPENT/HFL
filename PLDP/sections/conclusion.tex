@@ -7,12 +7,12 @@ individual records, whereas a clinical deployment must protect patients, each
 of whom contributes many records. The proposed framework, PP-HFM, closes this
 gap by construction. Each client sums a patient's gradients before clipping,
 calibrates its noise to its own population, which parallel composition
-permits for every patient held by one client, and accounts for every
+permits when every patient is held by one client, and accounts for every
 release of the hierarchy, edge tier included. The guarantee was proved for the
 training transcript; it holds end to end only when the encoders and
 standardization constants are fitted on public data, which on the evaluated
-corpora is the eICU configuration, and there for the $97.1\,\%$ of training
-individuals treated at a single hospital.
+corpora is the eICU configuration, run on a partition in which every
+individual is held by one hospital.
 
 The evaluation on three corpora supports four conclusions. First, the system
 objectives are met on every corpus with two exceptions on eICU and one on
@@ -25,7 +25,7 @@ a workstation CPU is at most $2.3$~ms, but on eICU the utility loss exceeds
 the two-point target end to end and is inconclusive against it with
 training-fitted constants, and update delivery reaches
 $99\,\%$ only from eight edges. Second, the patient-level guarantee is affordable: it costs no utility on
-VitalDB, partitioned by person, and on eICU it costs $3.1$ AUROC points $[1.4, 4.8]$ ($3.9$ $[2.4, 5.4]$ end to
+VitalDB, partitioned by person, and on eICU it costs $3.1$ AUROC points $[1.6, 4.7]$ ($3.9$ $[2.6, 5.2]$ end to
 end), a cost set by the smallest hospitals. Third, on VitalDB and WEAR, robustness to a strict
 budget is determined by the initialization, not by the size of the privatized
 subset: pretrained initialization is worth $0.199$ AUROC at
@@ -38,7 +38,7 @@ audit with a positive control is consistent with the distinction: record-level
 training remains detectably above its difficulty floor under offline LiRA,
 whereas patient-level training does not; the audit bounds these attacks
 without establishing the absence of leakage. The corpora carry different
-evidence: eICU tests the guarantee end to end for individuals at one hospital, VitalDB tests it on the
+evidence: eICU tests the guarantee end to end, VitalDB tests it on the
 training transcript, and WEAR, where each client is one participant,
 evaluates the system at record level.
 

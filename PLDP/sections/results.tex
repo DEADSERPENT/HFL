@@ -24,7 +24,7 @@ missed end to end; update delivery falls short at two edges.
 O1  & Uplink reduction     & $90.8\%$   & $96.1\%$   & $92.3\%$   & $\ge 50\%$ \\
 O1b & Round latency cut    & $16.9\%$   & $21.7\%$   & $33.4\%$   & $> 0\%$ \\
 O2a & Budget $\varepsilon$        & $0.900$    & $0.766^{\S}$ & $0.900$  & $\le 1$ \\
-O2b & Utility loss [pts]   & $-1.18$    & $1.97$~pp$^{\dagger\S}$ & $3.09^{\dagger}$ & $\le 2$ \\
+O2b & Utility loss [pts]   & $-1.18$    & $1.97$~pp$^{\dagger\S}$ & $3.10^{\dagger}$ & $\le 2$ \\
 O3a & P95 latency [ms]     & $2.30$     & $0.75$     & $0.24$     & $< 100$ \\
 O3b & Update delivery      & $100.00\%$ & $99.94\%$  & $97.83\%^{\ast}$ & $> 99\%$ \\
 O4  & Energy saving        & $72.3\%$   & $76.8\%$   & $79.6\%$   & $\ge 20\%$ \\
@@ -34,10 +34,11 @@ O4  & Energy saving        & $72.3\%$   & $76.8\%$   & $79.6\%$   & $\ge 20\%$ \
 uplink payload of the deployed update encoding. Simulated: delivery and round latency (packet-level ns-3, every
 round) and energy (CloudSim Plus model). O2b: paired loss against an identical non-private system, five seeds,
 in AUROC points. $^{\S}$Record-level; O2b is the accuracy loss over fifteen
-seeds. $^{\dagger}$Interval spans the threshold (eICU: $[1.37, 4.81]$, point
-estimate above it; end to end $3.91$ $[2.40, 5.42]$, not met). $^{\ast}$Not
+seeds. $^{\dagger}$Interval spans the threshold (eICU: $[1.55, 4.65]$, point
+estimate above it; end to end $3.88$ $[2.60, 5.17]$, not met). $^{\ast}$Not
 met. VitalDB: O2a and O2b person-level, other rows
-case-level. O2a: training budget; the evaluated, non-deployed conformal
+case-level. eICU: O2a and O2b with each person at one hospital, other rows on
+the source partition (Section~\ref{sec:method:privacy}). O2a: training budget; the evaluated, non-deployed conformal
 release adds $\varepsilon_{\mathrm{conf}} = 0.1$ on VitalDB and eICU (total
 $1.0$) and $0.2$ on WEAR (total $0.966$).}
 \end{table}
@@ -106,18 +107,17 @@ fivefold.
 \subsection{Privacy Budget and Utility}
 \label{sec:results:privacy}
 On both clinical corpora, the contribution to the training transcript of
-every training patient held by one client is protected at
-$\varepsilon = 0.900$, $\delta = 10^{-5}$, across all tiers; on eICU this
-excludes the $2.9\,\%$ of training persons at several hospitals
+every training patient is protected at
+$\varepsilon = 0.900$, $\delta = 10^{-5}$, across all tiers; on eICU these runs
+use the partition in which each person is held by one hospital
 (Section~\ref{sec:method:privacy}). This is not an end-to-end guarantee for
 the headline runs: their standardization constants are fitted on the
 training cohort, and on VitalDB and WEAR the oracle encoders also violate
 (A2) (Table~\ref{tab:ledger}). The VitalDB and WEAR results are therefore
 comparisons of the private head, not end-to-end private deployments; the
-only configuration that satisfies the guarantee end to end, for individuals at
-one hospital, is the eICU rerun with disjoint encoders and pool-fitted constants, reported separately below. The per-client
-multipliers range from $6.34$ to $15.56$ on VitalDB and from $4.79$ to
-$29.34$ on eICU (median $13.39$); a single worst-case multiplier would have
+only configuration that satisfies the guarantee end to end is the eICU rerun with disjoint encoders and pool-fitted constants, reported separately below. The per-client
+multipliers range from $6.34$ to $15.56$ on VitalDB and from $4.85$ to
+$29.34$ on eICU (median $13.76$); a single worst-case multiplier would have
 imposed $29.34$ on every hospital.
 
 \emph{A private calibration threshold.} A per-client conformal threshold
@@ -126,14 +126,14 @@ released by the exponential mechanism over ranks \cite{ref30, ref24}
 system: with about a hundred calibration patients per client the private
 threshold returns the majority-class set on every VitalDB seed and on four of
 five eICU seeds, so coverage equals the base rate ($80.1\,\%$ on VitalDB,
-case-level partition; $95.7\,\%$ on eICU) and misses the $90\,\%$ target.
+case-level partition; $95.8\,\%$ on eICU) and misses the $90\,\%$ target.
 The non-private threshold does not collapse (positive-class coverage
 $36$--$43\,\%$), but its coverage, $80.4$--$81.8\,\%$, also misses the
 target.
 
 At the default threshold the private model predicts the majority class on
-every seed of both clinical corpora (accuracy $0.8113$ and $0.958$, the base
-rates), so accuracy measures the threshold rather than the model, and the
+every VitalDB seed and on four of five eICU seeds (accuracy $0.8113$ and
+$0.958$, the base rates), so accuracy measures the threshold rather than the model, and the
 declared measures are used. On VitalDB the private model attains an AUROC of
 $0.8318$ against $0.8200$ for the non-private reference, a change of $-1.18$
 points $[-1.63, -0.73]$ ($p = 0.002$); AUPRC changes by $-3.47$
@@ -143,18 +143,23 @@ regularization of the compact head by clipping and noise, which the
 case-level ablation suggests (Section~\ref{sec:results:ablation}) but this
 experiment does not isolate; on the
 case-level partition the change was $-0.90$ $[-1.82, +0.02]$. On eICU a cost is resolved: AUROC falls from
-$0.8245$ to $0.7936$, by $3.09$ points $[1.37, 4.81]$; the interval spans the
+$0.8239$ to $0.7929$, by $3.10$ points $[1.55, 4.65]$; the interval spans the
 two-point target, so O2b is inconclusive under the prespecified interval
-criterion at five seeds, although the point estimate exceeds the target. AUPRC falls by $1.72$ $[0.84, 2.60]$, spanning the
-threshold, and balanced accuracy by $0.50$ $[-0.18, +1.18]$, which meets it.
+criterion at five seeds, although the point estimate exceeds the target. AUPRC falls by $1.84$ $[1.60, 2.08]$, spanning the
+threshold, and balanced accuracy by $0.33$ $[-0.22, +0.88]$, which meets it.
 The cost is set by the smallest hospitals, which sample every patient at every
 step and carry the largest multipliers. With standardization constants
 fitted on the disjoint pool and encoders pretrained in those units, so that
-the guarantee holds end to end, the eICU cost is $3.91$ points
-$[2.40, 5.42]$, $2.66$ $[1.82, 3.49]$ in AUPRC and $2.69$ $[1.57, 3.82]$ in
-balanced accuracy: O2b is missed in AUROC, whose interval lies above the
-target, while the AUPRC and balanced-accuracy intervals span it with point
-estimates above it. On WEAR, whose guarantee is
+the guarantee holds end to end, the eICU cost is $3.88$ points
+$[2.60, 5.17]$, $2.31$ $[1.42, 3.21]$ in AUPRC and $2.80$ $[2.52, 3.08]$ in
+balanced accuracy: O2b is missed in AUROC and in balanced accuracy, whose
+intervals lie above the target, while the AUPRC interval spans it with a point
+estimate above it. Assigning each person to one hospital left the cost of
+privacy unchanged within resolution: against the same arms on the source
+partition, paired by seed, the AUROC cost differs by $+0.01$ $[-0.72, +0.75]$
+points with training-fitted and by $-0.03$ $[-0.66, +0.60]$ with pool-fitted
+constants; on the source partition the end-to-end balanced-accuracy interval,
+$[1.57, 3.82]$, had spanned the target. On WEAR, whose guarantee is
 record-level, the accuracy loss is $1.97$ pp $[1.76, 2.17]$, spanning the
 threshold.
 
@@ -575,6 +580,8 @@ margin above the difficulty floor in parentheses; not run on eICU. The
 PP-HFM LiRA entry is the patient-level audit target (Section~\ref{sec:method:mia}:
 $\varepsilon = 1.0$, $\varepsilon_{\mathrm{conf}} = 0.5$, one worst-client
 multiplier, R\'enyi accountant), not the $\varepsilon = 0.9$ model whose AUROC
-and uplink are listed. All AUROC
+and uplink are listed. eICU rows: source partition, on which the baselines
+were run ($2.9\,\%$ of training persons at several hospitals,
+Section~\ref{sec:method:privacy}). All AUROC
 differences from PP-HFM are resolved except HED-FL on VitalDB.}
 \end{table}

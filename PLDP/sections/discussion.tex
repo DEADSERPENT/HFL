@@ -49,16 +49,16 @@ record-level budget bounds the wrong quantity. Second, secure a legitimate
 pretrained initialization before tuning anything else; under a tight budget
 it is the largest effect measured here. Third, calibrate each client to its
 own population (on eICU a single worst-case multiplier would impose $29.34$
-on every hospital against a median need of $13.39$), and consider a minimum
+on every hospital against a median need of $13.76$), and consider a minimum
 cohort size, since the smallest hospitals set the cost. Fourth, use
 compression and the edge tier, which cut traffic and energy at no measurable
 cost in accuracy, and establish fusion per task.
 
 \subsection{Limitations}
-\emph{Utility objective.} On eICU the guarantee costs $3.09$ AUROC points
-$[1.37, 4.81]$, inconclusive against the two-point target under the
+\emph{Utility objective.} On eICU the guarantee costs $3.10$ AUROC points
+$[1.55, 4.65]$, inconclusive against the two-point target under the
 prespecified interval criterion although the point estimate exceeds it, and
-$3.91$ $[2.40, 5.42]$ end to end, above the target; on WEAR the
+$3.88$ $[2.60, 5.17]$ end to end, above the target; on WEAR the
 accuracy interval spans the target. \emph{Encoders.} VitalDB and WEAR results
 use the oracle encoders unless stated, so their absolute utilities are upper
 bounds; on the case-level VitalDB partition the disjoint encoders cost $1.57$

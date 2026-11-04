@@ -30,7 +30,7 @@ private* and paired by seed unless stated; intervals are 95 % Student-t.
 | O1 uplink reduction | 90.8 % | 96.1 % | 92.3 % | ≥ 50 % | `phase5/uplink_measured_*.json`, `ns3/` |
 | O1b round-latency cut | 16.9 % | 21.7 % | 33.4 % | > 0 % | `ns3/ns3_results_*.csv` |
 | O2a training budget ε | 0.900 (+0.1 conformal = 1.000) | 0.766 (record; +0.2 conformal = 0.966) | 0.900 (+0.1 conformal = 1.000) | ≤ 1 | `phase5/privacy_total_*.json`; VitalDB person-level `o2b_system/vitaldb_person/dp_s*/privacy_total_vitaldb_person.json` |
-| O2b utility loss | −1.18 AUROC pts (person-level; case-level −0.90) | 1.97 pp acc. [1.76, 2.17] (**inconclusive**: interval spans 2; record-level) | 3.09 [1.37, 4.81] AUROC pts (**inconclusive**: interval spans 2, point estimate above; end to end 3.91 [2.40, 5.42] **not met**) | ≤ 2 | `phase5/o2b_system/{vitaldb_person,eicu}/o2b_paired.json` (case-level: `vitaldb/`) |
+| O2b utility loss | −1.18 AUROC pts (person-level; case-level −0.90) | 1.97 pp acc. [1.76, 2.17] (**inconclusive**: interval spans 2; record-level) | 3.10 [1.55, 4.65] AUROC pts (**inconclusive**: interval spans 2, point estimate above; end to end 3.88 [2.60, 5.17] **not met**); one hospital per person (§8c) | ≤ 2 | `phase5/o2b_system/{vitaldb_person,eicu_a1,eicu_a1_poolnorm}/o2b_paired.json` (case-level: `vitaldb/`; eICU source partition: `eicu/`, `eicu_poolnorm/`) |
 | O3a P95 inference latency | 2.30 ms | 0.75 ms | 0.24 ms | < 100 ms | `phase5/latency_bench/` |
 | O3b update delivery | 100.00 % | 99.94 % | 97.83 % (**not met** at 2 edges; met from 8) | > 99 % | `ns3/edge_scaling/` |
 | O4 energy saving per round | 72.3 % | 76.8 % | 79.6 % | ≥ 20 % | `cloudsim/cloudsim_results_*.csv` |
@@ -41,6 +41,10 @@ O2a is the training budget of the final headline runs (total with conformal
 recorded alongside), O2b on the clinical corpora is the paired AUROC cost from
 `o2b_system/<ds>/o2b_paired.json`, and O3a comes from `latency_bench/`. The
 verdict is taken from the interval, so the eICU utility loss is INCONCLUSIVE.
+Since 2026-11-04 eICU O2a/O2b are scored from the (A1) rerun (§8c):
+`check_objectives.py --dataset eicu --headline eicu_a1` (O2b 3.10 [1.55, 4.65],
+INCONCLUSIVE; 5 PASS, 1 FAIL, 1 INCONCLUSIVE, unchanged). The source-partition
+scoring is kept as `phase5/objectives_eicu_source_partition_20261104.json`.
 The earlier files (old latency benchmark, O2b scored on accuracy) are kept as
 `phase5/objectives_*_superseded.json`.
 
@@ -50,11 +54,13 @@ The earlier files (old latency benchmark, O2b scored on accuracy) are kept as
 |---|---|---|---|---|---|
 | VitalDB (oracle encoders) | 0.8395 | 0.8304 | −0.90 [−1.82, +0.02] | −1.88 [−3.84, +0.07] | −1.08 [−3.17, +1.01] |
 | VitalDB (disjoint encoders, F2) | 0.8237 | 0.8252 | +0.14 [−0.33, +0.62] | +2.21 [−0.03, +4.46] | — |
-| eICU (training-fitted constants) | 0.7936 | 0.8245 | 3.09 [1.37, 4.81] | 1.72 [0.84, 2.60] | 0.50 [−0.18, +1.18] |
-| eICU end to end (pool-fitted constants, G) | 0.7819 | 0.8209 | 3.91 [2.40, 5.42] | 2.66 [1.82, 3.49] | 2.69 [1.57, 3.82] |
+| eICU (training-fitted constants), one hospital per person (A1, §8c) | 0.7929 | 0.8239 | 3.10 [1.55, 4.65] | 1.84 [1.60, 2.08] | 0.33 [−0.22, +0.88] |
+| eICU end to end (pool-fitted constants), one hospital per person (A1, §8c) | 0.7820 | 0.8208 | 3.88 [2.60, 5.17] | 2.31 [1.42, 3.21] | 2.80 [2.52, 3.08] (**missed**) |
+| *historical:* eICU training-fitted, source partition | 0.7936 | 0.8245 | 3.09 [1.37, 4.81] | 1.72 [0.84, 2.60] | 0.50 [−0.18, +1.18] |
+| *historical:* eICU end to end, source partition (G) | 0.7819 | 0.8209 | 3.91 [2.40, 5.42] | 2.66 [1.82, 3.49] | 2.69 [1.57, 3.82] |
 
 Points of AUROC/AUPRC/balanced accuracy. Sources:
-`phase5/o2b_system/{vitaldb,vitaldb_disjoint,eicu,eicu_poolnorm}/o2b_paired.json`.
+`phase5/o2b_system/{vitaldb,vitaldb_disjoint,eicu_a1,eicu_a1_poolnorm,eicu,eicu_poolnorm}/o2b_paired.json`.
 Drivers: `scripts/run_dpfix_stageF.sh`, `run_dpfix_stageF2.sh`,
 `run_dpfix_poolnorm.sh`; summary `scripts/o2b_paired_summary.py`.
 
@@ -257,6 +263,9 @@ compose the mechanisms of every hospital holding them. Composed training ε at
 The evaluated conformal release (ε_conf = 0.1 per hospital, pure DP) composes to
 at most 0.2 / 0.3 for the 509 of 19,916 eICU validation persons (2.6 %) at two or
 three hospitals. Disclosed in both manuscripts; utility results unchanged.
+**Superseded for the eICU O2b arms on 2026-11-04 by the (A1) rerun (§8c)**; the
+table above still applies to every eICU analysis on the source partition
+(scaling grid, clipping rule, prior systems, system objectives other than O2).
 
 **k = 1 diagnostic** (`phase5/diagnostics/k1_record_rerun_eps080/`, not part
 of the prespecified analysis): the ε = 0.8 VitalDB grid reuses a record arm run
@@ -264,6 +273,39 @@ on 2026-09-21/22 code. Retrained on the current code with the identical partitio
 and seeds, it reproduces to within 0.002 AUPRC on all three seeds (0.5169/0.5171,
 0.5058/0.5038, 0.5665/0.5662), so the grid's +0.0398 k = 1 offset is not a
 code-version artefact.
+
+## 8c. eICU (A1) rerun and verification (2026-11-04)
+
+Partition `data/processed/partitions/eicu_a1/` (`scripts/make_a1_partition_eicu.py`,
+meta md5 565a06b0…): each multi-hospital person moved with all records to the
+hospital holding most of their stays (ties: most windows, lowest id). Moved:
+2,177 training persons / 49,939 records; 509 validation, 589 test persons.
+Nothing excluded; split membership and the public pool unchanged. Driver
+`scripts/run_a1_eicu.sh` reuses the recorded argv of `o2b_system/{eicu,eicu_poolnorm}`
+and swaps only partition and output paths. 20 runs (dp + nodp, seeds 42–46),
+all exit 0, all on md5 565a06b0 (`o2b_system/eicu_a1*/runs.tsv`).
+
+| Check (audit `pp-hfm-release-review/audit_2026-11-04/`) | Result |
+|---|---|
+| Clients per person, train / val / test (A1 partition) | 1 for all 74,327 / 19,916 / 19,911 |
+| Formerly multi-client training persons | 2,177, all now on one of their own hospitals |
+| Split overlap; record sets vs source; public pool | 0; identical; disjoint |
+| σ_k re-derived vs `train.log` (10 DP runs) | identical, 4.854 / 13.763 / 29.338 (min / median / max) |
+| Per-client training ε: Opacus PRV / own PLD / RDP | 0.8998–0.9000 / [0.880, 0.900] / ≤ 0.974 |
+| Reported ε (every DP run) | train 0.9000 + conformal 0.1 = 1.000 (δ = 10⁻⁵) |
+| Conformal release | once per client, one window per calibration person, every val person on one client → 0.1 per person |
+| Config vs original arm | identical except paths and four prior-baseline options inert at `baseline=none` |
+| Paired statistics recomputed from per-seed `run_test.json` | match `o2b_paired.json` (< 1e-9) |
+
+| Arm | AUROC cost | AUPRC cost | Bal. acc. cost | A1 − source, AUROC |
+|---|---|---|---|---|
+| Training-fitted | 3.10 [1.55, 4.65] p = .005 (inconcl.) | 1.84 [1.60, 2.08] (inconcl.) | 0.33 [−0.22, +0.88] (met) | +0.01 [−0.72, +0.75] |
+| End to end (pool-fitted) | 3.88 [2.60, 5.17] p = .001 (**missed**) | 2.31 [1.42, 3.21] (inconcl.) | 2.80 [2.52, 3.08] (**missed**; source partition spanned) | −0.03 [−0.66, +0.60] |
+
+Verdicts by the prespecified interval rule (`check_objectives.verdict`). Private
+model is majority-class at 0.5 on 4 of 5 seeds; conformal coverage 95.8 % = base
+rate (`phase5/coverage_eicu_a1_dp.json`). Uniform ε_train = 0.9 for every eICU
+training person holds **for these two arms only**.
 
 ## 9. Reproducing
 

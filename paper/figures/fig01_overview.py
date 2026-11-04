@@ -139,8 +139,8 @@ def main():
     ax.text(0.05, 0.048, "Privacy ledger ($\\delta=10^{-5}$):", fontsize=6.8,
             va="center", weight="bold")
     ax.text(0.25, 0.048, f"$\\varepsilon={LEDGER['epsilon_training']:.3f}\\ \\leq 1$ "
-            "per client, all tiers included; persons on several clients compose "
-            "across them; validation cohort outside", fontsize=7, va="center", color=C["indiv"])
+            "per client, all tiers included; one client per person; "
+            "validation cohort outside", fontsize=7, va="center", color=C["indiv"])
     save(fig, "fig01_overview_core")
 
 

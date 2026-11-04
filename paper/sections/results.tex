@@ -63,9 +63,11 @@ private model predicts the majority class at the default threshold, so accuracy
 cannot measure the loss); $^{\S}$on the wearable deployment, whose guarantee is
 record-level, it is the loss in accuracy over fifteen seeds. $^{\dagger}$An
 interval that spans its threshold, inconclusive at the pre-registered sample
-size (external deployment: $[1.37, 4.81]$, point estimate above the threshold;
-end to end $3.91$ $[2.40, 5.42]$, not met). $^{\ast}$Not met. Clin., Wear., Ext.: clinical, wearable and external
-deployments. Clinical O2a and O2b are person-level, other rows case-level.}
+size (external deployment: $[1.55, 4.65]$, point estimate above the threshold;
+end to end $3.88$ $[2.60, 5.17]$, not met). $^{\ast}$Not met. Clin., Wear., Ext.: clinical, wearable and external
+deployments. Clinical O2a and O2b are person-level, other rows case-level.
+External O2a and O2b use the partition with each person at one hospital, other
+rows the source partition (Section~\ref{sec:method:privacy}).}
 \label{tab:results_objectives}
 \small
 \setlength{\tabcolsep}{3pt}
@@ -76,7 +78,7 @@ deployments. Clinical O2a and O2b are person-level, other rows case-level.}
 O1  & Uplink reduction   & $90.8\%$   & $96.1\%$   & $92.3\%$   & $\ge 50\%$ \\
 O1b & Round latency      & $16.9\%$   & $21.7\%$   & $33.4\%$   & $> 0\%$ \\
 O2a & Budget $\varepsilon$ & $0.900$    & $0.766^{\S}$ & $0.900$    & $\le 1$ \\
-O2b & Utility loss [pts] & $-1.18$ & $1.97$~pp$^{\dagger\S}$ & $3.09^{\dagger}$ & $\le 2$ \\
+O2b & Utility loss [pts] & $-1.18$ & $1.97$~pp$^{\dagger\S}$ & $3.10^{\dagger}$ & $\le 2$ \\
 O3a & P95 latency [ms]   & $2.30$  & $0.75$  & $0.24$  & $< 100$ \\
 O3b & Update success     & $100.00\%$ & $99.94\%$  & $97.83\%^{\ast}$ & $> 99\%$ \\
 O4  & Energy saving      & $72.3\%$   & $76.8\%$   & $79.6\%$   & $\ge 20\%$ \\
@@ -135,7 +137,7 @@ On both clinical deployments the training budget is $\varepsilon = 0.900$
 under the privacy loss distribution accountant, against a requirement of one.
 Each client trains with its own noise multiplier
 (Section~\ref{sec:method:calib}); on the clinical deployment these range from
-$6.34$ to $15.56$, and on the external deployment from $4.79$ to $29.34$. On
+$6.34$ to $15.56$, and on the external deployment from $4.85$ to $29.34$. On
 the wearable deployment, whose guarantee is record-level, it is $0.766$.
 
 \emph{A private calibration threshold.} A conformal threshold released per
@@ -147,7 +149,7 @@ lies mid-range ($0.42$--$0.61$) while the private model's positive-class
 probabilities lie near zero ($99$th percentile $0.025$ on the clinical
 deployment), so the prediction set is the majority class on every clinical
 seed and on four of five external seeds, and coverage equals the base rate
-($80.1\,\%$ on the clinical deployment, case-level partition; $95.7\,\%$ on
+($80.1\,\%$ on the clinical deployment, case-level partition; $95.8\,\%$ on
 the external one), missing the $90\,\%$ target. The non-private threshold
 does not collapse to the majority class (positive-class coverage
 $36$--$43\,\%$), but its coverage, $80.4$--$81.8\,\%$, also misses the
@@ -210,8 +212,8 @@ the runs: area under the ROC curve is primary, with average precision and
 balanced accuracy, at a threshold chosen on the validation cohort by Youden's
 index, reported alongside. Accuracy at the default threshold cannot serve: on
 both clinical deployments the private model predicts the majority class at
-$0.5$ on every seed, so its accuracy equals the base rate ($0.8113$ and
-$0.958$) and measures the threshold rather than the model.
+$0.5$ on every clinical seed and on four of five external seeds, so its
+accuracy equals the base rate ($0.8113$ and $0.958$) and measures the threshold rather than the model.
 
 On the clinical deployment no cost is incurred. The private model attains
 $0.8318$ in area under the ROC curve against $0.8200$ for the reference, a
@@ -224,23 +226,30 @@ head by clipping and noise, which the case-level ablation suggests
 $[-1.82, +0.02]$.
 
 On the external deployment a cost is resolved. The area under the ROC curve
-falls from $0.8245$ to $0.7936$, by $3.09$ points $[1.37, 4.81]$. The interval
+falls from $0.8239$ to $0.7929$, by $3.10$ points $[1.55, 4.65]$. The interval
 spans the two-point target, so under the prespecified interval criterion the
 objective is inconclusive at five seeds, although the point estimate exceeds
 the target. Average precision falls by
-$1.72$ points $[0.84, 2.60]$, an interval that spans the threshold, and
-balanced accuracy by $0.50$ points $[-0.18, +1.18]$, which meets it. The cost
+$1.84$ points $[1.60, 2.08]$, an interval that spans the threshold, and
+balanced accuracy by $0.33$ points $[-0.22, +0.88]$, which meets it. The cost
 is set by the smallest hospitals: a client of fifteen patients samples every
 patient at every step and requires the largest noise multiplier, $29.34$,
-against a median of $13.39$, and its updates enter the edge average with their
+against a median of $13.76$, and its updates enter the edge average with their
 public weights. With standardization constants fitted on the disjoint pool and encoders
 pretrained in those units, the only configuration in which the guarantee holds
-end to end for individuals at a single hospital, the cost rises to $3.91$ points $[2.40, 5.42]$ ($0.8209$ to
-$0.7819$, $p = 0.002$), with $2.66$ $[1.82, 3.49]$ in average precision and
-$2.69$ $[1.57, 3.82]$ in balanced accuracy. The end-to-end guarantee therefore
-misses the objective in area under the ROC curve, whose interval lies above the
-target; in average precision and balanced accuracy the intervals span it, with
-point estimates above it.
+end to end, the cost rises to $3.88$ points $[2.60, 5.17]$ ($0.8208$ to
+$0.7820$, $p = 0.001$), with $2.31$ $[1.42, 3.21]$ in average precision and
+$2.80$ $[2.52, 3.08]$ in balanced accuracy. The end-to-end guarantee therefore
+misses the objective in area under the ROC curve and in balanced accuracy,
+whose intervals lie above the target; in average precision the interval spans
+it, with a point estimate above it. These runs use the partition in which each
+person is held by one hospital (Section~\ref{sec:method:privacy}). Against the
+same arms on the source partition, paired by seed, the cost in area under the
+ROC curve differs by $+0.01$ $[-0.72, +0.75]$ points with training-fitted and
+by $-0.03$ $[-0.66, +0.60]$ with pool-fitted constants, so the reassignment
+leaves the cost unchanged within resolution; on the source partition the
+end-to-end balanced-accuracy interval, $[1.57, 3.82]$, had spanned the
+target.
 
 On the wearable deployment, where the guarantee is record-level, the loss in
 accuracy is $1.967$ pp with an interval of $[1.760, 2.173]$ over fifteen seeds.
@@ -977,7 +986,9 @@ difficulty floor in parentheses; it was not run on eICU. The PP-HFM LiRA
 entry is the patient-level audit target ($\varepsilon = 1.0$,
 $\varepsilon_{\mathrm{conf}} = 0.5$, one worst-client multiplier, R\'enyi
 accountant), not the $\varepsilon = 0.9$ model whose AUROC and uplink are
-listed. Every AUROC
+listed. The eICU rows use the source partition, on which the baselines were
+run ($2.9\,\%$ of training persons at several hospitals,
+Section~\ref{sec:method:privacy}). Every AUROC
 difference from PP-HFM excludes zero except HED-FL on VitalDB.}
 \label{tab:prior}
 \small

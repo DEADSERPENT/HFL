@@ -35,13 +35,13 @@
       "unit": "eps",
       "cmp": "<=",
       "source": "proposed run privacy accountant",
-      "measured": 0.8999999742375719,
+      "measured": 0.8999995143386633,
       "verdict": "PASS",
       "ci_low": null,
       "ci_high": null,
       "n_seeds": null,
-      "evidence": "o2b_system/eicu/dp_s*/privacy_total_*.json: max epsilon_training over 5 seeds",
-      "total_with_conformal": 0.9999999742375719
+      "evidence": "o2b_system/eicu_a1/dp_s*/privacy_total_*.json: max epsilon_training over 5 seeds",
+      "total_with_conformal": 0.9999995143386633
     },
     "O2b": {
       "name": "Utility loss under DP (AUROC)",
@@ -49,12 +49,12 @@
       "unit": "AUROC pts",
       "cmp": "<=",
       "source": "proposed run at eps vs no-DP reference",
-      "measured": 3.0897433549051434,
+      "measured": 3.1015403877835146,
       "verdict": "INCONCLUSIVE",
-      "ci_low": 1.3690785903079539,
-      "ci_high": 4.810408119502333,
+      "ci_low": 1.554398801374917,
+      "ci_high": 4.648681974192112,
       "n_seeds": 5,
-      "evidence": "o2b_system/eicu/o2b_paired.json: macro_auc cost (reference - private) x 100, AUROC points, 5 paired seeds, p=0.0076"
+      "evidence": "o2b_system/eicu_a1/o2b_paired.json: macro_auc cost (reference - private) x 100, AUROC points, 5 paired seeds, p=0.0051"
     },
     "O3a": {
       "name": "Inference latency (P95)",
