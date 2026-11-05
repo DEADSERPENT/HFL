@@ -159,7 +159,7 @@ a hospital of fifteen patients sampled at $q_k = 1$ would set the noise of all
 $187$ clients. When each patient is held by exactly one client (A1), the
 clients' mechanisms act on disjoint individuals, and by parallel composition a
 patient's guarantee is that of the client holding them; individuals held by
-several clients are treated in the scope statement of Section~\ref{sec:method:privacy}. Each client therefore
+several clients are treated in the scope statement of Section~\ref{sec:method:analysis}. Each client therefore
 uses the smallest multiplier that meets the training budget for its own
 sampling rate and step count,
 \begin{equation}
@@ -406,13 +406,17 @@ the person. On the case-level VitalDB partition it is the surgical case:
 $230$ of $5{,}974$ people ($3.9\,\%$) underwent more than one operation, and
 for them the guarantee extends to the person only by group privacy over at
 most $14$ cases, composed across clients for the $68$ training persons whose
-cases lie on two. On eICU, where clients are hospitals, the stays of $2{,}177$ of $74{,}327$ training persons ($2.9\,\%$) lie at two to four hospitals, so in the source partition (A1) fails for them. The privacy-cost and end-to-end runs therefore use a partition in which each such person is moved, with all their records, to the hospital holding most of their stays ($49{,}939$ training records; likewise $509$ validation and $589$ test persons); no record is excluded and every split is unchanged. In that partition every training and validation person is held by one hospital, so (A1) holds and the guarantee is $\varepsilon_{\mathrm{train}} = 0.9$ for every training person, verified independently for every client of every run (privacy-loss-distribution bounds $[0.880, 0.900]$; R\'enyi accountant $0.974$), and the evaluated conformal release adds $\varepsilon_{\mathrm{conf}} = 0.1$ once per person. The remaining eICU analyses (system objectives other than O2, scaling grid, clipping rule and prior systems) use the source partition, in which the per-client budget composes across the hospitals that hold a person: with the headline accountant, at most $1.32$, $1.64$ and $1.92$ for the $2{,}097$, $75$ and $5$ persons at two, three and four hospitals (R\'enyi: $1.42$, $1.77$, $2.08$), and at most $m\varepsilon$ in general; arms compared with each other share the partition. On WEAR each client is one participant, client-, user- and
+cases lie on two.
+
+\emph{Scope on eICU.} Clients are hospitals, and the stays of $2{,}177$ of $74{,}327$ training persons ($2.9\,\%$) lie at two to four hospitals, so in the source partition (A1) fails for them. The privacy-cost and end-to-end runs therefore use a partition in which each such person is moved, with all their records, to the hospital holding most of their stays ($49{,}939$ training records; likewise $509$ validation and $589$ test persons); no record is excluded and every split is unchanged. \emph{One hospital per person.} In that partition every training and validation person is held by one hospital, so (A1) holds and the guarantee is $\varepsilon_{\mathrm{train}} = 0.9$ for every training person, calibrated with the privacy loss distribution accountant; an independent recomputation for every client of every run, with the same sampling rates, step counts, noise multipliers and $\delta$, brackets it at $[0.880, 0.900]$ with a discretized privacy loss distribution and gives $0.974$ with the R\'enyi accountant, a looser conversion of the same mechanism used only as a conservative cross-check, and the evaluated conformal release adds $\varepsilon_{\mathrm{conf}} = 0.1$ once per person. \emph{Source partition.} The remaining eICU analyses (system objectives other than O2, scaling grid, clipping rule and prior systems) use the source partition, in which the per-client budget composes across the hospitals that hold a person: with the headline accountant, at most $1.32$, $1.64$ and $1.92$ for the $2{,}097$, $75$ and $5$ persons at two, three and four hospitals (R\'enyi: $1.42$, $1.77$, $2.08$), and at most $m\varepsilon$ in general; arms compared with each other share the partition.
+
+\emph{Scope on WEAR.} Each client is one participant, client-, user- and
 record-level units coincide at the client, and the mechanism evaluated there
-is record-level. The guarantee holds end to end only with the disjoint
+is record-level. \emph{End-to-end conditions.} The guarantee holds end to end only with the disjoint
 encoders and pool-fitted standardization constants; the oracle encoders
 violate (A2), and training-fitted constants are an unprotected release. Table~\ref{tab:scope} lists, for each evaluated configuration, the unit,
 the provenance of the encoders and standardization constants, the accounting
-and what the guarantee covers. The implementation of the accounting is
+and what the guarantee covers. \emph{Implementation checks.} The implementation of the accounting is
 additionally checked by a suite of 17 regression checks, seven of which cover
 it: composition of the budget across calls, release and accounting of noise at
 every step with the expected-batch divisor, one conformal score per calibration

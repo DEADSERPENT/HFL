@@ -3,7 +3,7 @@
 
 \subsection{What the Price of the Unit Depends On}
 The central finding (RQ1, RQ2) is not that an individual-level guarantee has a cost,
-which was expected, but that the cost has a predictable shape. At one operating
+which was expected, but that the cost has a regular shape. At one operating
 point on person-level VitalDB it is $0.0170$ AUROC. Holding the per-step budget and the units per step
 fixed, so that only the clipping geometry differs, it is indistinguishable
 from zero at one record per individual and grows as $A(1-1/k)$, with a single
@@ -16,8 +16,10 @@ so the cost belongs mainly to the unit. Proposition~\ref{prop:scaling}
 also points to what would: clipping around an estimate of each individual's
 mean gradient, whose user-level rates improve with $k$ \cite{ref32}. The
 external corpus reproduces the shape and the saturation but not the
-magnitude, so the shape is interpreted as structural and the magnitude as
-corpus-dependent.
+magnitude: the relationship transfers in shape, its magnitude is
+corpus-dependent, and outcome prevalence, client heterogeneity, contribution
+counts and feature distributions are plausible contributors that the present
+experiments do not isolate.
 
 \subsection{Position Against Prior Art}
 PP-HFM builds on user-level privacy \cite{ref11}
@@ -38,9 +40,11 @@ robustness at small $\varepsilon$ to the reduced privatized dimension; the
 three-way decomposition attributes it to the initialization instead (RQ3), which
 changes what a practitioner should optimize first. Several results are
 negative and are reported with the control or the power that makes them
-interpretable: the privatized subset contributes nothing to accuracy once the
-initialization is controlled, compression and loss-aware weighting do not
-affect accuracy, and count-normalized clipping does not recover the cost of the unit on eICU.
+interpretable: the privatized subset produces no resolved accuracy effect once the
+initialization is controlled, compression and loss-aware weighting produce no
+resolved accuracy change, and count-normalized clipping does not recover the
+cost of the unit on eICU. Within the evaluated configurations, they indicate
+where engineering effort does not pay off in accuracy.
 
 \subsection{Practical Implications}
 Four recommendations follow. First, choose the unit explicitly and price it
@@ -52,7 +56,11 @@ own population (on eICU a single worst-case multiplier would impose $29.34$
 on every hospital against a median need of $13.76$), and consider a minimum
 cohort size, since the smallest hospitals set the cost. Fourth, use
 compression and the edge tier, which cut traffic and energy at no measurable
-cost in accuracy, and establish fusion per task.
+cost in accuracy, and establish fusion per task. Before deployment, the
+end-to-end conditions should hold, with disjoint pretrained encoders and
+standardization constants fitted on a disjoint pool, as in the eICU end-to-end
+configuration, and the simulated network and modeled energy figures should be
+confirmed on physical hardware.
 
 \subsection{Limitations}
 \emph{Utility.} On eICU the cost of the guarantee is inconclusive against the

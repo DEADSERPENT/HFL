@@ -108,7 +108,7 @@ $[2.60, 5.17]$ end to end.
 On both clinical corpora the guarantee covers each training patient's
 contribution to the training transcript; on eICU these runs
 use the partition in which each person is held by one hospital
-(Section~\ref{sec:method:privacy}). This is not an end-to-end guarantee for
+(Section~\ref{sec:method:analysis}). This is not an end-to-end guarantee for
 the headline runs: their standardization constants are fitted on the
 training cohort, and on VitalDB and WEAR the oracle encoders also violate
 (A2) (Table~\ref{tab:ledger}). The VitalDB and WEAR results are therefore
@@ -118,16 +118,19 @@ multipliers range from $6.34$ to $15.56$ on VitalDB and from $4.85$ to
 $29.34$ on eICU (median $13.76$); a single worst-case multiplier would have
 imposed $29.34$ on every hospital.
 
-\emph{A private calibration threshold.} A per-client conformal threshold
+\emph{Diagnostic finding: private calibration.} A per-client conformal threshold
 released by the exponential mechanism over ranks \cite{ref30, ref24}
 ($\varepsilon_{\mathrm{conf}} = 0.1$) was evaluated and is not part of the
-system: with about a hundred calibration patients per client the private
+system. With about a hundred calibration patients per client, the private
 threshold returns the majority-class set on every VitalDB seed and on four of
 five eICU seeds, so coverage equals the base rate ($80.1\,\%$ on VitalDB,
 case-level partition; $95.8\,\%$ on eICU) and misses the $90\,\%$ target.
 The non-private threshold does not collapse (positive-class coverage
 $36$--$43\,\%$), but its coverage, $80.4$--$81.8\,\%$, also misses the
-target.
+target. The practical implication is that, at calibration cohorts of this
+size and this budget, a privately selected threshold can be uninformative;
+the result concerns the evaluated cohort sizes and mechanism, not private
+conformal prediction in general.
 
 At the default threshold the private model predicts the majority class on
 every VitalDB seed and on four of five eICU seeds (accuracy $0.8113$ and
@@ -136,29 +139,32 @@ declared measures are used. On VitalDB the private model attains an AUROC of
 $0.8318$ against $0.8200$ for the non-private reference, a change of $-1.18$
 points $[-1.63, -0.73]$ ($p = 0.002$); AUPRC changes by $-3.47$
 $[-6.33, -0.61]$ and balanced accuracy by $-0.31$ $[-1.23, +0.62]$, negative
-values favoring the private model. O2b is met. The gain is consistent with
+values favoring the private model, so O2b is met. The gain is consistent with
 regularization of the compact head by clipping and noise, which the
 case-level ablation suggests (Section~\ref{sec:results:ablation}) but this
 experiment does not isolate; on the
-case-level partition the change was $-0.90$ $[-1.82, +0.02]$. On eICU a cost is resolved: AUROC falls from
+case-level partition the change was $-0.90$ $[-1.82, +0.02]$.
+
+\emph{eICU, training transcript.} A cost is resolved: AUROC falls from
 $0.8239$ to $0.7929$, by $3.10$ points $[1.55, 4.65]$; the interval spans the
 two-point target, so O2b is inconclusive under the prespecified interval
 criterion at five seeds, although the point estimate exceeds the target. AUPRC falls by $1.84$ $[1.60, 2.08]$, spanning the
 threshold, and balanced accuracy by $0.33$ $[-0.22, +0.88]$, which meets it.
 The cost is set by the smallest hospitals, which sample every patient at every
-step and carry the largest multipliers. With standardization constants
+step and carry the largest multipliers.
+\emph{eICU, end to end.} With standardization constants
 fitted on the disjoint pool and encoders pretrained in those units, so that
 the guarantee holds end to end, the eICU cost is $3.88$ points
 $[2.60, 5.17]$, $2.31$ $[1.42, 3.21]$ in AUPRC and $2.80$ $[2.52, 3.08]$ in
 balanced accuracy: O2b is missed in AUROC and in balanced accuracy, whose
 intervals lie above the target, while the AUPRC interval spans it with a point
-estimate above it. Assigning each person to one hospital left the cost of
+estimate above it. \emph{Effect of the assignment.} Assigning each person to one hospital left the cost of
 privacy unchanged within resolution: against the same configurations on the source
 partition, paired by seed, the AUROC cost differs by $+0.01$ $[-0.72, +0.75]$
 points with training-fitted and by $-0.03$ $[-0.66, +0.60]$ with pool-fitted
 constants; on the source partition the end-to-end balanced-accuracy interval,
-$[1.57, 3.82]$, had spanned the target. On WEAR, whose guarantee is
-record-level, the accuracy loss is $1.97$ pp $[1.76, 2.17]$, spanning the
+$[1.57, 3.82]$, had spanned the target. \emph{WEAR.} Its guarantee is
+record-level, and the accuracy loss is $1.97$ pp $[1.76, 2.17]$, spanning the
 threshold.
 
 \emph{Cost of the unit.} Moving the guarantee from the record to the patient
@@ -230,7 +236,7 @@ case-level partition; WEAR is record-level.}
 \label{fig:recipe}
 \end{figure*}
 
-The result contradicts a dimensionality explanation. If a smaller privatized
+The result is inconsistent with a dimensionality explanation. If a smaller privatized
 vector absorbed less noise, the pretrained full model, which privatizes all
 $1{,}864{,}227$ parameters, should trail the head-only model, which privatizes
 $559{,}874$, most at the tightest budget. At $\varepsilon = 0.5$ the two
@@ -241,7 +247,9 @@ $0.1906$ on VitalDB and $0.3716$ on WEAR, where it falls to $0.6247$, close to
 chance; the pretrained full model loses $0.0043$ and the head-only model
 $0.0225$ on VitalDB, and both less than $0.016$ on WEAR. Restricting the
 subset is therefore justified by communication, since only the head is
-transmitted, not by accuracy.
+transmitted, not by accuracy. For practitioners, within the evaluated corpora
+and budgets, securing a legitimate pretrained initialization is the larger
+lever; the privatized subset can then be chosen on communication grounds.
 
 \subsection{Records per Individual}
 \label{sec:results:k}
@@ -288,8 +296,8 @@ covering zero), as Corollary~\ref{cor:k1} requires, so the divergence at
 larger $k$ is attributable to the unit. From $k = 2$ the gap is resolved and
 grows to $0.0872$ at $k = 8$. The patient-level model is flat (means
 $0.5083$--$0.5128$), whereas the record-level model rises from $0.5015$ to
-$0.5955$ (Fig.~\ref{fig:arms}): the widening gap is additional records that
-the record-level model exploits and the patient-level model cannot, because the bound on the summed
+$0.5955$ (Fig.~\ref{fig:arms}). The widening gap is consistent with additional records that
+the record-level model exploits and the patient-level model cannot, since the bound on the summed
 contribution is tightest for the individuals who contribute them. AUROC moves
 in the same direction ($+0.0026$ to $+0.0159$) but is unresolved at three
 seeds.
@@ -317,11 +325,14 @@ rises through $k = 8$ and changes by $+0.0004$
 $[-0.0134, +0.0141]$ from $k = 8$ to $k = 16$, meeting the registered bound
 on further growth. The magnitude does not: at $k = 8$ the gap is
 $0.0099$, about one ninth of the forecast, and no eICU gap is resolved
-at three seeds. Attainable precision differs by a factor of two between the
+at three seeds. The relationship therefore transfers in shape, but its magnitude is
+corpus-dependent. Attainable precision differs by a factor of two between the
 tasks (AUPRC near $0.22$ at a prevalence of $4.2\,\%$, against $0.5$), and a
 cost that is a fixed fraction of attainable precision would preserve the
-shape at a lower ceiling; distinguishing this from a corpus-specific ceiling
-requires a third corpus. The registered design extended to $k = 32$, but only
+shape at a lower ceiling; differences in client sizes, records per
+individual and feature distributions are further plausible contributors. The
+present experiments do not isolate these effects, and distinguishing them from
+a corpus-specific ceiling requires a third corpus. The registered design extended to $k = 32$, but only
 $20.2\,\%$ of eICU individuals reach $32$ records, all of them readmitted, so
 the maximum was reduced to $16$ by a dated amendment before any result beyond
 $k = 8$ was computed.
@@ -372,9 +383,9 @@ $-0.0031$. On VitalDB at $k = 8$ and the same budget, count normalization
 lowers the final-round clipped fraction from $0.50$ to $0.34$ and changes
 AUPRC by $+0.0038$ $[-0.0072, +0.0148]$; the one-sided upper bound, $+0.0113$,
 does not exclude $+0.010$, so this test is inconclusive by its own criterion,
-and square-root normalization changes AUPRC by less than $10^{-4}$. The
-clipping rule therefore does not explain the cost on eICU, and on VitalDB it
-explains at most one eighth of the $0.0914$ cost at that operating point.
+and square-root normalization changes AUPRC by less than $10^{-4}$. Of the
+two normalizations tested, neither explains the cost on eICU, and on VitalDB
+they explain at most one eighth of the $0.0914$ cost at that operating point.
 
 \subsection{Multimodal Fusion}
 \label{sec:results:fusion}
@@ -433,18 +444,18 @@ above its difficulty floor, whereas record-level training does. Each
 component is removed in turn from the full system (case-level partition;
 Table~\ref{tab:ablation}, Fig.~\ref{fig:audit}(a)). Removing sparsification
 ($+0.0012$) or quantization ($+0.0001$, the narrowest interval in the study)
-leaves accuracy unchanged and raises uplink fivefold and $1.6$-fold, so
-compression is justified by traffic alone. Removing the edge tier costs
+produces no resolved change in accuracy and raises uplink fivefold and $1.6$-fold, so
+in this configuration compression is justified by traffic, not by accuracy. Removing the edge tier costs
 $-0.0058$ at three seeds and is resolved at the six pre-registered seeds,
 $-0.0047$ $[-0.0088, -0.0006]$ on VitalDB and $-0.0052$
 $[-0.0074, -0.0030]$ on WEAR; because the flat configuration also changes the
 aggregation schedule, this bounds the cost of the hierarchy rather than
 claiming a benefit. Removing the privacy mechanism \emph{reduces} AUROC by
 $0.0234$: two of three non-private seeds peak in the first round and then
-degrade, whereas every private seed peaks between rounds six and nine, so
-clipping and noise regularize a compact head over frozen features. The
-loss-aware edge weighting of an earlier version (C6 in Table~\ref{tab:ablation}) adds nothing and is not
-adopted.
+degrade, whereas every private seed peaks between rounds six and nine, consistent
+with clipping and noise regularizing a compact head over frozen features. The
+loss-aware edge weighting of an earlier version (C6 in Table~\ref{tab:ablation})
+produces no resolved change and is not adopted.
 
 \begin{table}[!t]
 \centering
@@ -581,5 +592,5 @@ $\varepsilon$, and the audit finds that it does not reduce leakage either.
 & HED-FL & $\infty$ & $\mathbf{0.8252}$ & $12541$ & --- \\
 \bottomrule
 \end{tabular}
-\tabnote{Five seeds. $\varepsilon$: patient-level training budget ($\delta = 10^{-5}$); ---: no finite bound. MB: total uplink. LiRA: offline attack AUC, margin above the difficulty floor in parentheses; not run on eICU. The PP-HFM LiRA entry is the patient-level audit model ($\varepsilon = 1.0 + 0.5$, Section~\ref{sec:method:mia}), not the $\varepsilon = 0.9$ model whose AUROC and uplink are listed. eICU rows use the source partition ($2.9\,\%$ of training persons at several hospitals). All AUROC differences from PP-HFM are resolved except HED-FL on VitalDB.}
+\tabnote{Five seeds. $\varepsilon$: patient-level training budget ($\delta = 10^{-5}$); ---: no finite bound. MB: total uplink. LiRA: offline attack AUC, margin above the difficulty floor in parentheses; not run on eICU. The PP-HFM LiRA entry is the patient-level audit model ($\varepsilon = 1.0 + 0.5$, Section~\ref{sec:method:mia}), not the $\varepsilon = 0.9$ model whose AUROC and uplink are listed. eICU rows use the source partition ($2.9\,\%$ of training persons at several hospitals); for eICU, $\varepsilon$ denotes the per-client training budget, and the composed per-person bound for individuals present at multiple hospitals is reported in Section~\ref{sec:method:analysis}. All AUROC differences from PP-HFM are resolved except HED-FL on VitalDB.}
 \end{table}

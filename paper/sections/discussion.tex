@@ -67,9 +67,11 @@ increasing positive gap through $k = 8$. The registered saturation is also
 reproduced: from $k = 8$ to $k = 16$, the gap changes by $+0.0004$
 $[-0.0134, +0.0141]$, so the cost approaches a bound in $k$. The magnitude,
 however, is approximately one ninth of the pre-registered forecast and is not
-resolved at three seeds. The shape of the law is therefore interpreted as
-structural and its scale as corpus-dependent, and the two corpora are not
-combined into a single estimate.
+resolved at three seeds. The relationship therefore transfers in shape, but
+its magnitude is corpus-dependent; outcome prevalence, client heterogeneity,
+contribution counts and feature distributions are plausible contributors that
+the present experiments do not isolate, and the two corpora are not combined
+into a single estimate.
 
 One possible explanation is that the two tasks differ in attainable precision
 by approximately a factor of two. Because a gap in average precision is bounded
@@ -152,8 +154,8 @@ uplink and energy savings are obtained without an accuracy penalty.
 Removing the privacy mechanism \emph{reduces} accuracy by $0.0234$ and
 increases the seed-to-seed spread in average precision fivefold. Two of three
 non-private seeds peak in the first of ten rounds and then degrade, whereas all
-private seeds peak between rounds six and nine, which indicates that clipping
-and noise regularize a compact head over frozen features. This applies to a
+private seeds peak between rounds six and nine, which is consistent with
+clipping and noise regularizing a compact head over frozen features. This applies to a
 small head on frozen encoders and does not imply that differential privacy is
 without cost; the privacy-unit results quantify that cost under a different
 comparison. The tested inclusion arm was not adopted, as it produced no
@@ -205,8 +207,8 @@ evaluated as a function of the number of records per individual. In settings
 where each individual contributes many records, a record-level budget does not
 bound the relevant quantity, and a post hoc group-privacy conversion is
 prohibitively expensive, whereas direct individual-level accounting costs noise
-rather than budget. The cost is predictable from the structure of the data and
-is bounded in the number of records per individual.
+rather than budget. On the evaluated corpora the cost follows the number of
+records per individual and approaches a bound in it.
 
 Second, a legitimate pretrained initialization should be obtained before other
 aspects of the private recipe are tuned. Under a tight budget, it has the
@@ -233,10 +235,10 @@ tested on the third.} In the wearable corpus, each client corresponds to one
 participant, so client-level, user-level and individual-level guarantees
 coincide and the divergence addressed by the mechanism cannot occur. The
 external clinical corpus reproduces the ordering and the saturation of the
-scaling law, but not its magnitude, which is approximately one ninth of that of
-the first corpus and unresolved at three seeds. The two corpora show that the
-law is not specific to one cohort, but they do not determine its constant, and
-no constant is reported.
+scaling relationship, but not its magnitude, which is approximately one ninth of that of
+the first corpus and unresolved at three seeds. The two corpora indicate that
+the shape is not specific to one cohort, but they do not determine its
+constant, and no constant is reported.
 
 \textbf{The fusion gain is established on one corpus and, under imposed
 balance, on a second.} The wearable corpus cannot test fusion, and on the

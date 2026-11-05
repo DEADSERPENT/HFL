@@ -15,10 +15,10 @@
 % table and P1c is settled below. Per-seed gaps +0.0146, +0.0222, -0.0054.
 %==============================================================================
 
-\subsubsection{External validation of the records-per-individual law}
+\subsubsection{External validation of the records-per-individual relationship}
 \label{sec:results:kscaling:eicu}
 
-The law of Section~\ref{sec:results:kscaling} was measured on a single corpus
+The relationship of Section~\ref{sec:results:kscaling} was measured on a single corpus
 whose clients are surgical specialties rather than institutions, so it is not
 established whether it characterizes patient-level private federated learning
 in general or only that cohort. It is therefore tested on a second clinical
@@ -73,7 +73,7 @@ The point forecasts are not confirmed. At every $k > 1$, the gap lies outside
 the $\pm 0.030$ band, and the measured cost is approximately one ninth of the
 predicted cost: $0.0099$ against $0.0876$ at $k = 8$.
 
-Two properties of the law are reproduced. The first is the ordering: the gap is
+Two properties of the relationship are reproduced. The first is the ordering: the gap is
 negative at $k = 1$, positive at $k = 2$, and increases through $k = 4$ to
 $k = 8$, as described by Eq.~\eqref{eq:kcurve}. This is consistent with the
 mechanism, since the bound on an individual's summed contribution is tightest
@@ -92,8 +92,11 @@ against the pre-specified $0.020$, whereas the record-level arm increases from
 $0.2105$ to $0.2374$. As on the first corpus, the widening gap reflects
 improvement of the record-level arm rather than degradation of the
 individual-level arm. The corpora therefore differ in the magnitude of the
-effect but not in its mechanism, and, as registered in advance, the shape is
-interpreted as structural and the magnitude as corpus-dependent.
+effect but share its pattern across the arms, and, as registered in advance,
+the shape is interpreted as structural and the magnitude as corpus-dependent;
+prevalence, client heterogeneity, contribution counts and feature
+distributions are plausible contributors to the difference that these
+experiments do not isolate.
 
 The statistical power of this replication is limited. At three seeds, no gap in
 Table~\ref{tab:kscaling_eicu} is resolved: every interval covers zero, and no
@@ -102,7 +105,7 @@ of the same order as the gap, and resolving an effect of this size at
 conventional power would require approximately twenty-five seeds, against the three
 fixed in advance. The seed count was not increased after inspecting the
 results. The trend is therefore reported as directionally consistent with the
-VitalDB law and unresolved on this corpus. The area under the ROC curve is
+VitalDB relationship and unresolved on this corpus. The area under the ROC curve is
 less informative: its gaps over the same values of $k$ are $-0.0018$,
 $-0.0021$, $+0.0011$, $-0.0007$ and $+0.0098$, with no trend over the range
 covered by the first corpus. Average precision is the primary measure on this

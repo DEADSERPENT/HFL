@@ -10,9 +10,9 @@ holds end to end on eICU, with pool-fitted encoders and constants on a
 partition in which every person is held by one hospital. Across three corpora,
 the patient-level guarantee proved affordable (RQ1): it costs no utility on
 VitalDB, partitioned by person, and $3.1$ AUROC points $[1.6, 4.7]$ on eICU
-($3.9$ $[2.6, 5.2]$ end to end), a cost set by the smallest hospitals. Its
-price follows $A(1-1/k)$ in records per individual and vanishes where the two
-units coincide (RQ2). Robustness to a strict budget comes from pretrained
+($3.9$ $[2.6, 5.2]$ end to end), a cost set by the smallest hospitals. On VitalDB
+its price follows $A(1-1/k)$ in records per individual and vanishes where the
+two units coincide; on eICU the shape transfers at a smaller magnitude (RQ2). Robustness to a strict budget comes from pretrained
 initialization, worth $0.199$ AUROC at $\varepsilon = 0.5$, not from restricting
 noise to the head (RQ3). The system objectives (RQ4) are met on every corpus except for the eICU
 utility target, update delivery below eight edges, and the inconclusive WEAR

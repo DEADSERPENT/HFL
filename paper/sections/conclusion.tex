@@ -61,10 +61,10 @@ The second is that the cost of an individual-level guarantee increases with the 
 records each individual contributes. At a fixed per-step budget and number of
 units per step, the penalty is indistinguishable from zero at one record per
 individual and reaches $0.0872$ in average precision at eight, following the
-one-parameter shape $A(1 - 1/k)$ predicted by Proposition~\ref{prop:scaling}. Because the two units coincide at one record per
+one-parameter shape $A(1 - 1/k)$ motivated by Proposition~\ref{prop:scaling}. Because the two units coincide at one record per
 individual, this configuration serves as a built-in control. The
-individual-level arm remains flat while the record-level arm improves, so the
-cost arises from additional records that the stricter unit cannot exploit.
+individual-level arm remains flat while the record-level arm improves, which is
+consistent with additional records that the stricter unit cannot exploit.
 On the external corpus, normalizing the clipping bound by the record count
 does not reduce this cost. On a second clinical corpus of $132{,}736$ individuals across $187$
 hospitals, the ordering and the saturation transfer, whereas the magnitude is
@@ -90,7 +90,7 @@ single modality, although not in average precision and not relative to the
 intact stronger stream.
 
 Several directions remain open. First, a third corpus is needed to
-establish whether the saturation level of the scaling law is a constant of the
+establish whether the saturation level of the scaling relationship is a constant of the
 guarantee or a fixed fraction of the precision attainable on a task. Second,
 on eICU the cost is set by the smallest hospitals, whose high sampling rates
 force the largest noise multipliers; sampling patients across the clients of

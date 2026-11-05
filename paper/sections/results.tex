@@ -117,8 +117,12 @@ seed and on four of five external seeds, and coverage equals the base rate
 the external one), missing the $90\,\%$ target. The non-private threshold
 does not collapse to the majority class (positive-class coverage
 $36$--$43\,\%$), but its coverage, $80.4$--$81.8\,\%$, also misses the
-target, so the shortfall lies mainly in the release rather than in the
-training noise; pooling calibration across clients is the expected remedy.
+target, so the shortfall points mainly to the release rather than to the
+training noise. The practical implication is that, at calibration cohorts of
+this size and this budget, a privately selected threshold can be
+uninformative; the result concerns the evaluated cohort sizes and mechanism,
+not private conformal prediction in general, and pooling calibration across
+clients is a candidate remedy that was not tested.
 
 \subsubsection{Communication and latency}
 Two-tier aggregation reduces uplink traffic by $90.8\,\%$ relative to
@@ -409,7 +413,7 @@ every finite budget. Only without noise does the head-only arm score higher on
 the clinical corpus, by $0.0139 \pm 0.0124$; no privacy mechanism is involved
 there, and the difference reflects fine-tuning the encoders on the clients.
 
-This result contradicts a dimensionality explanation. If the advantage arose
+This result is inconsistent with a dimensionality explanation. If the advantage arose
 because a smaller parameter vector absorbs less noise, B7, which privatizes all
 $1{,}864{,}227$ parameters, should perform worse than B6, which privatizes
 $559{,}874$, and the difference should be largest at the tightest budget. At
@@ -448,7 +452,7 @@ per individual $k$, as the average precision of the record-level arm minus that
 of the individual-level arm, paired by seed. Open circles: seeds; filled: mean
 $\pm$ Student-$t$ $95\,\%$ interval ($n = 3$). The grey box at $k = 1$ is the
 $\pm 0.020$ control tolerance. (a) VitalDB (case-level) with the fitted curve
-$A(1 - 1/k)$. (b) eICU against the law $A(1 - e^{-b(k-1)})$, frozen before the corpus
+$A(1 - 1/k)$. (b) eICU against the forecast $A(1 - e^{-b(k-1)})$, frozen before the corpus
 was built, with its $\pm 0.030$ acceptance band; the bracket is the paired
 change from $k = 8$ to $k = 16$.}
 \label{fig:klaw}
@@ -523,7 +527,7 @@ that the models rank well.
 gap of the form $A(1 - 1/k)$, with a single free parameter. Fitted to the
 twelve seed-paired gaps of Table~\ref{tab:kscaling}, it gives $A = 0.1015$ at
 a root-mean-square error of $0.0119$, against $0.0117$ for the two-parameter
-saturating law of Eq.~\eqref{eq:kcurve}: the extra parameter buys nothing.
+saturating curve of Eq.~\eqref{eq:kcurve}: the extra parameter buys nothing.
 Fitted on $k \le 4$ only, it predicts a gap of $0.0904$ at $k = 8$, against
 $0.0872$ observed. The individual-level arm is flat, as the proposition
 requires, with a slope of less than $0.001$ per doubling of $k$. At the
@@ -824,9 +828,10 @@ under the ROC curve by $0.0234$ $[-0.0439, -0.0029]$ and increases the
 seed-to-seed spread in average precision from $\pm 0.014$ to $\pm 0.070$. Two of
 the three non-private seeds reach their best validation score in the first of
 ten rounds and degrade thereafter, whereas every private seed peaks between
-rounds six and nine. Clipping and calibrated noise therefore act as a
-regularizer for a compact head trained over frozen features, and without them
-the head overfits early.
+rounds six and nine. This is consistent with clipping and calibrated noise
+acting as a regularizer for a compact head trained over frozen features, and
+with the non-private head overfitting early; the experiment does not isolate
+the effect.
 
 This comparison is against a baseline without additional regularization beyond
 checkpoint selection, not against a non-private system tuned for
@@ -992,8 +997,10 @@ entry is the patient-level audit target ($\varepsilon = 1.0$,
 $\varepsilon_{\mathrm{conf}} = 0.5$, one worst-client multiplier, R\'enyi
 accountant), not the $\varepsilon = 0.9$ model whose AUROC and uplink are
 listed. The eICU rows use the source partition, on which the baselines were
-run ($2.9\,\%$ of training persons at several hospitals,
-Section~\ref{sec:method:privacy}). Every AUROC
+run ($2.9\,\%$ of training persons at several hospitals); for eICU,
+$\varepsilon$ denotes the per-client training budget, and the composed
+per-person bound for individuals present at multiple hospitals is reported in
+Section~\ref{sec:method:objective}. Every AUROC
 difference from PP-HFM excludes zero except HED-FL on VitalDB.}
 \label{tab:prior}
 \small
