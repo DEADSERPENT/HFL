@@ -49,7 +49,7 @@ its target.
 
 \begin{table}[!t]
 \centering
-\caption{Outcomes, measured or simulated, against the pre-registered targets
+\caption{Outcomes, measured or simulated, against the pre-specified targets
 of Table~\ref{tab:objectives}. Uplink payload is measured from the deployed
 compressor; delivery and round latency are simulated at packet level in ns-3
 on every round; energy is modeled in CloudSim~Plus; inference latency is timed
@@ -63,7 +63,7 @@ scores higher), in points of area under the ROC curve on the two clinical deploy
 private model predicts the majority class at the default threshold, so accuracy
 cannot measure the loss); $^{\S}$on the wearable deployment, whose guarantee is
 record-level, it is the loss in accuracy over fifteen seeds. $^{\dagger}$An
-interval that spans its threshold, inconclusive at the pre-registered sample
+interval that spans its threshold, inconclusive at the pre-specified sample
 size (external deployment: $[1.55, 4.65]$, point estimate above the threshold;
 end to end $3.88$ $[2.60, 5.17]$, not met). $^{\ast}$Not met. Clin., Wear., Ext.: clinical, wearable and external
 deployments. Clinical O2a and O2b are person-level, other rows case-level.
@@ -556,7 +556,7 @@ clipped, per round; thin lines are seeds and thick lines their mean. (b) Average
 precision per rule, seeds and mean $\pm$ Student-$t$ $95\,\%$ interval. (c)
 Paired difference between normalization by the count and the fixed bound, with
 its two-sided interval and one-sided $95\,\%$ upper bound (bar), against the
-registered recovery threshold. On one seed every rule selected the first
+recovery threshold fixed before the runs. On one seed every rule selected the first
 round.}
 \label{fig:clipnorm}
 \end{figure*}
@@ -593,10 +593,10 @@ pre-specified seeds, the individual-level arm attains an average precision of
 $0.2268$ with the fixed bound, $0.2256$ with normalization by the count, and
 $0.2237$ with normalization by its square root. The paired differences relative
 to the fixed bound are $-0.0012 \pm 0.0081$ and $-0.0031 \pm 0.0107$. The
-pre-registered threshold for recovery was $+0.010$ for normalization by the
+threshold for recovery, fixed before the runs, was $+0.010$ for normalization by the
 count, obtained by scaling the threshold for the first corpus to the precision
 attainable on this corpus. The one-sided $95\,\%$ upper bound on the difference
-is $+0.0043$, so an effect of the registered size is excluded (Fig.~\ref{fig:clipnorm}(c)). The area under
+is $+0.0043$, so an effect of that size is excluded (Fig.~\ref{fig:clipnorm}(c)). The area under
 the ROC curve changes in the same direction, by $-0.0017$ and $-0.0012$. The
 square-root rule, predicted to fall between the other two, falls below both,
 although by less than the seed variation.
@@ -613,7 +613,7 @@ count normalization therefore does not explain the cost of the
 individual-level unit. On VitalDB at $k = 8$ and the same budget, count normalization lowers the
 final-round clipped fraction from $0.50$ to $0.34$ and changes AUPRC by
 $+0.0038$ $[-0.0072, +0.0148]$; the one-sided upper bound, $+0.0113$, does not
-exclude the registered $+0.010$, so this test is inconclusive by its own
+exclude the threshold of $+0.010$, so this test is inconclusive by its own
 criterion, although even the bound is one eighth of the $0.0914$ cost at that
 operating point. Square-root normalization changes AUPRC by less than
 $10^{-4}$. On one VitalDB seed, the selected checkpoint is the
@@ -676,7 +676,7 @@ the ROC curve against $0.8212$ for the admission-record stream alone, a gain of
 $0.0037$, and $-0.0001$ in average precision. The vital-sign stream alone
 reaches $0.6748$, so the two streams differ substantially in strength. This
 motivates a second hypothesis, that fusion requires the streams to be of
-comparable strength, which was pre-registered before testing
+comparable strength, which was specified before testing
 (Fig.~\ref{fig:fusionmap}).
 
 \begin{figure}[!t]
@@ -732,7 +732,7 @@ against $0.6992 \pm 0.0120$ for the better single modality, a gain of
 $0.0291 \pm 0.0211$. The gain is positive on all five seeds, with a minimum of
 $0.0129$ (paired $t$-test, $p = 0.019$; the signed-rank test gives
 $p = 0.0625$, its minimum attainable value at five seeds). The result exceeds
-the pre-registered threshold of $0.015$ and is fourteen times the gain of the
+the threshold of $0.015$ fixed before the test and is fourteen times the gain of the
 matched control. In average precision, the gain is $0.0121 \pm 0.0215$, with one
 negative seed, and is not resolved.
 
@@ -804,8 +804,8 @@ in discrimination.
 
 \subsubsection{The edge tier does not cost accuracy}
 Removing the edge tier changes the area under the ROC curve by $-0.0058$ at
-three seeds, with an interval covering zero. With the six seeds specified in
-the pre-registration, the effect is resolved on both deployments: $-0.0047$
+three seeds, with an interval covering zero. With three added seeds (six in total, the test
+fixed before they were run), the effect is resolved on both deployments: $-0.0047$
 $[-0.0088, -0.0006]$ ($p = 0.032$) on the clinical corpus and $-0.0052$
 $[-0.0074, -0.0030]$ ($p = 0.0018$) on the wearable corpus. Removing the tier
 therefore slightly reduces performance.

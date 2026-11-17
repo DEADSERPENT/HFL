@@ -377,8 +377,8 @@ sensitivity and the budget unchanged and tests this. On the natural eICU
 partition, where records per individual range from $2$ to $192$, the count
 normalization lowers the final-round clipped fraction from $0.14$ to $0.08$
 but changes AUPRC by $-0.0012$ $[-0.0093, +0.0069]$ (three seeds); the
-one-sided $95\,\%$ upper bound, $+0.0043$, excludes the pre-registered
-recovery of $+0.010$, and square-root normalization changes AUPRC by
+one-sided $95\,\%$ upper bound, $+0.0043$, excludes the recovery of $+0.010$
+fixed before the runs, and square-root normalization changes AUPRC by
 $-0.0031$. On VitalDB at $k = 8$ and the same budget, count normalization
 lowers the final-round clipped fraction from $0.50$ to $0.34$ and changes
 AUPRC by $+0.0038$ $[-0.0072, +0.0148]$; the one-sided upper bound, $+0.0113$,
@@ -399,7 +399,7 @@ the better single modality already reaches $0.9976$, leaving no headroom. On
 eICU fusion yields nothing in the natural configuration ($+0.0037$, and
 $+0.0020$ on the partitions of the test below), where the admission stream
 ($0.8221$) dominates the vital-sign stream ($0.7068$). A
-pre-registered test weakened the stronger stream to parity by mixing its
+test specified before the runs weakened the stronger stream to parity by mixing its
 dominant feature with variance-preserving noise, calibrated on that stream
 alone and never on the fused model (Table~\ref{tab:fusion},
 Fig.~\ref{fig:fusion}). At parity the fused model exceeds the better single
@@ -446,7 +446,7 @@ Table~\ref{tab:ablation}, Fig.~\ref{fig:audit}(a)). Removing sparsification
 ($+0.0012$) or quantization ($+0.0001$, the narrowest interval in the study)
 produces no resolved change in accuracy and raises uplink fivefold and $1.6$-fold, so
 in this configuration compression is justified by traffic, not by accuracy. Removing the edge tier costs
-$-0.0058$ at three seeds and is resolved at the six pre-registered seeds,
+$-0.0058$ at three seeds and is resolved at six seeds (three added, the test fixed before they were run),
 $-0.0047$ $[-0.0088, -0.0006]$ on VitalDB and $-0.0052$
 $[-0.0074, -0.0030]$ on WEAR; because the flat configuration also changes the
 aggregation schedule, this bounds the cost of the hierarchy rather than

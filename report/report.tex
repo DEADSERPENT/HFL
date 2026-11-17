@@ -16,6 +16,7 @@
 \fi
 \usepackage[margin=2.2cm]{geometry}
 \usepackage{graphicx,booktabs,enumitem,array}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 \usepackage[hidelinks]{hyperref}
 \graphicspath{{../paper/figures/}}
 \setlist{itemsep=0pt,topsep=2pt,parsep=0pt}
@@ -35,9 +36,22 @@
 {\Large\bfseries PP-HFM: Patient-Private Hierarchical Federated Multimodal Learning}\\[2pt]
 Project report: the idea, the system, every experiment and what each one showed\\[2pt]
 Samartha H V (Regd.\ No.\ 251580130019) \quad Guide: Dr.\ Shreyas J \quad Industry mentor: Mr.\ Tejas J (Capgemini)\\
-MIT Bengaluru (MAHE) \quad Status as of 1 November 2026
+MIT Bengaluru (MAHE) \quad Status as of 6 November 2026 (final)
 \end{center}
-This is an internal report, not the paper. Every number is taken from the result files under \texttt{SIMULATORS/results/} (index: \texttt{RESULTS\_FINAL.md}). All planned experiments are complete.
+This is an internal study report, not the paper. Every number is taken from the result files under \texttt{SIMULATORS/results/} (index: \texttt{RESULTS\_FINAL.md}) and matches the paper. All experiments are complete, and the research has been frozen since 4 November: no new experiments, only proofreading, licensing and submission work.
+
+\begin{keybox}{How to read this report}
+Section~1 is the whole project on one page. Sections~2--4 explain the plan,
+the system and the data. Section~5 goes through every experiment in the same
+four steps (question, what we did, result, what it means). Sections~6--8 list
+the mistakes we fixed, what is and is not claimed, and the checks on privacy
+accounting, data sources and licences. Section~9 is what is left to do, and
+Section~10 is a glossary. The submitted paper is \texttt{PLDP/} (\texttt{PLDP.pdf});
+\texttt{paper/} is the long version with every detail.
+\end{keybox}
+
+\tableofcontents
+\clearpage
 
 
 %======================================================================
@@ -96,6 +110,10 @@ VitalDB audit. On eICU, non-private HED-FL is more accurate (0.825 vs 0.794).
 attack difference is smaller than predicted (0.58, not 0.7); private conformal
 prediction gave useless prediction sets; fusion did not help on eICU's natural
 streams.
+\item \textbf{The privacy numbers were checked independently.} An audit recomputed
+the budget for every client of every run with the same settings: the tight
+accountant gives $\varepsilon$ between 0.880 and 0.900 (reported: 0.9) and the
+looser R\'enyi accountant 0.974. Both are below 1.
 \end{enumerate}
 
 %======================================================================
@@ -103,7 +121,7 @@ streams.
 
 \begin{center}
 \small
-\begin{tabular}{l p{0.72\textwidth}}
+\begin{tabular}{l P{0.72\textwidth}}
 \toprule
 Phase & What happened \\
 \midrule
@@ -119,7 +137,7 @@ Four silent bugs found and fixed. \\
 6 & Ablations and baselines: which component does what. Hierarchy
 resolved at 6 seeds; pretrained-initialization finding. \\
 7 & External validation on eICU (187 hospitals), the $k$-scaling law,
-pre-registered tests, paper writing. \\
+tests with criteria fixed in advance, paper writing. \\
 Fix (22--29 Oct) & A flaw in the patient-DP mechanism was found while writing the
 proof. Fixed, and every patient-level experiment was re-run in stages
 (Section~\ref{sec:fix}). \\
@@ -128,6 +146,16 @@ same data, encoders and seeds. \\
 Person-level (30 Oct--1 Nov) & VitalDB had been split by surgical case, so a
 person could be in two splits. Rebuilt the split by person and re-ran the
 privacy cost, the cost of the unit, the baselines and the audit. \\
+Accounting audit (2 Nov) & Recomputed $\varepsilon$ for every client of every run.
+Found that on eICU 2.9\,\% of persons appear at two to four hospitals, so for them
+the per-hospital budgets add up ($\varepsilon \le 1.32$--$1.92$). Disclosed in the paper. \\
+A1 re-run (3--4 Nov) & Built an eICU partition with each person at exactly one
+hospital (assumption A1) and re-ran the two headline privacy-cost runs on it.
+These are the eICU numbers quoted for O2. \\
+Freeze (4 Nov) & Research frozen: no new experiments. \\
+Finalization (5--6 Nov) & Presentation pass of the paper (no number changed);
+every dataset source checked against its official origin; licences of the code
+release decided (Section~\ref{sec:checks}). \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -207,10 +235,14 @@ Section~\ref{sec:fix}).
 \item \textbf{Per-client noise.} Every patient belongs to exactly one client,
 so each client's noise $\sigma_k$ can be calibrated to its own population
 (parallel composition), instead of forcing the worst hospital's noise on
-everyone. On eICU this means a median $\sigma$ of 13.4 instead of 29.3
+everyone. On eICU this means a median $\sigma$ of 13.76 instead of 29.34
 everywhere.
-\item \textbf{Accounting.} The PRV accountant computes the total
-$(\varepsilon, \delta) = (0.9, 10^{-5})$ over all rounds and tiers.
+\item \textbf{Record cap.} For compute, at most 64 records of a patient enter the
+sum. The rule is fixed and public, so the guarantee is unaffected; it truncates
+4.1\,\% of eICU patients and no VitalDB patient.
+\item \textbf{Accounting.} The PRV accountant computes the training budget
+$(\varepsilon, \delta) = (0.9, 10^{-5})$ over all rounds and tiers. The evaluated
+conformal step adds $\varepsilon_{\text{conf}} = 0.1$, giving 1.0 in total.
 \end{enumerate}
 
 \begin{keybox}{Theorem 1 (what is proven)}
@@ -220,6 +252,15 @@ removing one patient. It covers the \emph{training} process. It is end-to-end
 only if the encoders and the standardization constants are also fitted on
 public data; among our runs, that is the eICU re-run with pool-fitted constants
 (Section~\ref{exp:std}).
+\end{keybox}
+
+%======================================================================
+\begin{keybox}{Assumption A1: one hospital per person}
+Parallel composition needs every person at exactly one client. On VitalDB
+(person-level split) and on the two eICU headline runs this holds by
+construction. On the original eICU partition 2.9\,\% of persons were treated at
+several hospitals; analyses on that ``source partition'' are labeled, and for those
+persons the guarantee is the composed bound $\varepsilon \le 1.32$--$1.92$.
 \end{keybox}
 
 %======================================================================
@@ -426,8 +467,9 @@ depends on budget, steps and sampling, never on parameter count.)
 \begin{experiment}{Does the hierarchy help? (component ablation)}{exp:abl}
 \Q What does each component (hierarchy, DP, sparsification, quantization)
 contribute?
-\D Removed one component at a time; the hierarchy test was pre-registered and
-run at 6 seeds.
+\D Removed one component at a time; the hierarchy test was fixed before 3
+seeds were added (6 in total); that plan was not written down, so the papers
+do not call it pre-registered.
 \R Removing the hierarchy (one flat tier) changes AUROC by $-0.0047$
 $[-0.0088, -0.0006]$, $p = 0.032$ on VitalDB, and $-0.0052$ $[-0.0074,
 -0.0030]$, $p = 0.0018$ on WEAR, at matched $\varepsilon$. Sparsification,
@@ -440,8 +482,8 @@ flat arm also changes the number of local rounds. Compression is free.
 %----------------------------------------------------------------------
 \begin{experiment}{Does multimodal fusion help?}{exp:fusion}
 \Q Does combining the two modalities beat the best single modality?
-\D Fused model vs each single modality, 5 seeds; on eICU also a pre-registered
-``balance'' test that degrades modality B with noise until the two modalities
+\D Fused model vs each single modality, 5 seeds; on eICU also a
+``balance'' test, specified before the runs, that degrades modality B with noise until the two modalities
 are equally strong.
 \R
 \begin{itemize}
@@ -544,8 +586,8 @@ the corpus effect never changes sign.
 \Q Clipping a patient's \emph{summed} gradient hurts patients with many
 records. Would normalizing by record count before clipping recover the cost?
 (It changes nothing about the privacy guarantee.)
-\D Three rules: fixed bound, divide by $k$, divide by $\sqrt{k}$. Pre-registered
-criterion: count normalization must recover at least $+0.010$ AUPRC.
+\D Three rules: fixed bound, divide by $k$, divide by $\sqrt{k}$. Criterion fixed
+before the runs: count normalization must recover at least $+0.010$ AUPRC.
 \R
 \begin{itemize}
 \item \textbf{eICU, before the fix:} change $-0.0001$; the one-sided upper
@@ -711,7 +753,7 @@ and the affected results re-run. The important ones:
 
 \begin{center}
 \small
-\begin{tabular}{p{0.32\textwidth} p{0.6\textwidth}}
+\begin{tabular}{P{0.32\textwidth} P{0.6\textwidth}}
 \toprule
 Error & Effect and fix \\
 \midrule
@@ -751,7 +793,7 @@ results are archived, not overwritten.
 
 \begin{center}
 \small
-\begin{tabular}{p{0.5\textwidth} p{0.42\textwidth}}
+\begin{tabular}{P{0.5\textwidth} P{0.42\textwidth}}
 \toprule
 Claim & Status \\
 \midrule
@@ -779,21 +821,77 @@ hierarchical FL). The contribution is their composition inside a hierarchy
 with a proof, and careful \emph{measurement} of what it costs.
 
 %======================================================================
+\section{Final checks: accounting, data sources, licences}\label{sec:checks}
+
+\subsection{Privacy accounting (2--5 Nov)}
+\begin{itemize}
+\item Every client of every reported run was recomputed from its sampling rate,
+step count, noise multiplier and $\delta$. Tight accountant (discretized PLD):
+$\varepsilon \in [0.880, 0.900]$; R\'enyi accountant: 0.974. Same mechanism,
+two conversions; RDP is simply looser and is used only as a cautious cross-check.
+\item In the paper, $\varepsilon$ on eICU means the per-client training budget;
+the composed bound for the 2.9\,\% multi-hospital persons on the source
+partition is stated beside it.
+\end{itemize}
+
+\subsection{Where each dataset came from (verified 5 Nov)}
+\begin{center}
+\small
+\begin{tabular}{P{0.14\textwidth} P{0.36\textwidth} P{0.18\textwidth} P{0.22\textwidth}}
+\toprule
+Dataset & Source & Licence & How it was checked \\
+\midrule
+VitalDB & \texttt{vitaldb.net}, downloaded through the open API \texttt{api.vitaldb.net} (\texttt{vitaldb} package 1.7.2) & CC BY 4.0 & API table hashes; three cases re-fetched and identical \\
+WEAR & \texttt{github.com/mariusbock/wear}, download via \texttt{bit.ly/wear\_dataset} (University of Siegen share) & CC BY-NC-SA 4.0 & file names, sizes and two SHA-256 checks \\
+eICU-CRD 2.0 & PhysioNet, DOI 10.13026/C2WM1R, credentialed access & PhysioNet Credentialed Health Data License 1.5.0 & row counts, gzip integrity, download log \\
+\bottomrule
+\end{tabular}
+\end{center}
+These sources are stated in the Data Availability section of both papers. No
+patient-level data is shared anywhere.
+
+\subsection{Licences of the code release (decided 6 Nov)}
+The code release (\texttt{pp-hfm-release/}, kept local and private) is mostly
+Apache-2.0. Two simulator parts must follow the licence of the simulator they
+are built on:
+\begin{center}
+\small
+\begin{tabular}{P{0.42\textwidth} P{0.2\textwidth} P{0.3\textwidth}}
+\toprule
+Part & Licence & Reason \\
+\midrule
+CloudSim Plus energy model (\texttt{hfl-simulation/}) & GPL-3.0-or-later & built on CloudSim Plus (GPL-3.0-or-later) \\
+ns-3 scripts (\texttt{hfl\_network\_sim.py}, \texttt{ns3\_hfl\_smoketest.py}) & GPL-2.0-only & import ns-3 (GPL-2.0-only), which cannot mix with Apache-2.0 \\
+The 9 project modules the ns-3 script imports & Apache-2.0 or GPL-2.0-only & so the ns-3 program can be distributed as a whole \\
+Everything else & Apache-2.0 & no GPL dependency \\
+\bottomrule
+\end{tabular}
+\end{center}
+Recorded in \texttt{LICENSING.md}, \texttt{NOTICE} and \texttt{README.md} of the
+release. Only one blocker is left before the code can be published: confirming
+who owns the copyright (MAHE's IP office and Capgemini). The licensing work is
+kept completely separate from the paper.
+
+%======================================================================
 \section{Still to do}
 
-No experiments are pending. What remains is approvals and submission work.
+No experiments are pending (research frozen). What remains is approvals and
+submission work.
 
 \begin{center}
 \small
-\begin{tabular}{p{0.38\textwidth} p{0.55\textwidth}}
+\begin{tabular}{P{0.38\textwidth} P{0.55\textwidth}}
 \toprule
 Item & Status \\
 \midrule
-Author block & college grid now; IEEE IoT Journal needs the journal layout (one switch in \texttt{main.tex}); author order and ORCID iDs for all authors \\
+Proofreading & final read of \texttt{PLDP.pdf} \\
+Author block & college grid now; IEEE IoT Journal needs the journal layout (set \texttt{\textbackslash collegeauthorsfalse} in \texttt{PLDP/main.tex}); ORCID iDs for all authors go in the submission portal \\
 Page length & 19 pages; IoT Journal charges for pages beyond eight \\
-AI-use disclosure & to be written in the acknowledgment \\
-Code and results release & staging copy built and validated; waits for the WEAR licence check, Apache-2.0 approval by all authors and MAHE, and IEEE rights \\
-Optional & eICU membership-inference audit (about 160 GPU hours); more seeds only as a separately declared replication \\
+AI-use disclosure & decide whether to add it to the acknowledgment \\
+Open access & decide at acceptance (IoT-J is hybrid); preprints are allowed, the published PDF only if open access \\
+Copyright form & IEEE form is signed after acceptance \\
+Code and results release & licences done (Section~\ref{sec:checks}); waits only for confirmation of the copyright holders (MAHE, Capgemini); repository stays private until publication \\
+Optional, after the freeze & eICU membership-inference audit (about 160 GPU hours); more seeds only as a separately declared replication \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -819,10 +917,22 @@ when positives are rare (eICU: 4.2\,\%).
 two arms on identical splits.
 \item[Pre-registration] Writing down the prediction and the pass/fail rule
 before running the experiment, so the result cannot be reinterpreted later.
+Only the eICU forecast is provably pre-registered: git records it on 5 Sep
+2026, before the corpus was built. The fusion and clipping documents first
+appear in git on 21 Oct 2026, after their runs, so both papers say ``fixed
+before the runs'' for those tests instead.
 \item[LiRA] Likelihood-ratio membership-inference attack using shadow models.
 \item[Oracle vs disjoint encoders] Pretrained on client data (upper bound, not
 private) vs on a separate public pool. Disjoint encoders are needed for the
 guarantee to hold end to end, together with public standardization constants.
+\item[PLD / PRV accountant] The tight way of adding up privacy cost (privacy
+loss distribution / privacy random variable); gives 0.880--0.900 here.
+\item[Parallel composition, A1] If each person is at one client only, budgets of
+different clients do not add up. A1 is the assumption that this holds.
+\item[Source partition] eICU as delivered, where 2.9\,\% of persons appear at
+several hospitals.
+\item[Positive control] A run built so that the test \emph{should} detect an
+effect; it proves the test works.
 \item[Inconclusive] The confidence interval contains the target, so the data
 cannot decide pass or fail at the fixed number of seeds. It is neither a pass
 nor a failure.

@@ -2,7 +2,7 @@
 
 Research code, results and manuscripts for *Patient-Level Differential Privacy in
 Hierarchical Federated Learning for Multimodal Medical IoT* (Samartha H V, Shreyas J,
-Udayaprasad P K, Shreelakshmi Yadav N, Sowmya T Rao; MIT Bengaluru, MAHE). This
+Gururaj H L, Udayaprasad P K, Shreelakshmi Yadav N, Sowmya T Rao; MIT Bengaluru, MAHE). This
 private repository is the study's research record: every reported number traces to a
 file and the command that produced it, and inconclusive and failed outcomes are kept.
 
@@ -77,7 +77,7 @@ An inconclusive result is neither a pass nor evidence of equivalence.
 
 ```
 ├── PLDP/, paper/            manuscripts (paper/figures/: one generator per figure)
-├── docs/, document/         notes, plans, pre-registrations (document/01_planning/)
+├── docs/, document/         notes, plans, registration documents (document/01_planning/)
 ├── report/                  plain-language project report
 └── SIMULATORS/              codebase: data/loaders, model, engineering, scripts, tests,
                              ns3, cloudsim-plus, config, results (RESULTS_FINAL.md = index)
@@ -108,7 +108,7 @@ Runtime 1.25.
 
 - **eICU:** used under the PhysioNet DUA. Only code and aggregate results are kept. Patient-level arrays, per-hospital counts, partitions and eICU-trained models are git-ignored and must never be committed.
 - **Redistribution:** public availability is not permission to redistribute. Check each dataset's terms first.
-- **Pre-registrations:** amendments are dated in the text. The eICU forecast was committed on 2026-09-05, before its corpus was built; the fusion and clipping ones first appear in git on 2026-10-21.
+- **Registration documents:** amendments are dated in the text. The eICU forecast was committed on 2026-09-05, before its corpus was built, and is the only test the papers call pre-registered. The fusion and clipping documents first appear in git on 2026-10-21, after their runs, so the papers say their criteria were fixed before the runs. The six-seed hierarchy test has no written plan.
 - **Measurement types:** network is simulated (ns-3), energy is modeled (CloudSim Plus), and latency was timed on a workstation CPU. Nothing was measured on edge hardware.
 
 ## Limitations
